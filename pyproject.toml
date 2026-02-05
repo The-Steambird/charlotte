@@ -12,7 +12,9 @@ dependencies = [
     "pyinstaller>=6.18.0",
     "tqdm>=4.67.3",
     "typer>=0.21.1",
-    "vapoursynth>=73"
+    "vapoursynth>=73",
+    "vsjetpack>=1.1.0",
+    "vspreview>=0.19.0"
 ]
 
 [dependency-groups]
