@@ -35,7 +35,7 @@ This tool was heavily inspired by [GI-cutscenes](https://github.com/ToaHartor/GI
 ### Prerequisites
 - Download [charlotte.exe](https://github.com/lunarmint/charlotte/releases/latest) from the latest release.
 - Ensure that [ffmpeg.exe](https://ffmpeg.org/download.html#build-windows) and [mkvmerge.exe](https://mkvtoolnix.download/downloads.html#windows) are present in the same directory as `charlotte.exe`.
-- Clone [this repository](https://gitlab.com/Dimbreath/AnimeGameData) place the `Subtitle` directory in the same directory as `charlotte.exe`.
+- Clone [this repository](https://gitlab.com/Dimbreath/AnimeGameData) and place the `Subtitle` directory in the same directory as `charlotte.exe`.
 - To get font files, go to `[Game Directory]\Genshin Impact game\GenshinImpact_Data\StreamingAssets\MiHoYoSDKRes\HttpServerResources` and copy the `font` directory into the same directory as `charlotte.exe`.
 - For `.usm` cutscene files, go to `[Game Directory]\Genshin Impact game\GenshinImpact_Data\StreamingAssets\VideoAssets\StandaloneWindows64`. Depending on when you started playing the game and how often you cleaned up past resources or reinstalling the game, not all cutscene files may be available, especially the ones from past limited events. I currently have a full archive of them and will try my best to organize them into a spreadsheet and find a host (~42.3 GB in total).
 
@@ -67,9 +67,12 @@ This will decrypt `Cs_EQHDJ005_HaiDengJie_Boy.usm` and output the result to `out
 
 ### Prerequisites
 
-- Clone this repository.
-- Python 3.14 or higher
+- Python 3.14 or higher.
 - [uv](https://github.com/astral-sh/uv) package manager.
+- Install [VapourSynth](https://www.vapoursynth.com/doc/installation.html#windows-installation).
+- Add the VapourSynth installation directory to your PATH environment variable. 
+
+When done, you should be able to run `vspipe --version` from a command prompt. Then, navigate to `[VapourSynth Directory]\vsrepo` and run `python vsrepo.py install bs lsmas` to install the necessary VapourSynth plugins.
 
 ### How to Build
 
