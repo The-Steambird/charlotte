@@ -52,8 +52,16 @@ def demux(
             help="Do not delete decoded .ivf, .hca, and subtitle files when done.",
         ),
     ] = False,
+    vapoursynth: Annotated[
+        bool,
+        typer.Option(
+            "--vapoursynth", "-vs", help="Use Vapoursynth for video processing."
+        ),
+    ] = False,
 ) -> None:
-    """Demux USM file(s) to extract video/audio tracks and then mux them into an MKV container."""
+    """
+    Demux USM file(s) to extract video/audio tracks and mux them into MKV container.
+    """
     usm_files = collect_files(usm_path, "usm")
     typer.echo(f"Found {len(usm_files)} USM file(s).")
     Path(output).mkdir(exist_ok=True)
@@ -105,7 +113,7 @@ def demux(
         mux(output_path)
 
         if not no_cleanup:
-            for keys, value in file_paths.items():
+            for value in file_paths.values():
                 for file in value:
                     file.unlink()
 
