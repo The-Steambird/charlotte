@@ -70,9 +70,17 @@ This will decrypt `Cs_EQHDJ005_HaiDengJie_Boy.usm` and output the result to `out
 - Python 3.14 or higher.
 - [uv](https://github.com/astral-sh/uv) package manager.
 - Install [VapourSynth](https://www.vapoursynth.com/doc/installation.html#windows-installation).
-- Add the VapourSynth installation directory to your PATH environment variable. 
+- Add the VapourSynth installation directory to your PATH environment variable.
+- Download [vs-dfttest2](https://github.com/AmusementClub/vs-dfttest2/releases/latest/download/dfttest2.py) Python wrapper and put it in your `.venv\Lib\site-packages` directory.
+- Download [adaptive grain](https://github.com/Irrational-Encoding-Wizardry/adaptivegrain/releases/latest/download/adaptivegrain_rs.dll) plugin and put it in your `%APPDATA%\plugins64` directory.
+- Download [ArtCNN R8F64](https://github.com/Artoriuz/ArtCNN/releases/latest/download/ArtCNN_R8F64.onnx) model and put it in `%APPDATA%\plugins64\models\ArtCNN` directory. Create the directory as needed.
+- Download `vsmlrt` [part 1](https://github.com/AmusementClub/vs-mlrt/releases/download/v15.15/vsmlrt-cuda.v15.15.7z.001) and [part 2](https://github.com/AmusementClub/vs-mlrt/releases/download/v15.15/vsmlrt-cuda.v15.15.7z.002), put them in the same directory, and use 7zip to extract `.001` to `%APPDATA%\plugins64` directory. Then, put `vsmlrt.py` Python wrapper into your `.venv\Lib\site-packages` directory.
 
-When done, you should be able to run `vspipe --version` from a command prompt. Then, navigate to `[VapourSynth Directory]\vsrepo` and run `python vsrepo.py install bs lsmas` to install the necessary VapourSynth plugins.
+When done, you should be able to run `vspipe --version` from a command prompt. Then, navigate to `[VapourSynth Directory]\vsrepo` and run 
+```
+python vsrepo.py install bs dfttest2 akarin mv bm3dcuda_rtc nlm_cuda vszip eedi3m resize2 zsmooth placebo noise
+```
+to install the necessary VapourSynth plugins.
 
 ### How to Build
 
