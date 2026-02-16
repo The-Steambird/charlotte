@@ -83,7 +83,7 @@ def get_key(filename: str) -> int | None:
     try:
         data = orjson.loads(keys.read_bytes())
         key = find_key_from_file(data, filename)
-        if key:
+        if key is not None:
             return key
 
         # Key not found locally, try checking upstream
@@ -135,7 +135,6 @@ def get_decryption_key(filename: str) -> tuple[bytes, bytes] | None:
     key1 = calculate_key_from_filename(basename)
     key2 = get_key(basename)
 
-    # finalKey = (key1 + key2) & 0xFFFFFFFFFFFFFF
     final_key = 0x100000000000000
     if ((key1 + key2) & 0xFFFFFFFFFFFFFF) != 0:
         final_key = (key1 + key2) & 0xFFFFFFFFFFFFFF
