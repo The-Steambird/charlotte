@@ -23,21 +23,21 @@ class ASS:
 
         i = 0
         while i < len(lines):
-            # Skip empty lines
+            # Skip empty lines.
             if not lines[i].strip():
                 i += 1
                 continue
 
-            # Check if line is a sequence number
+            # Check if line is a sequence number.
             if not lines[i].strip().isdigit():
                 i += 1
                 continue
 
-            # We need at least 2 more lines (timing + text)
+            # Need least 2 more lines (timing + text).
             if i + 2 >= len(lines):
                 break
 
-            # Parse timing line (format: 00:00:50,358 --> 00:00:51,225)
+            # Parse timing line (format: 00:00:50,358 --> 00:00:51,225).
             timing_line = lines[i + 1]
             timing_match = re.findall(r"-?\d\d:\d\d:\d\d,\d\d", timing_line)
 
@@ -49,21 +49,21 @@ class ASS:
             # Format dialogue line
             dialog = "Dialogue: 0,"
 
-            # Convert timing format from SRT to ASS
+            # Convert timing format from SRT to ASS.
             for time_str in timing_match:
-                # Remove leading minus, convert comma to period, remove leading zero from hour
+                # Remove leading minus, convert comma to period, remove leading zero from hour.
                 formatted_time = time_str.replace("-0", "0").replace(",", ".")
                 if formatted_time.startswith("0"):
                     formatted_time = formatted_time[1:]
                 dialog += formatted_time + ","
 
-            # Add subtitle text
+            # Add subtitle text.
             dialog += "Default,,0,0,0,," + lines[i + 2]
             i += 2
 
-            # Check if subtitle text spans two lines
+            # Check if subtitle text spans two lines.
             if (i + 1 < len(lines)) and lines[i + 1].strip():
-                # Check that next line isn't a sequence number
+                # Check that next line isn't a sequence number.
                 if not lines[i + 1].strip().isdigit():
                     i += 1
                     dialog += "\\n" + lines[i]
@@ -73,9 +73,13 @@ class ASS:
 
         if not self.dialog_lines:
             if self.srt_file.stat().st_size == 0:
-                typer.echo(f"Info: {self.srt_file.name} is empty, skipping.")
+                typer.echo(
+                    f"Info: {self.srt_file.name} is empty or doesn't exist, skipping..."
+                )
             else:
-                typer.echo(f"Warning: {self.srt_file} is empty or has incorrect format")
+                typer.echo(
+                    f"Warning: {self.srt_file} is empty or has incorrect format."
+                )
             return False
 
         return True
@@ -86,10 +90,7 @@ class ASS:
 
         output_file = output_path / (self.srt_file.stem + ".ass")
 
-        # Build ASS file content
         ass_content = []
-
-        # Script Info section
         ass_content.append("[Script Info]")
         ass_content.append("; This is an Advanced Sub Station Alpha v4+ script.")
         ass_content.append("ScriptType: v4.00+")
@@ -100,7 +101,6 @@ class ASS:
         ass_content.append("PlayResY: 288")
         ass_content.append("")
 
-        # Styles section
         ass_content.append("[V4+ Styles]")
         ass_content.append(
             "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, "
@@ -110,7 +110,6 @@ class ASS:
         )
 
         if self.custom_style:
-            # Replace {fontname} placeholder with actual font
             style_line = self.custom_style.replace("{fontname}", self.fontname)
             ass_content.append(style_line)
         else:
@@ -144,37 +143,27 @@ class ASS:
             ass_content.append(style)
 
         ass_content.append("")
-
-        # Events section
         ass_content.append("[Events]")
         ass_content.append(
             "Format: Layer, Start, End, Style, Actor, MarginL, MarginR, MarginV, Effect, Text"
         )
 
-        # Add dialogue lines with HTML tag conversion
+        # Add dialogue lines with HTML tag conversion.
         for line in self.dialog_lines:
             if line.strip():
-                # Convert HTML-like tags to ASS tags
-                converted = self._convert_tags(line)
-                ass_content.append(converted)
+                # Convert <u>, <b>, <i> to ASS tags.
+                line = re.sub(r"<([ubi])>", r"{\\$11}", line)
+                line = re.sub(r"</([ubi])>", r"{\\$10}", line)
+                # Convert <font color="#RRGGBB"> to ASS color tag (BGR format).
+                line = re.sub(
+                    r'<font\s+color="?#(\w{2})(\w{2})(\w{2})"?>',
+                    r"{\\c&H$3$2$1&}",
+                    line,
+                )
+                line = re.sub(r"</font>", "", line)
+                ass_content.append(line)
 
-        # Write to file
         with open(output_file, "w", encoding="utf-8") as f:
             f.write("\n".join(ass_content))
 
         return output_file
-
-    def _convert_tags(self, line: str) -> str:
-        """Convert HTML-like tags to ASS formatting tags."""
-        # Convert <u>, <b>, <i> to ASS tags
-        line = re.sub(r"<([ubi])>", r"{\\$11}", line)
-        line = re.sub(r"</([ubi])>", r"{\\$10}", line)
-
-        # Convert <font color="#RRGGBB"> to ASS color tag
-        # ASS uses BGR format, so we need to reverse RGB
-        line = re.sub(
-            r'<font\s+color="?#(\w{2})(\w{2})(\w{2})"?>', r"{\\c&H$3$2$1&}", line
-        )
-        line = re.sub(r"</font>", "", line)
-
-        return line
