@@ -1,32 +1,30 @@
 from pathlib import Path
 from typing import Any
 
-from vapoursynth import VideoNode
-from vsaa import EEDI3, based_aa
+from vsaa import based_aa
 from vsdeband import Grainer, deband_detail_mask, placebo_deband
 from vsdehalo import fine_dehalo
 from vsdenoise import MVToolsPreset, Prefilter, bm3d, mc_degrain, nl_means
 from vsjetpack import setup_logging
 from vspreview import is_preview
 from vssource import BestSource
-from vstools import core, finalize_clip, initialize_clip, set_output
-
+from vstools import core, finalize_clip, initialize_clip, set_output, depth, DitherType
 
 logger = setup_logging()
 
 
-def filter_chain(input_path: Path) -> tuple[VideoNode | Any, ...]:
+def filter_chain(input_path: Path) -> Any:
     clip = initialize_clip(
         clip=BestSource(show_pretty_progress=True).source(input_path), bits=16
     )
 
-    # Denoise
+    # Protective denoise
     ref = mc_degrain(
         clip=clip,
-        tr=2,
-        blksize=32,
-        refine=2,
-        thsad=100,
+        tr=1,
+        blksize=16,
+        refine=1,
+        thsad=120,
         prefilter=Prefilter.DFTTEST(),
         preset=MVToolsPreset.HQ_SAD,
     )
@@ -37,13 +35,11 @@ def filter_chain(input_path: Path) -> tuple[VideoNode | Any, ...]:
         profile=bm3d.Profile.NORMAL,
         ref=ref,
         planes=0,
-        backend=bm3d.Backend.CUDA_RTC,
     )
     denoise = nl_means(clip=denoise, h=0.2, tr=2, ref=ref, planes=[1, 2])
 
     # Anti-aliasing
-    eedi3 = EEDI3(alpha=0.125, beta=0.25, vthresh=(12.0, 24.0, 1.5), tff=True)
-    aa = based_aa(denoise, antialiaser=eedi3, rfactor=2.0)
+    aa = based_aa(denoise, rfactor=2.0)
 
     # Dehalo
     dehalo = fine_dehalo(aa, rx=1, ry=1, darkstr=0.0, brightstr=0.5)
@@ -77,8 +73,9 @@ file_path = Path(__file__).parent.parent / "output" / file_name / f"{file_name}.
 clip, denoise, aa, deband_mask, merge, grain, final = filter_chain(file_path)
 
 if is_preview():
-    set_output(clip, "Source")
-    set_output(denoise, "Denoised")
+    set_output(depth(clip, 8, dither_type=DitherType.NONE), "Source")
+    set_output(depth(denoise, 8, dither_type=DitherType.NONE), "Denoised")
+    set_output(core.akarin.Expr([denoise, clip], ["x y - 8 * 32768 +"]), "Denoise Diff")
     set_output(aa, "Anti-Aliased")
     set_output(deband_mask, "Deband Mask")
     set_output(merge, "Deband")
