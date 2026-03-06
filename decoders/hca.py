@@ -991,6 +991,18 @@ class HCA:
             struct.pack_into(">H", block, len(block) - 2, checksum)
             self.data[offset : offset + self.header_struct.block_size] = block
 
+        # Update header to reflect decryption
+        self.header_struct.ciph_type = 0
+        try:
+            ciph_start = self.header_bytes.index(b"ciph")
+            struct.pack_into(">H", self.header_bytes, ciph_start + 4, 0)
+        except ValueError:
+            pass
+
+        # Re-checksum the header
+        checksum = self._checksum(self.header_bytes[:-2])
+        struct.pack_into(">H", self.header_bytes, len(self.header_bytes) - 2, checksum)
+
         # Write decrypted HCA back to file
         with open(self.file_path, "wb") as f:
             f.write(self.header_bytes)
