@@ -14,6 +14,7 @@ from decoders.usm import USM
 from utils.keys import get_decryption_key
 from utils.languages import SUBTITLES_LANGUAGES
 from utils.mux import mux
+from utils.vapoursynth import vs_filter
 
 
 app = typer.Typer(help="USM video file demuxer and converter")
@@ -55,9 +56,18 @@ def demux(
     vapoursynth: Annotated[
         bool,
         typer.Option(
-            "--vapoursynth", "-vs", help="Use Vapoursynth for video processing."
+            "--vapoursynth",
+            "-vs",
+            help="Use VapourSynth for video processing. Looks for matching .vpy scripts in vs/ directory.",
         ),
     ] = False,
+    x265_params: Annotated[
+        str,
+        typer.Option(
+            "--x265-params",
+            help="Custom x265 parameters (colon-separated). Default: ",
+        ),
+    ] = "",
 ) -> None:
     """
     Demux USM file(s) to extract video/audio tracks and mux them into MKV container.
@@ -111,6 +121,29 @@ def demux(
                 typer.echo(f"Error: {e}", err=True)
 
         mux(output_path)
+
+        if vapoursynth:
+            vpy_script = Path("vs") / f"{usm_filename}.vpy"
+            if vpy_script.exists():
+                typer.echo(f"Found VapourSynth script: {vpy_script.name}")
+                filtered_mkv = output_path / f"{usm_filename}_filtered.mkv"
+
+                success = vs_filter(
+                    vpy_script=vpy_script,
+                    output_mkv=filtered_mkv,
+                    x265_params=x265_params,
+                )
+
+                if success:
+                    original_mkv = output_path / f"{usm_filename}.mkv"
+                    if original_mkv.exists():
+                        original_mkv.unlink()
+                    filtered_mkv.rename(original_mkv)
+                    typer.echo(f"Replaced with filtered video: {original_mkv.name}")
+                else:
+                    typer.echo("VapourSynth processing failed. Keeping original MKV.", err=True)
+            else:
+                typer.echo(f"VapourSynth script not found: {vpy_script}", err=True)
 
         if not no_cleanup:
             for value in file_paths.values():

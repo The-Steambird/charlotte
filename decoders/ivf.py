@@ -164,7 +164,7 @@ class IVFWriter:
     def __enter__(self):
         """Context manager entry."""
         self.fp = open(self.file_path, "wb")
-        # Write placeholder header (will be updated with final frame count)
+        # Write placeholder header
         self._write_header()
         return self
 
@@ -229,14 +229,13 @@ class IVF:
         mkv_file = output_path / f"{Path(self.filename).stem}.mkv"
         typer.echo(f"Converting {self.filename} to MKV...")
 
-        # Build ffmpeg command
         x265_params = [
             "profile=main10",
             "cutree=0",
             "deblock=-2,-2",
             "no-sao=1",
             "tskip=1",
-            "cbqpoffs=-2",
+            "cbqpoffs=-3",
             "qcomp=0.7",
             "lookahead-slices=0",
             "keyint=300",
@@ -245,10 +244,10 @@ class IVF:
             "ref=6",
             "bframes=12",
             "rd=4",
-            "psy-rd=1.5",
+            "psy-rd=2.0",
             "psy-rdoq=1.5",
             "aq-mode=3",
-            "aq-strength=0.8",
+            "aq-strength=0.7",
             "colorprim=1",
             "colormatrix=1",
             "transfer=1",
@@ -285,7 +284,6 @@ class IVF:
             total_frames = self.header.frames
             pbar = tqdm(total=total_frames, unit=" frames", desc="Processing")
 
-            # Parse progress output
             frame_pattern = re.compile(r"frame=\s*(\d+)")
             for line in process.stdout:
                 match = frame_pattern.search(line)
@@ -296,7 +294,6 @@ class IVF:
 
             pbar.close()
 
-            # Wait for process to complete
             return_code = process.wait()
             if return_code != 0:
                 stderr_output = process.stderr.read()
