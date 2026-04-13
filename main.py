@@ -1,8 +1,3 @@
-"""Charlotte - USM video file demuxer and converter.
-
-A tool for extracting and converting video/audio from CRI Middleware USM files.
-"""
-
 from pathlib import Path
 from typing import Annotated
 
@@ -11,10 +6,10 @@ import typer
 from decoders.ass import ASS
 from decoders.hca import HCA
 from decoders.usm import USM
+from utils.filter import vapoursynth_filter
 from utils.keys import get_decryption_key
 from utils.languages import SUBTITLES_LANGUAGES
 from utils.mux import mux
-from utils.vapoursynth import vs_filter
 
 
 app = typer.Typer(help="USM video file demuxer and converter")
@@ -58,7 +53,7 @@ def demux(
         typer.Option(
             "--vapoursynth",
             "-vs",
-            help="Use VapourSynth for video processing. Looks for matching .vpy scripts in vs/ directory.",
+            help="Use VapourSynth for video processing. Looks for matching .py scripts in vs/ directory.",
         ),
     ] = False,
     x265_params: Annotated[
@@ -77,10 +72,20 @@ def demux(
     Path(output).mkdir(exist_ok=True)
 
     for usm_file in usm_files:
+        basename_fixes = {
+            "Cs_4131904_HaiDaoChuXian_Boy": "Cs_Activity_4001103_Summertime_Boy",
+            "Cs_4131904_HaiDaoChuXian_Girl": "Cs_Activity_4001103_Summertime_Girl",
+            "Cs_200211_WanYeXianVideo": "Cs_DQAQ200211_WanYeXianVideo",
+        }
+
+        stem = usm_file.stem
+        if stem in basename_fixes:
+            stem = basename_fixes.get(stem, stem)
+
         typer.echo(f"\nProcessing: {usm_file.name}")
         key1, key2 = get_decryption_key(usm_file.name)
         usm = USM(usm_file, key1, key2)
-        output_path = Path(output).joinpath(usm_file.stem)
+        output_path = Path(output) / f"{stem}"
         output_path.mkdir(exist_ok=True)
         file_paths = usm.demux(output_path=output_path)
 
@@ -90,21 +95,11 @@ def demux(
             flac_file = hca.convert_to_flac(output_path=output_path)
             file_paths.setdefault("flac", []).append(flac_file)
 
-        basename_fixes = {
-            "Cs_4131904_HaiDaoChuXian_Boy": "Cs_Activity_4001103_Summertime_Boy",
-            "Cs_4131904_HaiDaoChuXian_Girl": "Cs_Activity_4001103_Summertime_Girl",
-            "Cs_200211_WanYeXianVideo": "Cs_DQAQ200211_WanYeXianVideo",
-        }
-
-        usm_filename = usm_file.stem
-        if usm_filename in basename_fixes:
-            usm_filename = basename_fixes.get(usm_filename)
-
         subtitle_files = []
-        input_path = Path.cwd().joinpath("Subtitle")
+        input_path = Path.cwd() / "Subtitle"
         for lang in SUBTITLES_LANGUAGES:
-            lang_path = input_path.joinpath(lang)
-            subtitle_path = lang_path.joinpath(f"{usm_filename}_{lang}.srt")
+            lang_path = input_path / f"{lang}"
+            subtitle_path = lang_path / f"{stem}_{lang}.srt"
             if subtitle_path.exists():
                 subtitle_files.append(subtitle_path)
 
@@ -120,39 +115,36 @@ def demux(
             except Exception as e:
                 typer.echo(f"Error: {e}", err=True)
 
-        mux(output_path)
-
+        filtered_mkv: Path | None = None
         if vapoursynth:
-            vpy_script = Path("vs") / f"{usm_filename}.vpy"
-            if vpy_script.exists():
-                typer.echo(f"Found VapourSynth script: {vpy_script.name}")
-                filtered_mkv = output_path / f"{usm_filename}_filtered.mkv"
-
-                success = vs_filter(
-                    vpy_script=vpy_script,
-                    output_mkv=filtered_mkv,
-                    x265_params=x265_params,
+            filtered_mkv = vapoursynth_filter(
+                file_stem=stem,
+                output_path=output_path,
+            )
+            # Add to dict for file unlink later.
+            if filtered_mkv.exists():
+                file_paths.setdefault("vs", []).append(output_path / f"{stem}_filtered.mkv")
+            else:
+                typer.echo(
+                    f"Error: Failed to apply VapourSynth filter for {stem}, skipping...",
+                    err=True,
                 )
 
-                if success:
-                    original_mkv = output_path / f"{usm_filename}.mkv"
-                    if original_mkv.exists():
-                        original_mkv.unlink()
-                    filtered_mkv.rename(original_mkv)
-                    typer.echo(f"Replaced with filtered video: {original_mkv.name}")
-                else:
-                    typer.echo("VapourSynth processing failed. Keeping original MKV.", err=True)
-            else:
-                typer.echo(f"VapourSynth script not found: {vpy_script}", err=True)
+        mux(output_path, vs_path=filtered_mkv)
 
         if not no_cleanup:
-            for value in file_paths.values():
-                for file in value:
-                    file.unlink()
+            try:
+                for value in file_paths.values():
+                    for file in value:
+                        file.unlink()
 
-            output_path.joinpath("subs")
-            if output_path.joinpath("subs").is_dir():
-                output_path.joinpath("subs").rmdir()
+                if output_path.joinpath("subs").is_dir():
+                    output_path.joinpath("subs").rmdir()
+            except PermissionError:
+                typer.echo(
+                    f"Error: Failed to clean up files and directories for {stem}",
+                    err=True,
+                )
 
 
 if __name__ == "__main__":

@@ -1,11 +1,3 @@
-"""USM (CRI Sofdec) container format demuxer.
-
-This module demuxes CRI Middleware's USM container files, extracting:
-- Video streams (VP9 codec in IVF format)
-- Audio streams (HCA format)
-
-USM files are commonly used in video games for cutscenes and movies.
-"""
 import typer
 from pathlib import Path
 from typing import BinaryIO
@@ -190,12 +182,12 @@ class USM:
                 elif header.signature == SIG_VIDEO:
                     if header.data_type == 0:
                         self._decrypt_video(data)
-                        file_path = output_path.joinpath(f"{base_name}.ivf")
+                        file_path = output_path / f"{base_name}.ivf"
                         stream = self._open_stream(file_path, streams, file_paths, "ivf")
                         stream.write(data)
                 elif header.signature == SIG_AUDIO:
                     if header.data_type == 0:
-                        file_path = output_path.joinpath(f"{base_name}_{header.channel_no}.hca")
+                        file_path = output_path / f"{base_name}_{header.channel_no}.hca"
                         stream = self._open_stream(file_path, streams, file_paths, "hca")
                         stream.write(data)
                 elif header.signature == SIG_CUE:

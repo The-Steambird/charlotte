@@ -21,7 +21,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "deptry>=0.25.1",
-    "ruff>=0.15.9",
+    "ruff>=0.15.10",
 ]
 
 [tool.uv]

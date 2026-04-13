@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 
 from vsaa import based_aa
 from vsdeband import Grainer, deband_detail_mask, placebo_deband
@@ -8,12 +8,19 @@ from vsdenoise import MVToolsPreset, Prefilter, bm3d, mc_degrain, nl_means
 from vsjetpack import setup_logging
 from vspreview import is_preview
 from vssource import BestSource
-from vstools import core, finalize_clip, initialize_clip, set_output, depth, DitherType
+from vstools import DitherType, core, depth, finalize_clip, initialize_clip, set_output
+
+
+if TYPE_CHECKING:
+    from vapoursynth import VideoNode
+
 
 logger = setup_logging()
 
 
-def filter_chain(input_path: Path) -> Any:
+def filter_chain(
+    input_path: Path, preview: bool = False
+) -> tuple[VideoNode] | VideoNode:
     clip = initialize_clip(
         clip=BestSource(show_pretty_progress=True).source(input_path), bits=16
     )
@@ -64,22 +71,29 @@ def filter_chain(input_path: Path) -> Any:
     # Output
     final = finalize_clip(clip=grain, bits=10)
 
-    return clip, denoise, aa, deband_mask, merge, grain, final
+    if preview:
+        return clip, denoise, aa, deband_mask, merge, grain, final
+    return final
 
 
-file_name = Path(__file__).stem
-file_path = Path(__file__).parent.parent / "output" / file_name / f"{file_name}.mkv"
+if __name__ in {"__main__", "__vapoursynth__", "__vspreview__"}:
+    file_name = Path(__file__).stem
+    file_path = Path(__file__).parent.parent / "output" / file_name / f"{file_name}.ivf"
 
-clip, denoise, aa, deband_mask, merge, grain, final = filter_chain(file_path)
+    clip, denoise, aa, deband_mask, merge, grain, final = filter_chain(
+        file_path, preview=True
+    )
 
-if is_preview():
-    set_output(depth(clip, 8, dither_type=DitherType.NONE), "Source")
-    set_output(depth(denoise, 8, dither_type=DitherType.NONE), "Denoised")
-    set_output(core.akarin.Expr([denoise, clip], ["x y - 8 * 32768 +"]), "Denoise Diff")
-    set_output(aa, "Anti-Aliased")
-    set_output(deband_mask, "Deband Mask")
-    set_output(merge, "Deband")
-    set_output(grain, "Grained")
-    set_output(final, "Filtered")
-else:
-    set_output(final)
+    if is_preview():
+        set_output(depth(clip, 8, dither_type=DitherType.NONE), "Source")
+        set_output(depth(denoise, 8, dither_type=DitherType.NONE), "Denoised")
+        set_output(
+            core.akarin.Expr([denoise, clip], ["x y - 8 * 32768 +"]), "Denoise Diff"
+        )
+        set_output(aa, "Anti-Aliased")
+        set_output(deband_mask, "Deband Mask")
+        set_output(merge, "Deband")
+        set_output(grain, "Grained")
+        set_output(final, "Filtered")
+    else:
+        set_output(final)

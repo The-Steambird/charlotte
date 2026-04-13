@@ -72,7 +72,7 @@ def get_key(filename: str) -> int | None:
     else:
         root_dir = Path(__file__).parent.parent
 
-    keys = root_dir.joinpath("keys.json")
+    keys = root_dir / "keys.json"
 
     if not keys.exists():
         typer.echo(f"keys.json not found at {keys}.")

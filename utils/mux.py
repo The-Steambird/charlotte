@@ -8,15 +8,18 @@ from utils import languages
 from utils.languages import AUDIO_LANGUAGES
 
 
-def mux(output_path: Path) -> None:
+def mux(output_path: Path, vs_path: Path = None) -> None:
     """Mux IVF video and FLAC audio into MKV container using mkvmerge."""
     # Collect video and audio files
-    ivf_file = output_path.joinpath(output_path.stem + ".ivf")
+    input_file = output_path / f"{output_path.stem}.ivf"
+    if vs_path:
+        input_file = vs_path
+
     flac_files = list(output_path.glob("*.flac"))
     subtitle_files = list(output_path.joinpath("subs").glob("*.ass"))
 
-    if not ivf_file.exists():
-        typer.echo(f"IVF file not found: {ivf_file}", err=True)
+    if not input_file.exists():
+        typer.echo(f"File not found: {input_file}", err=True)
         return
 
     if not flac_files:
@@ -26,7 +29,7 @@ def mux(output_path: Path) -> None:
     output_mkv = output_path / f"{output_path.stem}.mkv"
 
     # Build mkvmerge command
-    cmd = ["mkvmerge", "-o", str(output_mkv), str(ivf_file)]
+    cmd = ["mkvmerge", "-o", str(output_mkv), str(input_file)]
 
     # Put JP track with EN sub to the top.
     flac_files.sort(key=lambda x: 0 if "_2.flac" in str(x) else 1)
@@ -60,8 +63,8 @@ def mux(output_path: Path) -> None:
         )
 
     # Attach fonts.
-    font_ja = Path.cwd().joinpath("font").joinpath("ja-jp.ttf")
-    font_zh = Path.cwd().joinpath("font").joinpath("zh-cn.ttf")
+    font_ja = Path.cwd() / "font" / "ja-jp.ttf"
+    font_zh = Path.cwd() / "font" / "zh-cn.ttf"
     if font_ja.exists() and font_zh.exists():
         cmd.extend(
             [
