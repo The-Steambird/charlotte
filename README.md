@@ -1,84 +1,118 @@
-<p align="center">
-  <img width="2100px" height="auto" src="https://raw.githubusercontent.com/lunarmint/charlotte/master/docs/imgs/banner.png"/><br/>
-  <i>Hi there! I'm Charlotte, a journalist with The Steambird~</i>
-  <i></i>
+<p style="text-align: center;">
+  <img width="2100" height="auto" src="https://raw.githubusercontent.com/lunarmint/charlotte/master/docs/imgs/banner.png" alt="Charlotte banner" />
 </p>
 
-##### Artist: [黒光りとまと(御仕事募集中)](https://www.pixiv.net/en/artworks/117728570)
+<p style="text-align: center;"><i>Hi there! I'm Charlotte, a journalist with The Steambird~</i></p>
+<p style="text-align: center;"><sub>Art credit: <a href="https://www.pixiv.net/en/artworks/117728570">Kuromitsuri Tomato</a></sub></p>
+
+---
+<p style="text-align: center;">
+  <a href="https://github.com/lunarmint/charlotte/releases/latest"><img src="https://img.shields.io/github/v/release/lunarmint/charlotte?label=release" alt="Release" /></a>
+  <a href="https://github.com/lunarmint/charlotte/releases"><img src="https://img.shields.io/github/downloads/lunarmint/charlotte/total" alt="Downloads" /></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.14%2B-3776AB?logo=python&logoColor=white" alt="Python 3.14+" /></a>
+  <a href="https://docs.astral.sh/ruff/"><img src="https://img.shields.io/badge/lint-ruff-D7FF64?logo=ruff&logoColor=111111" alt="Lint: Ruff" /></a>
+  <a href="https://github.com/astral-sh/uv"><img src="https://img.shields.io/badge/package%20manager-uv-4B5DFF" alt="Package Manager: uv" /></a>
+  <a href="https://github.com/lunarmint/charlotte/blob/master/LICENSE"><img src="https://img.shields.io/github/license/lunarmint/charlotte" alt="License" /></a>
+  <a href="https://github.com/lunarmint/charlotte/stargazers"><img src="https://img.shields.io/github/stars/lunarmint/charlotte?style=social" alt="GitHub stars" /></a>
+</p>
 
 # Charlotte
 
-A program for Genshin Impact that losslessly decrypts the `.usm` cutscene files into playable `.mkv` videos. Supports official audio (EN, CN, JP, KR) and subtitles in 15 languages, with [VapourSynth](https://github.com/vapoursynth/vapoursynth) (a lossless video processing framework) suport to improve video artifacts such as banding, blocking, and chroma aberration that exist in the original cutscenes.
+Charlotte is a Genshin Impact utility that losslessly decrypts `.usm` cutscene files into playable `.mkv` videos.
 
-All cutscenes from versions 1.0 to 6.3 can be decrypted.
+- Supports EN, CN, JP, KR audio tracks
+- Supports subtitles in 15 languages
+- Optional VapourSynth pipeline for post-processing quality improvements
 
-Feel free to submit a pull request if you have missing keys.
+All known cutscenes from versions 1.0 through 6.4 can be decrypted.
 
-## Why Charlotte?
+If you have missing keys, pull requests are welcome.
 
-Who do you think recorded all those cutscenes but Teyvat's best journalist?
+## Why Charlotte
 
-This tool was heavily inspired by [GI-cutscenes](https://github.com/ToaHartor/GI-cutscenes). All the decrypt algorithm is based off of this project. GI-cutscene has not been in active development for some time now, so I wanted to rewrite it at higher level and add features down the road such as VapourSynth processing and a GUI.
+Who else would archive Teyvat's cutscenes but its best journalist?
 
-## Features and Roadmap
+This project is heavily inspired by [GI-cutscenes](https://github.com/ToaHartor/GI-cutscenes). Charlotte rebuilds the workflow at a higher level and aims to add extras over time, including VapourSynth processing and a GUI.
 
-- [x] Decrypt `.usm` files into `.ivf` video and `.hca` audio.
-- [x] Subtitle support, formatting `.srt` into `.ass` format.
-- [x] Font and subtitle style match the official cutscenes.
-- [x] `.hca` audio to `.flac` for archival purposes.
-- [x] Mux video and audio into `.mkv`.
-- [ ] Add VapourSynth processing.
-- [ ] Add GUI.
+## Features
 
-## Running Charlotte
+- [x] Decrypt `.usm` into `.ivf` video and `.hca` audio
+- [x] Convert `.srt` subtitles into styled `.ass`
+- [x] Match official cutscene subtitle style and fonts
+- [x] Convert `.hca` audio to `.flac` for archival
+- [x] Mux tracks into `.mkv`
+- [ ] Add full VapourSynth processing workflow
+- [ ] Add GUI
+
+VapourSynth filter scripts take a lot of time to write to ensure quality, hence they will be slowly added over time. If you have encoding knowledge, contributions are welcome!
+
+## Quick Start (Windows Binary)
 
 ### Prerequisites
-- Download [charlotte.exe](https://github.com/lunarmint/charlotte/releases/latest) from the latest release.
-- Ensure that [ffmpeg.exe](https://ffmpeg.org/download.html#build-windows) and [mkvmerge.exe](https://mkvtoolnix.download/downloads.html#windows) are present in the same directory as `charlotte.exe`.
-- Clone [this repository](https://gitlab.com/Dimbreath/AnimeGameData) place the `Subtitle` directory in the same directory as `charlotte.exe`.
-- To get font files, go to `[Game Directory]\Genshin Impact game\GenshinImpact_Data\StreamingAssets\MiHoYoSDKRes\HttpServerResources` and copy the `font` directory into the same directory as `charlotte.exe`.
-- For `.usm` cutscene files, go to `[Game Directory]\Genshin Impact game\GenshinImpact_Data\StreamingAssets\VideoAssets\StandaloneWindows64`. Depending on when you started playing the game and how often you cleaned up past resources or reinstalling the game, not all cutscene files may be available, especially the ones from past limited events. I currently have a full archive of them and will try my best to organize them into a spreadsheet and find a host (~42.3 GB in total).
+
+1. Download `charlotte.exe` from the [latest release](https://github.com/lunarmint/charlotte/releases/latest).
+2. Put `ffmpeg.exe` and `mkvmerge.exe` in the same directory as `charlotte.exe`.
+3. Clone [AnimeGameData](https://gitlab.com/Dimbreath/AnimeGameData) and copy its `Subtitle` folder beside `charlotte.exe`.
+4. Copy the game `font` directory from:
+   - `[Game Directory]\Genshin Impact game\GenshinImpact_Data\StreamingAssets\MiHoYoSDKRes\HttpServerResources`
+5. Locate `.usm` files at:
+   - `[Game Directory]\Genshin Impact game\GenshinImpact_Data\StreamingAssets\VideoAssets\StandaloneWindows64`
+
+Note: availability of older cutscenes depends on your local game files and resource cleanup history.
 
 ### Usage
-- Run `charlotte.exe` and select the `.usm` file or directory containing `.usm` files.
 
 ```sh
-charlotte [PATH_TO_USM_FILE_OR_DIR] [OPTIONS]
+charlotte demux [PATH_TO_USM_FILE_OR_DIR] [OPTIONS]
 ```
 
 ### Example
 
 ```sh
-charlotte C:\Users\Mint\Desktop\charlotte\USM\Cs_EQHDJ005_HaiDengJie_Boy.usm -nc
+charlotte demux C:\Users\Mint\Desktop\charlotte\USM\Cs_EQHDJ005_HaiDengJie_Boy.usm -nc
 ```
 
-This will decrypt `Cs_EQHDJ005_HaiDengJie_Boy.usm` and output the result to `output/Cs_EQHDJ005_HaiDengJie_Boy.mkv` without cleaning up intermediate files.
+This decrypts the cutscene and writes:
 
-### Arguments
+`output/Cs_EQHDJ005_HaiDengJie_Boy/Cs_EQHDJ005_HaiDengJie_Boy.mkv`
 
-- `PATH_TO_USM_FILE_OR_DIR`: **(Required)** Path to a single `.usm` file or a directory containing `.usm` files.
+### Parameters
 
-### Options
+| Type | Flag | Alias | Description |
+| --- | --- | --- | --- |
+| Argument | `PATH_TO_USM_FILE_OR_DIR` | `-` | Path to one `.usm` file or a directory containing `.usm` files. |
+| Option | `--output [DIR]` | `-o` | Output directory (default: `output`). |
+| Option | `--no-cleanup` | `-nc` | Keep intermediate files (`.ivf`, `.hca`, `.ass`, etc.). |
+| Option | `--vapoursynth` | `-vs` | Apply a matching VapourSynth `.vpy` filter script. |
+| Option | `--x265-params [PARAMS]` | `-` | Pass custom x265 params (colon-separated). |
 
-- `-o, --output [DIR]`: Output directory. Default is `output`.
-- `-nc, --no-cleanup`: Do not delete intermediate decoded files (e.g., `.ivf`, `.hca`, `.ass`) after the process is complete.
-
-## Building from Source
+## Build From Source
 
 ### Prerequisites
 
-- Clone this repository.
-- Python 3.14 or higher
-- [uv](https://github.com/astral-sh/uv) package manager.
+- Python `3.14+`
+- [uv](https://github.com/astral-sh/uv)
+- Required VapourSynth plugins and ML models:
+  - Place [adaptivegrain_rs.dll](https://github.com/Irrational-Encoding-Wizardry/adaptivegrain/releases/latest/download/adaptivegrain_rs.dll) in `.venv\Lib\site-packages\vapoursynth\plugins\vsrepo`
+  - Extract `vsmlrt` [part 1](https://github.com/AmusementClub/vs-mlrt/releases/download/v15.16/vsmlrt-windows-x64-cuda.v15.16.7z.001) & [part 2](https://github.com/AmusementClub/vs-mlrt/releases/download/v15.16/vsmlrt-windows-x64-cuda.v15.16.7z.002) to `.venv\Lib\site-packages\vapoursynth\plugins\vsrepo`
+  - Place [ArtCNN_R8F64.onnx](https://github.com/Artoriuz/ArtCNN/releases/latest/download/ArtCNN_R8F64.onnx) in `.venv\Lib\site-packages\vapoursynth\plugins\vsrepo\models`
 
-### How to Build
+- Install the rest of the plugins:
+
+```sh
+vsrepo install bs dfttest2 akarin mv bm3dcuda_rtc nlm_cuda vszip eedi3m resize2 zsmooth placebo noise vsmlrt_script
+```
+
+To save space, you may remove all other `\models` included with `vsmlrt` except `ArtCNN_R8F64.onnx`.
+
+### Build Command
 
 ```sh
 uv run pyinstaller charlotte.spec
 ```
 
-## Support the Project
+## ❤️ Support
 
-I put in a lot of time and effort to make this tool. If you enjoyed using it, your support would mean so much to me. It keeps me motivated to invest more time into the project and keep it alive for as long as I can ❤️
+If you enjoyed using Charlotte, your support would mean so much to me. It keeps me motivated to invest more time into the project and keep it alive for as long as I can.
 
 **[GitHub Sponsors](https://github.com/sponsors/lunarmint)**
