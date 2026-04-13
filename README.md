@@ -41,7 +41,7 @@ This project is heavily inspired by [GI-cutscenes](https://github.com/ToaHartor/
 - [x] Match official cutscene subtitle style and fonts
 - [x] Convert `.hca` audio to `.flac` for archival
 - [x] Mux tracks into `.mkv`
-- [ ] Add full VapourSynth processing workflow
+- [x] Add full VapourSynth processing workflow
 - [ ] Add GUI
 
 VapourSynth filter scripts take a lot of time to write to ensure quality, hence they will be slowly added over time. If you have encoding knowledge, contributions are welcome!
