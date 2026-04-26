@@ -1,6 +1,7 @@
-import typer
 from pathlib import Path
 from typing import BinaryIO
+
+from utils.logger import log
 
 
 # USM chunk signatures
@@ -195,7 +196,7 @@ class USM:
                 elif header.signature in (0x40415050, 0x40414C50, 0x40534254):
                     pass  # @APP, @ALP, @SBT chunks, metadata or padding
                 else:
-                    typer.echo(f"Unknown signature {header.signature}")
+                    log.warning(f"Unknown signature {header.signature}")
 
         # Close all streams
         for stream in streams.values():

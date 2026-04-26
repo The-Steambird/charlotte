@@ -9,26 +9,25 @@ from decoders.usm import USM
 from utils.filter import vapoursynth_filter
 from utils.keys import get_decryption_key
 from utils.languages import SUBTITLES_LANGUAGES
+from utils.logger import log
 from utils.mux import mux
 
 
 app = typer.Typer(help="USM video file demuxer and converter")
 
 
-def collect_files(input_path: str | Path, extension: str) -> list[Path]:
-    if isinstance(input_path, str):
-        input_path = Path(input_path)
+def collect_files(input_path: Path, extension: str) -> list[Path]:
     if input_path.is_file():
         return [input_path]
 
     if input_path.is_dir():
         files = list(input_path.glob(f"*.{extension}"))
         if not files:
-            typer.echo(f"No .{extension} files found in directory", err=True)
+            log.error(f"No .{extension} files found in directory")
             raise typer.Exit(1)
         return files
 
-    typer.echo(f"Error: {input_path} is not a valid file or directory", err=True)
+    log.error(f"Error: {input_path} is not a valid file or directory")
     raise typer.Exit(1)
 
 
@@ -67,8 +66,8 @@ def demux(
     """
     Demux USM file(s) to extract video/audio tracks and mux them into MKV container.
     """
-    usm_files = collect_files(usm_path, "usm")
-    typer.echo(f"Found {len(usm_files)} USM file(s).")
+    usm_files = collect_files(Path(usm_path), "usm")
+    log.info(f"Found {len(usm_files)} USM file(s).")
     Path(output).mkdir(exist_ok=True)
 
     for usm_file in usm_files:
@@ -82,7 +81,7 @@ def demux(
         if stem in basename_fixes:
             stem = basename_fixes.get(stem, stem)
 
-        typer.echo(f"\nProcessing: {usm_file.name}")
+        log.info(f"Processing: {usm_file.name}")
         key1, key2 = get_decryption_key(usm_file.name)
         usm = USM(usm_file, key1, key2)
         output_path = Path(output) / f"{stem}"
@@ -103,7 +102,7 @@ def demux(
             if subtitle_path.exists():
                 subtitle_files.append(subtitle_path)
 
-        typer.echo(f"Found {len(subtitle_files)} subtitle file(s).")
+        log.info(f"Found {len(subtitle_files)} subtitle file(s).")
 
         for sub_file in subtitle_files:
             lang = sub_file.stem.split("_")[-1]
@@ -113,7 +112,7 @@ def demux(
                     ass_path = ass.convert_to_ass(output_path=output_path)
                     file_paths.setdefault("ass", []).append(ass_path)
             except Exception as e:
-                typer.echo(f"Error: {e}", err=True)
+                log.error(f"Error processing subtitle: {e}")
 
         filtered_mkv: Path | None = None
         if vapoursynth:
@@ -123,12 +122,11 @@ def demux(
             )
             # Add to dict for file unlink later.
             if filtered_mkv.exists():
-                file_paths.setdefault("vs", []).append(output_path / f"{stem}_filtered.mkv")
-            else:
-                typer.echo(
-                    f"Error: Failed to apply VapourSynth filter for {stem}, skipping...",
-                    err=True,
+                file_paths.setdefault("vs", []).append(
+                    output_path / f"{stem}_filtered.mkv"
                 )
+            else:
+                log.error(f"Failed to apply VapourSynth filter for {stem}, skipping...")
 
         mux(output_path, vs_path=filtered_mkv)
 
@@ -141,10 +139,7 @@ def demux(
                 if output_path.joinpath("subs").is_dir():
                     output_path.joinpath("subs").rmdir()
             except PermissionError:
-                typer.echo(
-                    f"Error: Failed to clean up files and directories for {stem}",
-                    err=True,
-                )
+                log.error(f"Failed to clean up files and directories for {stem}")
 
 
 if __name__ == "__main__":

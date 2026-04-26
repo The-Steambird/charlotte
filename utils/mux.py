@@ -6,6 +6,7 @@ import typer
 
 from utils import languages
 from utils.languages import AUDIO_LANGUAGES
+from utils.logger import log
 
 
 def mux(output_path: Path, vs_path: Path = None) -> None:
@@ -19,11 +20,11 @@ def mux(output_path: Path, vs_path: Path = None) -> None:
     subtitle_files = list(output_path.joinpath("subs").glob("*.ass"))
 
     if not input_file.exists():
-        typer.echo(f"File not found: {input_file}", err=True)
+        log.error(f"File not found: {input_file}")
         return
 
     if not flac_files:
-        typer.echo("No FLAC files found to mux.", err=True)
+        log.error("No FLAC files found to mux.")
         return
 
     output_mkv = output_path / f"{output_path.stem}.mkv"
@@ -74,9 +75,13 @@ def mux(output_path: Path, vs_path: Path = None) -> None:
                 f"{font_zh}",
             ]
         )
+    else:
+        log.warning(
+            "Custom fonts not found in the '/font' directory. Subtitles will use the default system font. Check the README to install official fonts."
+        )
 
-    # typer.echo(f"Command: {" ".join(cmd)}")
-    typer.echo(f"Muxing: {output_mkv.name}")
+    # log.debug(f"Command: {" ".join(cmd)}")
+    log.info(f"Muxing: {output_mkv.name}")
     try:
         process = subprocess.Popen(
             cmd,
@@ -88,16 +93,16 @@ def mux(output_path: Path, vs_path: Path = None) -> None:
         stdout, stderr = process.communicate()
         return_code = process.returncode
         if return_code != 0:
-            typer.echo(f"Error muxing video: mkvmerge exited with code {return_code}")
+            log.error(f"Error muxing video: mkvmerge exited with code {return_code}")
             if stdout:
-                typer.echo(f"stdout: {stdout}")
+                log.info(f"stdout: {stdout}")
             if stderr:
-                typer.echo(f"stderr: {stderr}")
+                log.error(f"stderr: {stderr}")
             raise typer.Exit(1)
 
-        typer.echo(f"Created: {output_mkv}")
+        log.info(f"Created: {output_mkv}")
     except FileNotFoundError:
-        typer.echo(
+        log.error(
             "mkvmerge not found. Place mkvmerge in the root directory and try again."
         )
         raise typer.Exit(1) from None

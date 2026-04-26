@@ -6,6 +6,7 @@ from urllib import request
 
 import orjson
 import typer
+from utils.logger import log
 
 
 def calculate_key_from_filename(filename: str) -> int:
@@ -41,15 +42,15 @@ def get_upstream_keys(target_path: Path) -> bool:
     """Fetch keys.json from upstream repository."""
     keys_url = "https://raw.githubusercontent.com/lunarmint/charlotte/refs/heads/master/keys.json"
     try:
-        typer.echo("Attempting to fetch keys.json from upstream...")
+        log.info("Attempting to fetch keys.json from upstream...")
         with request.urlopen(keys_url) as response:
             if response.status == 200:
                 data = response.read()
                 target_path.write_bytes(data)
-                typer.echo("Successfully updated keys.json.")
+                log.info("Successfully updated keys.json.")
                 return True
     except Exception as e:
-        typer.echo(f"Failed to download keys.json: {e}")
+        log.error(f"Failed to download keys.json: {e}")
     return False
 
 
@@ -75,9 +76,9 @@ def get_key(filename: str) -> int | None:
     keys = root_dir / "keys.json"
 
     if not keys.exists():
-        typer.echo(f"keys.json not found at {keys}.")
+        log.info(f"keys.json not found at {keys}.")
         if not get_upstream_keys(keys):
-            typer.echo("Failed to fetch keys.json.")
+            log.error("Failed to fetch keys.json.")
             raise typer.Exit(1)
 
     try:
@@ -87,7 +88,7 @@ def get_key(filename: str) -> int | None:
             return key
 
         # Key not found locally, try checking upstream
-        typer.echo(f"Key for {filename} not found. Checking upstream...")
+        log.info(f"Key for {filename} not found. Checking upstream...")
 
         # Download to a temporary file first
         with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
@@ -106,11 +107,11 @@ def get_key(filename: str) -> int | None:
                             default=False,
                             abort=True,
                         )
-                        typer.echo("Resuming demux...")
+                        log.info("Resuming demux...")
                         keys.write_bytes(temp_path.read_bytes())
                         return new_key
                 else:
-                    typer.echo(
+                    log.info(
                         "Upstream keys.json is identical to local file. Please check back later "
                         "when new keys are available!"
                     )
@@ -119,7 +120,7 @@ def get_key(filename: str) -> int | None:
                 temp_path.unlink()
 
     except orjson.JSONDecodeError:
-        typer.echo("Error decoding keys.json.")
+        log.error("Error decoding keys.json.")
 
     return None
 

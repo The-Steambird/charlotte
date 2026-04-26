@@ -8,6 +8,7 @@ import numpy as np
 import typer
 
 from decoders.channel import DecodeTables
+from utils.logger import log
 
 
 # HCA format constants
@@ -1020,12 +1021,12 @@ class HCA:
             subprocess.run(cmd, capture_output=True, text=True, check=True)
             return flac_file
         except subprocess.CalledProcessError as e:
-            typer.echo(f"Error converting audio: {e}")
+            log.error(f"Error converting audio: {e}")
             if e.stderr:
-                typer.echo(f"{e.stderr}")
+                log.error(f"{e.stderr}")
             raise typer.Exit(1) from e
         except FileNotFoundError:
-            typer.echo(
+            log.error(
                 "ffmpeg not found. Place ffmpeg in the root directory and try again."
             )
             raise typer.Exit(1) from None

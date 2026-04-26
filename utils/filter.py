@@ -6,9 +6,9 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-import typer
-
 from tqdm import tqdm
+
+from utils.logger import log
 
 
 def ffmpeg_params(ffmpeg_path: Path, output: Path) -> list[str]:
@@ -100,7 +100,7 @@ def worker(
     queue: multiprocessing.Queue,
 ) -> None:
     """Multiprocessing worker that performs VapourSynth filtering and FFmpeg piping."""
-    typer.echo(f"Applying VapourSynth filter: {file_stem}")
+    log.info(f"Applying VapourSynth filter: {file_stem}")
 
     try:
         importlib.invalidate_caches()
@@ -111,7 +111,7 @@ def worker(
         source = output_path / f"{file_stem}.ivf"
         clip = filter_chain(source)
     except Exception as e:
-        typer.echo(f"Error importing VapourSynth script for {file_stem}: {e}", err=True)
+        log.error(f"Error importing VapourSynth script for {file_stem}: {e}")
         queue.put(False)
         return
 
@@ -128,9 +128,8 @@ def worker(
             stderr=subprocess.PIPE,
         )
     except FileNotFoundError:
-        typer.echo(
-            "ffmpeg not found. Place ffmpeg.exe in the root directory and try again.",
-            err=True,
+        log.error(
+            "ffmpeg not found. Place ffmpeg.exe in the root directory and try again."
         )
         queue.put(False)
         return
@@ -179,14 +178,12 @@ def worker(
         return_code = process.wait()
 
     if vs_future.exception():
-        typer.echo(
-            f"\nVapourSynth processing failed: {vs_future.exception()}", err=True
-        )
+        log.error(f"\nVapourSynth processing failed: {vs_future.exception()}")
         queue.put(False)
         return
 
     if return_code != 0:
-        typer.echo(f"FFmpeg exited with code {return_code}", err=True)
+        log.error(f"FFmpeg exited with code {return_code}")
         queue.put(False)
         return
 
