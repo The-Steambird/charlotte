@@ -7,12 +7,12 @@ requires-python = ">=3.14"
 readme = "README.md"
 maintainers = [{ name = "Mint" }]
 dependencies = [
-    "orjson>=3.11.8",
+    "orjson>=3.11.9",
     "numpy>=2.4.4",
     "pyinstaller>=6.20.0",
     "tqdm>=4.67.3",
     "typer>=0.24.1",
-    "vapoursynth>=74",
+    "vapoursynth>=75",
     "vsjetpack>=1.4.1",
     "vspreview>=0.20.1",
     "vsrepo>=2.0.0",
