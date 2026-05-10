@@ -4,18 +4,9 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-import numpy as np
 import typer
 
-from decoders.channel import DecodeTables
 from utils.logger import log
-
-
-# HCA format constants
-HCA_SAMPLES_PER_BLOCK = 0x80  # 128 samples per block
-HCA_SUBFRAMES = 8  # Number of subframes per block
-IMDCT_ITERATIONS = 7  # Number of IMDCT butterfly/rotation iterations
-WINDOW_SIZE = HCA_SAMPLES_PER_BLOCK // 2  # 64 samples per window half
 
 
 @dataclass
@@ -24,407 +15,20 @@ class HCAHeader:
 
     version: int = 0
     data_offset: int = 0
-    channel_count: int = 0
-    sampling_rate: int = 0
     block_count: int = 0
     block_size: int = 0
-    comp_r01: int = 0
-    comp_r02: int = 0
-    comp_r03: int = 0
-    comp_r04: int = 0
-    comp_r05: int = 0
-    comp_r06: int = 0
-    comp_r07: int = 0
-    comp_r08: int = 0
-    comp_r09: int = 0
-    ath_type: int = 0
-    loop_flag: bool = False
     ciph_type: int = 0
-    volume: float = 1.0
-
-
-class ClData:
-    """Bit manipulation class for HCA decoding."""
-
-    MASK = [0xFFFFFF, 0x7FFFFF, 0x3FFFFF, 0x1FFFFF, 0x0FFFFF, 0x07FFFF, 0x03FFFF, 0x01FFFF]  # fmt: skip
-
-    def __init__(self, data: bytes, size: int):
-        self.data = data
-        self.size = size * 8 - 16
-        self.bit = 0
-
-    def check_bit(self, bit_size: int) -> int:
-        """Check bit value without advancing position."""
-        if self.bit + bit_size > self.size:
-            return 0
-
-        data_offset = self.bit >> 3
-        v = self.data[data_offset]
-        v = v << 8 | (self.data[data_offset + 1] if data_offset + 1 < len(self.data) else 0)
-        v = v << 8 | (self.data[data_offset + 2] if data_offset + 2 < len(self.data) else 0)
-        v &= self.MASK[self.bit & 7]
-        v >>= 24 - (self.bit & 7) - bit_size
-        return v
-
-    def get_bit(self, bit_size: int) -> int:
-        """Get bit value and advance position."""
-        v = self.check_bit(bit_size)
-        self.bit += bit_size
-        return v
-
-    def add_bit(self, bit_size: int) -> None:
-        """Advance bit position."""
-        self.bit += bit_size
-
-
-class Channel:
-    """Audio channel decoder."""
-
-    def __init__(self):
-        # Spectral coefficients (frequency domain data)
-        self.spectral_coeffs = np.zeros(HCA_SAMPLES_PER_BLOCK, dtype=np.float32)
-        self.dequant_scale_table = np.zeros(HCA_SAMPLES_PER_BLOCK, dtype=np.float32)
-        self.quantized_values = np.zeros(HCA_SAMPLES_PER_BLOCK, dtype=np.uint8)
-        self.scale_factors = np.zeros(HCA_SAMPLES_PER_BLOCK, dtype=np.uint8)
-        self.stereo_scale_indices = np.zeros(HCA_SUBFRAMES, dtype=np.int8)
-
-        # Channel metadata
-        self.channel_type = 0  # 0=unused, 1=main/mid channel, 2=side channel
-        self.intensity_stereo_offset = 0
-        self.active_coeffs_count = 0
-
-        # IMDCT working buffers
-        self.imdct_buffer1 = np.zeros(HCA_SAMPLES_PER_BLOCK, dtype=np.float32)
-        self.imdct_buffer2 = np.zeros(HCA_SAMPLES_PER_BLOCK, dtype=np.float32)
-        self.overlap_buffer = np.zeros(HCA_SAMPLES_PER_BLOCK, dtype=np.float32)
-
-        # Output samples (8 subframes x 128 samples each)
-        self.output_samples = [
-            np.zeros(HCA_SAMPLES_PER_BLOCK, dtype=np.float32) for _ in range(HCA_SUBFRAMES)
-        ]
-
-    def _decode_values(self, data: ClData, mode: int) -> None:
-        """Decode quantization values from bitstream."""
-        if mode >= 6:
-            # Absolute encoding: each value is encoded independently
-            for i in range(self.active_coeffs_count):
-                self.quantized_values[i] = data.get_bit(6)
-        elif mode != 0:
-            # Delta encoding: values are encoded as differences from previous value
-            current_val = data.get_bit(6)
-            max_delta = (1 << mode) - 1
-            delta_offset = max_delta >> 1
-            self.quantized_values[0] = current_val
-
-            for i in range(1, self.active_coeffs_count):
-                delta = data.get_bit(mode)
-                current_val = (
-                    data.get_bit(6) if delta == max_delta else current_val + delta - delta_offset
-                )
-                self.quantized_values[i] = current_val
-        else:
-            # All values are zero
-            self.quantized_values[:] = 0
-
-    def _compute_scale_factors(self, resolution_index: int, ath_table: bytes) -> None:
-        """Compute scale factors using ATH (Absolute Threshold of Hearing).
-
-        Args:
-            resolution_index: Resolution/quality parameter for the block
-            ath_table: Absolute Threshold of Hearing lookup table
-        """
-        for i in range(self.active_coeffs_count):
-            scale_val = int(self.quantized_values[i])
-            if scale_val != 0:
-                # Compute scale factor based on ATH, resolution, and quantized value
-                scale_val = int(ath_table[i]) + (resolution_index + i >> 8) - scale_val * 5 // 2 + 1
-                # Clamp and map to scale factor lookup table
-                scale_val = (
-                    15
-                    if scale_val < 0
-                    else (1 if scale_val >= 0x39 else DecodeTables.DECODE1_SCALELIST[scale_val])
-                )
-            self.scale_factors[i] = scale_val
-        # Clear unused scale factors
-        self.scale_factors[self.active_coeffs_count :] = 0
-
-    def _compute_base_table(self) -> None:
-        """Compute dequantization scale table (base magnitude for each coefficient)."""
-
-        for i in range(self.active_coeffs_count):
-            value_coef = (
-                DecodeTables.DECODE1_VALUE[self.quantized_values[i]]
-                if 0 <= self.quantized_values[i] < 64
-                else 0.0
-            )
-            self.dequant_scale_table[i] = (
-                value_coef * DecodeTables.DECODE1_SCALE[self.scale_factors[i]]
-            )
-
-    def decode1(
-        self,
-        data: ClData,
-        intensity_count: int,
-        resolution_index: int,
-        ath_table: bytes,
-    ) -> None:
-        """Decode step 1 - extract quantization values and scales from bitstream.
-
-        Args:
-            data: Bitstream reader
-            intensity_count: Number of intensity stereo bands
-            resolution_index: Resolution/quality parameter
-            ath_table: Absolute Threshold of Hearing lookup table
-        """
-        mode = data.get_bit(3)
-        self._decode_values(data, mode)
-
-        # Handle channel-specific values
-        if self.channel_type == 2:
-            # Side channel: read stereo scale indices
-            val = data.check_bit(4)
-            self.stereo_scale_indices[0] = val
-            if val < 15:
-                for i in range(len(self.stereo_scale_indices)):
-                    self.stereo_scale_indices[i] = data.get_bit(4)
-        else:
-            # Main/mid channel: read intensity stereo values
-            for i in range(intensity_count):
-                self.quantized_values[self.intensity_stereo_offset + i] = data.get_bit(6)
-
-        self._compute_scale_factors(resolution_index, ath_table)
-        self._compute_base_table()
-
-    def decode2(self, data: ClData) -> None:
-        """Decode step 2 - dequantize spectral coefficients.
-
-        Reads quantized coefficients from bitstream and applies dequantization
-        to produce frequency-domain spectral values.
-        """
-
-        for i in range(self.active_coeffs_count):
-            scale = self.scale_factors[i]
-            bit_size = DecodeTables.DECODE2_LIST1[scale]
-            raw_val = data.get_bit(bit_size)
-
-            if scale < 8:
-                # Low scale: use lookup table for small quantized values
-                idx = raw_val + (scale << 4)
-                data.add_bit(DecodeTables.DECODE2_LIST2[idx] - bit_size)
-                coefficient = DecodeTables.DECODE2_LIST3[idx]
-            else:
-                # High scale: decode sign and magnitude directly
-                # Format: LSB is sign bit, remaining bits are magnitude
-                coefficient = float((1 - ((raw_val & 1) << 1)) * (raw_val >> 1))
-                if coefficient == 0:
-                    data.add_bit(-1)
-
-            self.spectral_coeffs[i] = self.dequant_scale_table[i] * coefficient
-
-        # Clear unused coefficients
-        self.spectral_coeffs[self.active_coeffs_count :] = 0
-
-    def decode3(
-        self,
-        intensity_bands: int,
-        band_width: int,
-        base_band_idx: int,
-        total_bands: int,
-    ) -> None:
-        """Decode step 3 - intensity stereo processing.
-
-        Reconstructs high-frequency bands from lower-frequency bands using
-        intensity stereo coding, which saves bits by encoding only magnitude
-        differences for high frequencies.
-
-        Args:
-            intensity_bands: Number of intensity stereo bands to process
-            band_width: Width of each band (number of coefficients)
-            base_band_idx: Index of the base band to copy from
-            total_bands: Total number of frequency bands
-        """
-        if self.channel_type == 2 or band_width <= 0:
-            return
-
-        for band in range(intensity_bands):
-            for j in range(band_width):
-                dest_idx = base_band_idx + j
-                source_idx = base_band_idx - 1 - j
-                if dest_idx >= total_bands:
-                    break
-                # Calculate intensity ratio from stored values
-                intensity_diff = int(
-                    self.quantized_values[self.intensity_stereo_offset + band]
-                ) - int(self.quantized_values[source_idx])
-                # Apply intensity scaling to reconstruct high-frequency coefficient
-                self.spectral_coeffs[dest_idx] = (
-                    DecodeTables.DECODE3_LIST[intensity_diff] * self.spectral_coeffs[source_idx]
-                )
-
-        self.spectral_coeffs[HCA_SAMPLES_PER_BLOCK - 1] = 0
-
-    def decode4(
-        self,
-        subframe_idx: int,
-        coeff_count: int,
-        start_idx: int,
-        stereo_mode: int,
-        side_channel: "Channel",
-    ) -> None:
-        """Decode step 4 - mid/side stereo decoding.
-
-        Converts mid/side stereo encoding to left/right stereo channels.
-        Mid/side stereo saves bits by encoding (L+R) and (L-R) instead of L and R.
-
-        Args:
-            subframe_idx: Current subframe index (0-7)
-            coeff_count: Number of coefficients to process
-            start_idx: Starting index in spectral coefficient array
-            stereo_mode: Stereo mode (0 = disabled, >0 = enabled)
-            side_channel: The side channel to decode into
-        """
-        if self.channel_type != 1 or stereo_mode == 0:
-            return
-
-        # Get scaling factors for mid/side conversion
-        mid_scale = DecodeTables.DECODE4_LIST[side_channel.stereo_scale_indices[subframe_idx]]
-        side_scale = mid_scale - 2.0
-
-        # Convert mid/side to left/right stereo
-        # Left = Mid * mid_scale, Right = Mid * side_scale
-        for i in range(coeff_count):
-            idx = start_idx + i
-            side_channel.spectral_coeffs[idx] = self.spectral_coeffs[idx] * side_scale
-            self.spectral_coeffs[idx] = self.spectral_coeffs[idx] * mid_scale
-
-    def decode5(self, subframe_idx: int) -> None:
-        """Decode step 5 - IMDCT (Inverse Modified Discrete Cosine Transform).
-
-        Converts frequency domain coefficients to time domain samples using a
-        two-stage process: butterfly operations followed by rotation operations,
-        then applies windowing and overlap-add for smooth transitions.
-
-        Args:
-            subframe_idx: Index of subframe to store output (0-7)
-        """
-        # Stage 1: Butterfly operations (FFT-like transform)
-        source_buf, dest_buf = self.spectral_coeffs, self.imdct_buffer1
-
-        for iteration in range(IMDCT_ITERATIONS):
-            num_groups = 1 << iteration
-            group_size = HCA_SAMPLES_PER_BLOCK // 2 >> iteration
-            src_idx, dest1_idx, dest2_idx = 0, 0, group_size
-
-            for _ in range(num_groups):
-                for _ in range(group_size):
-                    a, b = source_buf[src_idx], source_buf[src_idx + 1]
-                    dest_buf[dest1_idx], dest_buf[dest2_idx] = b + a, a - b
-                    src_idx += 2
-                    dest1_idx += 1
-                    dest2_idx += 1
-                dest1_idx += group_size
-                dest2_idx += group_size
-
-            # Swap buffers for next iteration
-            source_buf, dest_buf = dest_buf, source_buf
-
-        # Stage 2: Rotation operations with twiddle factors (DCT transform)
-        source_buf, dest_buf = self.imdct_buffer1, self.spectral_coeffs
-
-        for iteration in range(IMDCT_ITERATIONS):
-            num_groups = HCA_SAMPLES_PER_BLOCK // 2 >> iteration
-            group_size = 1 << iteration
-            pair1_idx, pair2_idx = 0, group_size
-            dest1_idx, dest2_idx = 0, group_size * 2 - 1
-            twiddle_idx = 0
-
-            for _ in range(num_groups):
-                for _ in range(group_size):
-                    a, b = source_buf[pair1_idx], source_buf[pair2_idx]
-                    cos_coef = DecodeTables.DECODE5_LIST1[iteration][twiddle_idx]
-                    sin_coef = DecodeTables.DECODE5_LIST2[iteration][twiddle_idx]
-                    dest_buf[dest1_idx] = a * cos_coef - b * sin_coef
-                    dest_buf[dest2_idx] = a * sin_coef + b * cos_coef
-                    twiddle_idx += 1
-                    pair1_idx += 1
-                    pair2_idx += 1
-                    dest1_idx += 1
-                    dest2_idx -= 1
-
-                pair1_idx += group_size
-                pair2_idx += group_size
-                dest1_idx += group_size
-                dest2_idx += group_size * 3
-
-            # Swap buffers for next iteration
-            source_buf, dest_buf = dest_buf, source_buf
-
-        # Copy result to intermediate buffer for windowing
-        self.imdct_buffer2[:] = source_buf[:]
-
-        # Stage 3: Windowing and overlap-add
-        output = self.output_samples[subframe_idx]
-        ascending_window = DecodeTables.DECODE5_LIST3[0]
-        descending_window = DecodeTables.DECODE5_LIST3[1]
-
-        # First half of output: apply ascending window and add overlap from previous block
-        imdct_idx = WINDOW_SIZE  # Start from middle of IMDCT output
-        overlap_idx = 0
-        out_idx = 0
-        for i in range(WINDOW_SIZE):
-            output[out_idx] = (
-                self.imdct_buffer2[imdct_idx] * ascending_window[i]
-                + self.overlap_buffer[overlap_idx]
-            )
-            out_idx += 1
-            imdct_idx += 1
-            overlap_idx += 1
-
-        # Second half: apply descending window and subtract overlap
-        window_idx = 0
-        for i in range(WINDOW_SIZE):
-            imdct_idx -= 1
-            output[out_idx] = (
-                descending_window[window_idx] * self.imdct_buffer2[imdct_idx]
-                - self.overlap_buffer[overlap_idx]
-            )
-            out_idx += 1
-            window_idx += 1
-            overlap_idx += 1
-
-        # Store overlap for next block (first part: windowed second half)
-        window_idx = WINDOW_SIZE
-        imdct_idx = WINDOW_SIZE - 1
-        overlap_idx = 0
-        for i in range(WINDOW_SIZE):
-            window_idx -= 1
-            self.overlap_buffer[overlap_idx] = (
-                self.imdct_buffer2[imdct_idx] * descending_window[window_idx]
-            )
-            imdct_idx -= 1
-            overlap_idx += 1
-
-        # Store overlap for next block (second part: windowed first half)
-        window_idx = WINDOW_SIZE
-        for i in range(WINDOW_SIZE):
-            imdct_idx += 1
-            window_idx -= 1
-            self.overlap_buffer[overlap_idx] = (
-                ascending_window[window_idx] * self.imdct_buffer2[imdct_idx]
-            )
-            overlap_idx += 1
 
 
 class HCA:
     """HCA audio decoder.
 
-    Decodes CRI Middleware's HCA (High Compression Audio) format to PCM audio.
-    The decoder handles encrypted files and outputs 16-bit PCM WAV files.
+    Decrypts CRI Middleware's HCA (High Compression Audio) format and converts to FLAC via ffmpeg.
 
     Args:
         file_path: Path to the HCA file
         key1: Optional decryption key (4 bytes) for cipher type 56
-        key2: Optional decryption key (2 bytes) for cipher type 56
+        key2: Optional decryption key (4 bytes) for cipher type 56
     """
 
     def __init__(self, file_path: Path, key1: int | None = None, key2: int | None = None):
@@ -432,29 +36,12 @@ class HCA:
         self.key1 = key1 or bytes(4)
         self.key2 = key2 or bytes(4)
         self.ciph_table = bytearray(0x100)
-        self.ath_table = bytearray(0x80)
         self.encrypted = False
         self.header_struct = HCAHeader()
-        self.channels: list[Channel] = []
         self.header_bytes = bytearray()
         self.data = bytearray()
 
         self._read_header()
-
-    @staticmethod
-    def _ceil2(a: int, b: int) -> int:
-        """Calculate ceiling of a divided by 2^b.
-
-        Args:
-           a: The dividend
-           b: The power of 2 for the divisor (2^b)
-
-        Returns:
-           ceil(a / 2^b)
-        """
-        if b == 0:
-            return 0
-        return (a + (1 << b) - 1) >> b
 
     def _init56_create_table(self, key: int) -> bytearray:
         """Generate a substitution table for cipher type 56.
@@ -554,8 +141,7 @@ class HCA:
 
     def _mask(self, data: bytearray) -> None:
         """Apply cipher mask to data."""
-        for i in range(len(data)):
-            data[i] = self.ciph_table[data[i]]
+        data[:] = data.translate(self.ciph_table)
 
     @staticmethod
     def _checksum(data: bytes) -> int:
@@ -599,126 +185,6 @@ class HCA:
             checksum = ((checksum << 8) ^ v[(checksum >> 8) ^ byte]) & 0xFFFF
         return checksum
 
-    def _ath_init(self) -> None:
-        """Initialize the Absolute Threshold of Hearing (ATH) table.
-
-        This table is used to scale quantization noise based on human hearing sensitivity.
-        The table generation depends on the ATH type specified in the header.
-        """
-        if self.header_struct.ath_type == 0:
-            self.ath_table = bytearray(0x80)
-
-        elif self.header_struct.ath_type == 1:
-            ath_list = bytes([
-                0x78, 0x5F, 0x56, 0x51, 0x4E, 0x4C, 0x4B, 0x49, 0x48, 0x48, 0x47, 0x46, 0x46, 0x45, 0x45, 0x45,
-                0x44, 0x44, 0x44, 0x44, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42,
-                0x42, 0x42, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x40, 0x40, 0x40, 0x40,
-                0x40, 0x40, 0x40, 0x40, 0x40, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F,
-                0x3F, 0x3F, 0x3F, 0x3E, 0x3E, 0x3E, 0x3E, 0x3E, 0x3E, 0x3D, 0x3D, 0x3D, 0x3D, 0x3D, 0x3D, 0x3D,
-                0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3B, 0x3B, 0x3B, 0x3B, 0x3B, 0x3B, 0x3B, 0x3B,
-                0x3B, 0x3B, 0x3B, 0x3B, 0x3B, 0x3B, 0x3B, 0x3B, 0x3B, 0x3B, 0x3B, 0x3B, 0x3B, 0x3B, 0x3B, 0x3B,
-                0x3B, 0x3B, 0x3B, 0x3B, 0x3B, 0x3B, 0x3B, 0x3B, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C,
-                0x3D, 0x3D, 0x3D, 0x3D, 0x3D, 0x3D, 0x3D, 0x3D, 0x3E, 0x3E, 0x3E, 0x3E, 0x3E, 0x3E, 0x3E, 0x3F,
-                0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F,
-                0x3F, 0x3F, 0x3F, 0x3F, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,
-                0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41,
-                0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41,
-                0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42,
-                0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x43, 0x43, 0x43,
-                0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x43, 0x44, 0x44,
-                0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x45, 0x45, 0x45, 0x45,
-                0x45, 0x45, 0x45, 0x45, 0x45, 0x45, 0x45, 0x45, 0x46, 0x46, 0x46, 0x46, 0x46, 0x46, 0x46, 0x46,
-                0x46, 0x46, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47, 0x47, 0x48, 0x48, 0x48, 0x48,
-                0x48, 0x48, 0x48, 0x48, 0x49, 0x49, 0x49, 0x49, 0x49, 0x49, 0x49, 0x49, 0x4A, 0x4A, 0x4A, 0x4A,
-                0x4A, 0x4A, 0x4A, 0x4A, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4C, 0x4C, 0x4C, 0x4C, 0x4C,
-                0x4C, 0x4D, 0x4D, 0x4D, 0x4D, 0x4D, 0x4D, 0x4E, 0x4E, 0x4E, 0x4E, 0x4E, 0x4E, 0x4F, 0x4F, 0x4F,
-                0x4F, 0x4F, 0x4F, 0x50, 0x50, 0x50, 0x50, 0x50, 0x51, 0x51, 0x51, 0x51, 0x51, 0x52, 0x52, 0x52,
-                0x52, 0x52, 0x53, 0x53, 0x53, 0x53, 0x54, 0x54, 0x54, 0x54, 0x54, 0x55, 0x55, 0x55, 0x55, 0x56,
-                0x56, 0x56, 0x56, 0x57, 0x57, 0x57, 0x57, 0x57, 0x58, 0x58, 0x58, 0x59, 0x59, 0x59, 0x59, 0x5A,
-                0x5A, 0x5A, 0x5A, 0x5B, 0x5B, 0x5B, 0x5B, 0x5C, 0x5C, 0x5C, 0x5D, 0x5D, 0x5D, 0x5D, 0x5E, 0x5E,
-                0x5E, 0x5F, 0x5F, 0x5F, 0x60, 0x60, 0x60, 0x61, 0x61, 0x61, 0x61, 0x62, 0x62, 0x62, 0x63, 0x63,
-                0x63, 0x64, 0x64, 0x64, 0x65, 0x65, 0x66, 0x66, 0x66, 0x67, 0x67, 0x67, 0x68, 0x68, 0x68, 0x69,
-                0x69, 0x6A, 0x6A, 0x6A, 0x6B, 0x6B, 0x6B, 0x6C, 0x6C, 0x6D, 0x6D, 0x6D, 0x6E, 0x6E, 0x6F, 0x6F,
-                0x70, 0x70, 0x70, 0x71, 0x71, 0x72, 0x72, 0x73, 0x73, 0x73, 0x74, 0x74, 0x75, 0x75, 0x76, 0x76,
-                0x77, 0x77, 0x78, 0x78, 0x78, 0x79, 0x79, 0x7A, 0x7A, 0x7B, 0x7B, 0x7C, 0x7C, 0x7D, 0x7D, 0x7E,
-                0x7E, 0x7F, 0x7F, 0x80, 0x80, 0x81, 0x81, 0x82, 0x83, 0x83, 0x84, 0x84, 0x85, 0x85, 0x86, 0x86,
-                0x87, 0x88, 0x88, 0x89, 0x89, 0x8A, 0x8A, 0x8B, 0x8C, 0x8C, 0x8D, 0x8D, 0x8E, 0x8F, 0x8F, 0x90,
-                0x90, 0x91, 0x92, 0x92, 0x93, 0x94, 0x94, 0x95, 0x95, 0x96, 0x97, 0x97, 0x98, 0x99, 0x99, 0x9A,
-                0x9B, 0x9B, 0x9C, 0x9D, 0x9D, 0x9E, 0x9F, 0xA0, 0xA0, 0xA1, 0xA2, 0xA2, 0xA3, 0xA4, 0xA5, 0xA5,
-                0xA6, 0xA7, 0xA7, 0xA8, 0xA9, 0xAA, 0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xAE, 0xAF, 0xB0, 0xB1, 0xB1,
-                0xB2, 0xB3, 0xB4, 0xB5, 0xB6, 0xB6, 0xB7, 0xB8, 0xB9, 0xBA, 0xBA, 0xBB, 0xBC, 0xBD, 0xBE, 0xBF,
-                0xC0, 0xC1, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8, 0xC9, 0xC9, 0xCA, 0xCB, 0xCC, 0xCD,
-                0xCE, 0xCF, 0xD0, 0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6, 0xD7, 0xD8, 0xD9, 0xDA, 0xDB, 0xDC, 0xDD,
-                0xDE, 0xDF, 0xE0, 0xE1, 0xE2, 0xE3, 0xE4, 0xE5, 0xE6, 0xE7, 0xE8, 0xE9, 0xEA, 0xEB, 0xED, 0xEE,
-                0xEF, 0xF0, 0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF7, 0xF8, 0xF9, 0xFA, 0xFB, 0xFC, 0xFD, 0xFF, 0xFF,
-            ])  # fmt: skip
-
-            v = 0
-            for i in range(0x80):
-                index = v >> 13
-                if index >= 0x28E:
-                    self.ath_table[i:] = [0xFF] * (0x80 - i)
-                    break
-                self.ath_table[i] = ath_list[index]
-                v += self.header_struct.sampling_rate
-
-    def _channel_init(self) -> None:
-        """Initialize audio channels."""
-        self.channels = [Channel() for _ in range(self.header_struct.channel_count)]
-
-        if not (self.header_struct.comp_r01 == 1 and self.header_struct.comp_r02 == 15):
-            raise ValueError("Invalid comp values")
-
-        self.header_struct.comp_r09 = self._ceil2(
-            self.header_struct.comp_r05
-            - (self.header_struct.comp_r06 + self.header_struct.comp_r07),
-            self.header_struct.comp_r08,
-        )
-
-        r = [0] * 0x10
-        b = self.header_struct.channel_count // self.header_struct.comp_r03
-
-        if self.header_struct.comp_r07 != 0 and b > 1:
-            c = 0
-            for _ in range(self.header_struct.comp_r03):
-                if b == 2 or b == 3:
-                    r[c] = 1
-                    r[c + 1] = 2
-                elif b == 4:
-                    r[c] = 1
-                    r[c + 1] = 2
-                    if self.header_struct.comp_r04 == 0:
-                        r[c + 2] = 1
-                        r[c + 3] = 2
-                elif b == 5:
-                    r[c] = 1
-                    r[c + 1] = 2
-                    if self.header_struct.comp_r04 <= 2:
-                        r[c + 3] = 1
-                        r[c + 4] = 2
-                elif b == 6 or b == 7:
-                    r[c] = 1
-                    r[c + 1] = 2
-                    r[c + 4] = 1
-                    r[c + 5] = 2
-                elif b == 8:
-                    r[c] = 1
-                    r[c + 1] = 2
-                    r[c + 4] = 1
-                    r[c + 5] = 2
-                    r[c + 6] = 1
-                    r[c + 7] = 2
-                c += b
-
-        for i in range(self.header_struct.channel_count):
-            self.channels[i].channel_type = r[i]
-            self.channels[i].intensity_stereo_offset = (
-                self.header_struct.comp_r06 + self.header_struct.comp_r07
-            )
-            self.channels[i].active_coeffs_count = self.header_struct.comp_r06 + (
-                self.header_struct.comp_r07 if r[i] != 2 else 0
-            )
-
     def _read_header(self) -> None:
         """Read and parse the HCA file header structure.
 
@@ -760,11 +226,6 @@ class HCA:
             )
             if sign == 0x00746D66:  # "fmt\x00"
                 struct.pack_into("<I", self.header_bytes, header_offset, sign)
-                self.header_struct.channel_count = self.header_bytes[header_offset + 4]
-
-                sampling_rate_bytes = bytearray(4)
-                sampling_rate_bytes[:3] = self.header_bytes[header_offset + 5 : header_offset + 8]
-                self.header_struct.sampling_rate = struct.unpack(">I", sampling_rate_bytes)[0]
                 self.header_struct.block_count = struct.unpack(
                     ">I", self.header_bytes[header_offset + 8 : header_offset + 12]
                 )[0]
@@ -781,14 +242,6 @@ class HCA:
                 self.header_struct.block_size = struct.unpack(
                     ">H", self.header_bytes[header_offset + 4 : header_offset + 6]
                 )[0]
-                self.header_struct.comp_r01 = self.header_bytes[header_offset + 6]
-                self.header_struct.comp_r02 = self.header_bytes[header_offset + 7]
-                self.header_struct.comp_r03 = self.header_bytes[header_offset + 8]
-                self.header_struct.comp_r04 = self.header_bytes[header_offset + 9]
-                self.header_struct.comp_r05 = self.header_bytes[header_offset + 10]
-                self.header_struct.comp_r06 = self.header_bytes[header_offset + 11]
-                self.header_struct.comp_r07 = self.header_bytes[header_offset + 12]
-                self.header_struct.comp_r08 = self.header_bytes[header_offset + 13]
                 header_offset += 16
 
             elif sign == 0x00636564:  # "dec"
@@ -796,26 +249,9 @@ class HCA:
                 self.header_struct.block_size = struct.unpack(
                     ">H", self.header_bytes[header_offset + 4 : header_offset + 6]
                 )[0]
-                self.header_struct.comp_r01 = self.header_bytes[header_offset + 6]
-                self.header_struct.comp_r02 = self.header_bytes[header_offset + 7]
-                self.header_struct.comp_r03 = self.header_bytes[header_offset + 10] >> 4
-                self.header_struct.comp_r04 = self.header_bytes[header_offset + 10] & 0xF
-                self.header_struct.comp_r05 = self.header_bytes[header_offset + 8]
-                self.header_struct.comp_r06 = (
-                    self.header_bytes[header_offset + 9]
-                    if self.header_bytes[header_offset + 11] > 0
-                    else self.header_bytes[header_offset + 8]
-                ) + 1
-                self.header_struct.comp_r07 = (
-                    self.header_struct.comp_r05 - self.header_struct.comp_r06
-                )
-                self.header_struct.comp_r08 = 0
                 header_offset += 12
             else:
                 raise ValueError("comp/dec block not found")
-
-            if self.header_struct.comp_r03 == 0:
-                self.header_struct.comp_r03 = 1
 
             # Parse optional vbr block
             sign = (
@@ -831,12 +267,7 @@ class HCA:
             )
             if sign == 0x00687461:  # "ath"
                 struct.pack_into("<I", self.header_bytes, header_offset, sign)
-                self.header_struct.ath_type = struct.unpack(
-                    ">H", self.header_bytes[header_offset + 4 : header_offset + 6]
-                )[0]
                 header_offset += 6
-            elif self.header_struct.version < 0x200:
-                self.header_struct.ath_type = 1
 
             # Parse optional loop block
             sign = (
@@ -844,7 +275,6 @@ class HCA:
             )
             if sign == 0x706F6F6C:  # "loop"
                 struct.pack_into("<I", self.header_bytes, header_offset, sign)
-                self.header_struct.loop_flag = True
                 header_offset += 16
 
             # Parse optional ciph block
@@ -866,9 +296,6 @@ class HCA:
             )
             if sign == 0x00617672:  # "rva"
                 struct.pack_into("<I", self.header_bytes, header_offset, sign)
-                self.header_struct.volume = struct.unpack(
-                    ">f", self.header_bytes[header_offset + 4 : header_offset + 8]
-                )[0]
                 header_offset += 8
 
             # Parse optional comm block
@@ -896,10 +323,7 @@ class HCA:
                 fp.read(self.header_struct.block_size * self.header_struct.block_count)
             )
 
-        # Initialize tables and channels
-        self._ath_init()
         self._init_mask(self.header_struct.ciph_type)
-        self._channel_init()
 
     def decrypt(self) -> None:
         """Decrypt the audio data in-place and save to disk.

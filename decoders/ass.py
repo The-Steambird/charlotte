@@ -21,47 +21,35 @@ class ASS:
 
         i = 0
         while i < len(lines):
-            # Skip empty lines.
             if not lines[i].strip():
                 i += 1
                 continue
 
-            # Check if line is a sequence number.
             if not lines[i].strip().isdigit():
                 i += 1
                 continue
 
-            # Need least 2 more lines (timing + text).
             if i + 2 >= len(lines):
                 break
 
-            # Parse timing line (format: 00:00:50,358 --> 00:00:51,225).
             timing_line = lines[i + 1]
             timing_match = re.findall(r"-?\d\d:\d\d:\d\d,\d\d", timing_line)
 
-            # Skip if timing isn't valid
             if len(timing_match) != 2:
                 i += 3
                 continue
 
-            # Format dialogue line
-            dialog = "Dialogue: 0,"
-
-            # Convert timing format from SRT to ASS.
+            formatted_times = []
             for time_str in timing_match:
-                # Remove leading minus, convert comma to period, remove leading zero from hour.
                 formatted_time = time_str.replace("-0", "0").replace(",", ".")
                 if formatted_time.startswith("0"):
                     formatted_time = formatted_time[1:]
-                dialog += formatted_time + ","
+                formatted_times.append(formatted_time)
 
-            # Add subtitle text.
-            dialog += "Default,,0,0,0,," + lines[i + 2]
+            dialog = f"Dialogue: 0,{formatted_times[0]},{formatted_times[1]},Default,,0,0,0,,{lines[i + 2]}"
             i += 2
 
-            # Check if subtitle text spans two lines.
             if (i + 1 < len(lines)) and lines[i + 1].strip():
-                # Check that next line isn't a sequence number.
                 if not lines[i + 1].strip().isdigit():
                     i += 1
                     dialog += "\\n" + lines[i]
@@ -84,24 +72,22 @@ class ASS:
 
         output_file = output_path / (self.srt_file.stem + ".ass")
 
-        ass_content = []
-        ass_content.append("[Script Info]")
-        ass_content.append("; This is an Advanced Sub Station Alpha v4+ script.")
-        ass_content.append("ScriptType: v4.00+")
-        ass_content.append("Collisions: Normal")
-        ass_content.append("ScaledBorderAndShadow: yes")
-        ass_content.append("PlayDepth: 0")
-        ass_content.append("PlayResX: 384")
-        ass_content.append("PlayResY: 288")
-        ass_content.append("")
-
-        ass_content.append("[V4+ Styles]")
-        ass_content.append(
+        ass_content = [
+            "[Script Info]",
+            "; This is an Advanced Sub Station Alpha v4+ script.",
+            "ScriptType: v4.00+",
+            "Collisions: Normal",
+            "ScaledBorderAndShadow: yes",
+            "PlayDepth: 0",
+            "PlayResX: 384",
+            "PlayResY: 288",
+            "",
+            "[V4+ Styles]",
             "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, "
             "OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, "
             "ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, "
-            "MarginL, MarginR, MarginV, Encoding"
-        )
+            "MarginL, MarginR, MarginV, Encoding",
+        ]
 
         if self.custom_style:
             style_line = self.custom_style.replace("{fontname}", self.fontname)
@@ -136,19 +122,18 @@ class ASS:
             style = ",".join(style_params)
             ass_content.append(style)
 
-        ass_content.append("")
-        ass_content.append("[Events]")
-        ass_content.append(
-            "Format: Layer, Start, End, Style, Actor, MarginL, MarginR, MarginV, Effect, Text"
+        ass_content.extend(
+            [
+                "",
+                "[Events]",
+                "Format: Layer, Start, End, Style, Actor, MarginL, MarginR, MarginV, Effect, Text",
+            ]
         )
 
-        # Add dialogue lines with HTML tag conversion.
         for line in self.dialog_lines:
             if line.strip():
-                # Convert <u>, <b>, <i> to ASS tags.
                 line = re.sub(r"<([ubi])>", r"{\\$11}", line)
                 line = re.sub(r"</([ubi])>", r"{\\$10}", line)
-                # Convert <font color="#RRGGBB"> to ASS color tag (BGR format).
                 line = re.sub(
                     r'<font\s+color="?#(\w{2})(\w{2})(\w{2})"?>',
                     r"{\\c&H$3$2$1&}",
