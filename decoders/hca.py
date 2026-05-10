@@ -31,7 +31,7 @@ class HCA:
         key2: Optional decryption key (4 bytes) for cipher type 56
     """
 
-    def __init__(self, file_path: Path, key1: int | None = None, key2: int | None = None):
+    def __init__(self, file_path: Path, key1: bytes | None = None, key2: bytes | None = None):
         self.file_path = Path(file_path)
         self.key1 = key1 or bytes(4)
         self.key2 = key2 or bytes(4)
@@ -40,7 +40,6 @@ class HCA:
         self.header_struct = HCAHeader()
         self.header_bytes = bytearray()
         self.data = bytearray()
-
         self._read_header()
 
     def _init56_create_table(self, key: int) -> bytearray:
