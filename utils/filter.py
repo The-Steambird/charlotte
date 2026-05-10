@@ -11,28 +11,30 @@ from tqdm import tqdm
 from utils.logger import log
 
 
-def ffmpeg_params(ffmpeg_path: Path, output: Path) -> list[str]:
-    x265_params = [
-        "cutree=0",
-        "deblock=-2,-2",
-        "no-sao=1",
-        "tskip=1",
-        "cbqpoffs=-3",
-        "qcomp=0.7",
-        "lookahead-slices=0",
-        "keyint=300",
-        "min-keyint=30",
-        "max-merge=5",
-        "ref=6",
-        "bframes=12",
-        "rd=4",
-        "psy-rd=2.0",
-        "psy-rdoq=1.5",
-        "aq-mode=3",
-        "aq-strength=0.7",
-    ]
-
-    x265_params = ":".join(x265_params)
+def ffmpeg_params(ffmpeg_path: Path, output: Path, custom_x265_params: str = "") -> list[str]:
+    if custom_x265_params:
+        x265_params = custom_x265_params
+    else:
+        x265_params_list = [
+            "cutree=0",
+            "deblock=-2,-2",
+            "no-sao=1",
+            "tskip=1",
+            "cbqpoffs=-3",
+            "qcomp=0.72",
+            "lookahead-slices=0",
+            "keyint=300",
+            "min-keyint=30",
+            "max-merge=5",
+            "ref=6",
+            "bframes=8",
+            "rd=4",
+            "psy-rd=2.0",
+            "psy-rdoq=1.7",
+            "aq-mode=3",
+            "aq-strength=0.75",
+        ]
+        x265_params = ":".join(x265_params_list)
 
     params = [
         str(ffmpeg_path),
@@ -46,7 +48,7 @@ def ffmpeg_params(ffmpeg_path: Path, output: Path) -> list[str]:
         "-pix_fmt", "yuv420p10le",
         "-profile:v", "main10",
         "-preset", "slower",
-        "-crf", "12",
+        "-crf", "13",
         "-color_primaries", "bt709",
         "-color_trc", "bt709",
         "-colorspace", "bt709",
@@ -97,9 +99,9 @@ def parse_ffmpeg_stderr(process: subprocess.Popen, ffmpeg_progress: tqdm) -> Non
 def worker(
     file_stem: str,
     output_path: Path,
+    x265_params: str,
     queue: multiprocessing.Queue,
 ) -> None:
-    """Multiprocessing worker that performs VapourSynth filtering and FFmpeg piping."""
     log.info(f"Applying VapourSynth filter: {file_stem}")
 
     try:
@@ -111,13 +113,14 @@ def worker(
         source = output_path / f"{file_stem}.ivf"
         clip = filter_chain(source)
     except Exception as e:
-        log.error(f"Error importing VapourSynth script for {file_stem}: {e}")
+        log.warning(f"Error importing VapourSynth script for {file_stem}: {e}")
         queue.put(False)
         return
 
     cmd = ffmpeg_params(
         ffmpeg_path=Path.cwd() / "ffmpeg.exe",
         output=output_path / f"{file_stem}_filtered.mkv",
+        custom_x265_params=x265_params,
     )
 
     try:
@@ -128,9 +131,7 @@ def worker(
             stderr=subprocess.PIPE,
         )
     except FileNotFoundError:
-        log.error(
-            "ffmpeg not found. Place ffmpeg.exe in the root directory and try again."
-        )
+        log.error("FFmpeg not found. Place ffmpeg.exe in the root directory and try again.")
         queue.put(False)
         return
 
@@ -171,8 +172,6 @@ def worker(
 
         with ThreadPoolExecutor(max_workers=1) as executor:
             vs_future = executor.submit(ffmpeg_pipe)
-
-            # The main thread continues to parse FFmpeg logs while the executor pushes frames
             parse_ffmpeg_stderr(process, ffmpeg_progress)
 
         return_code = process.wait()
@@ -193,6 +192,7 @@ def worker(
 def vapoursynth_filter(
     file_stem: str,
     output_path: Path,
+    x265_params: str = "",
 ) -> Path | None:
     """
     Spawns VapourSynth filter processing in an isolated memory process. vssource.BestSource seems to
@@ -206,7 +206,7 @@ def vapoursynth_filter(
 
     process = ctx.Process(
         target=worker,
-        args=(file_stem, output_path, queue),
+        args=(file_stem, output_path, x265_params, queue),
     )
     process.start()
     process.join()
@@ -214,7 +214,7 @@ def vapoursynth_filter(
     if process.exitcode != 0:
         return None
 
-    if not queue.empty():
+    if queue.get() is True:
         return output_path / f"{file_stem}_filtered.mkv"
 
     return None

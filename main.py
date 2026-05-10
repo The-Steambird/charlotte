@@ -33,12 +33,8 @@ def collect_files(input_path: Path, extension: str) -> list[Path]:
 
 @app.command()
 def demux(
-    usm_path: Annotated[
-        str, typer.Argument(help="USM file or directory containing USM files.")
-    ],
-    output: Annotated[
-        str, typer.Option("--output", "-o", help="Output directory.")
-    ] = "output",
+    usm_path: Annotated[str, typer.Argument(help="USM file or directory containing USM files.")],
+    output: Annotated[str, typer.Option("--output", "-o", help="Output directory.")] = "output",
     no_cleanup: Annotated[
         bool,
         typer.Option(
@@ -119,14 +115,12 @@ def demux(
             filtered_mkv = vapoursynth_filter(
                 file_stem=stem,
                 output_path=output_path,
+                x265_params=x265_params,
             )
-            # Add to dict for file unlink later.
-            if filtered_mkv.exists():
-                file_paths.setdefault("vs", []).append(
-                    output_path / f"{stem}_filtered.mkv"
-                )
+            if filtered_mkv:
+                file_paths.setdefault("vs", []).append(filtered_mkv)
             else:
-                log.error(f"Failed to apply VapourSynth filter for {stem}, skipping...")
+                log.warning(f"Failed to apply VapourSynth filter for {stem}, skipping...")
 
         mux(output_path, vs_path=filtered_mkv)
 
