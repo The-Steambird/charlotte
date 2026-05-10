@@ -48,4 +48,3 @@ def get_language(input):
     """Translate subtitles language code from file name to ISO 639-1."""
     code, lang = SUBTITLES_LANGUAGES.get(input, "und")
     return DICTIONARY.get(code, "und")
-

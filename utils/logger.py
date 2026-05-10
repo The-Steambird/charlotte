@@ -6,7 +6,7 @@ logging.basicConfig(
     level="INFO",
     format=FORMAT,
     datefmt="[%X]",
-    handlers=[RichHandler(rich_tracebacks=True, show_path=False)]
+    handlers=[RichHandler(rich_tracebacks=True, show_path=False)],
 )
 
 log = logging.getLogger("charlotte")

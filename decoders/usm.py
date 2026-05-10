@@ -8,7 +8,7 @@ from utils.logger import log
 SIG_CRID = 0x43524944  # CRID - Container ID
 SIG_VIDEO = 0x40534656  # @SFV - Video chunk
 SIG_AUDIO = 0x40534641  # @SFA - Audio chunk
-SIG_CUE = 0x40435545    # @CUE - Cue point
+SIG_CUE = 0x40435545  # @CUE - Cue point
 
 HEADER_SIZE = 32
 VIDEO_OFFSET = 0x40
@@ -21,8 +21,14 @@ class ChunkHeader:
     """USM chunk header structure."""
 
     __slots__ = (
-        "signature", "data_size", "data_offset", "padding_size",
-        "channel_no", "data_type", "frame_time", "frame_rate"
+        "signature",
+        "data_size",
+        "data_offset",
+        "padding_size",
+        "channel_no",
+        "data_type",
+        "frame_time",
+        "frame_rate",
     )
 
     def __init__(self):
@@ -149,7 +155,9 @@ class USM:
         for i in range(size):
             data[i + AUDIO_OFFSET] ^= self.audio_mask[i & 0x1F]
 
-    def _open_stream(self, file_path: Path, streams: dict, paths: dict, stream_type: str) -> BinaryIO:
+    def _open_stream(
+        self, file_path: Path, streams: dict, paths: dict, stream_type: str
+    ) -> BinaryIO:
         """Open or retrieve existing file stream."""
         if file_path not in streams:
             streams[file_path] = open(file_path, "wb")

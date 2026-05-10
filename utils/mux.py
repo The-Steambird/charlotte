@@ -102,7 +102,5 @@ def mux(output_path: Path, vs_path: Path = None) -> None:
 
         log.info(f"Created: {output_mkv}")
     except FileNotFoundError:
-        log.error(
-            "mkvmerge not found. Place mkvmerge in the root directory and try again."
-        )
+        log.error("mkvmerge not found. Place mkvmerge in the root directory and try again.")
         raise typer.Exit(1) from None

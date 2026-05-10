@@ -60,12 +60,8 @@ class ClData:
 
         data_offset = self.bit >> 3
         v = self.data[data_offset]
-        v = v << 8 | (
-            self.data[data_offset + 1] if data_offset + 1 < len(self.data) else 0
-        )
-        v = v << 8 | (
-            self.data[data_offset + 2] if data_offset + 2 < len(self.data) else 0
-        )
+        v = v << 8 | (self.data[data_offset + 1] if data_offset + 1 < len(self.data) else 0)
+        v = v << 8 | (self.data[data_offset + 2] if data_offset + 2 < len(self.data) else 0)
         v &= self.MASK[self.bit & 7]
         v >>= 24 - (self.bit & 7) - bit_size
         return v
@@ -104,8 +100,7 @@ class Channel:
 
         # Output samples (8 subframes x 128 samples each)
         self.output_samples = [
-            np.zeros(HCA_SAMPLES_PER_BLOCK, dtype=np.float32)
-            for _ in range(HCA_SUBFRAMES)
+            np.zeros(HCA_SAMPLES_PER_BLOCK, dtype=np.float32) for _ in range(HCA_SUBFRAMES)
         ]
 
     def _decode_values(self, data: ClData, mode: int) -> None:
@@ -124,9 +119,7 @@ class Channel:
             for i in range(1, self.active_coeffs_count):
                 delta = data.get_bit(mode)
                 current_val = (
-                    data.get_bit(6)
-                    if delta == max_delta
-                    else current_val + delta - delta_offset
+                    data.get_bit(6) if delta == max_delta else current_val + delta - delta_offset
                 )
                 self.quantized_values[i] = current_val
         else:
@@ -144,21 +137,12 @@ class Channel:
             scale_val = int(self.quantized_values[i])
             if scale_val != 0:
                 # Compute scale factor based on ATH, resolution, and quantized value
-                scale_val = (
-                    int(ath_table[i])
-                    + (resolution_index + i >> 8)
-                    - scale_val * 5 // 2
-                    + 1
-                )
+                scale_val = int(ath_table[i]) + (resolution_index + i >> 8) - scale_val * 5 // 2 + 1
                 # Clamp and map to scale factor lookup table
                 scale_val = (
                     15
                     if scale_val < 0
-                    else (
-                        1
-                        if scale_val >= 0x39
-                        else DecodeTables.DECODE1_SCALELIST[scale_val]
-                    )
+                    else (1 if scale_val >= 0x39 else DecodeTables.DECODE1_SCALELIST[scale_val])
                 )
             self.scale_factors[i] = scale_val
         # Clear unused scale factors
@@ -206,9 +190,7 @@ class Channel:
         else:
             # Main/mid channel: read intensity stereo values
             for i in range(intensity_count):
-                self.quantized_values[self.intensity_stereo_offset + i] = data.get_bit(
-                    6
-                )
+                self.quantized_values[self.intensity_stereo_offset + i] = data.get_bit(6)
 
         self._compute_scale_factors(resolution_index, ath_table)
         self._compute_base_table()
@@ -276,8 +258,7 @@ class Channel:
                 ) - int(self.quantized_values[source_idx])
                 # Apply intensity scaling to reconstruct high-frequency coefficient
                 self.spectral_coeffs[dest_idx] = (
-                    DecodeTables.DECODE3_LIST[intensity_diff]
-                    * self.spectral_coeffs[source_idx]
+                    DecodeTables.DECODE3_LIST[intensity_diff] * self.spectral_coeffs[source_idx]
                 )
 
         self.spectral_coeffs[HCA_SAMPLES_PER_BLOCK - 1] = 0
@@ -306,9 +287,7 @@ class Channel:
             return
 
         # Get scaling factors for mid/side conversion
-        mid_scale = DecodeTables.DECODE4_LIST[
-            side_channel.stereo_scale_indices[subframe_idx]
-        ]
+        mid_scale = DecodeTables.DECODE4_LIST[side_channel.stereo_scale_indices[subframe_idx]]
         side_scale = mid_scale - 2.0
 
         # Convert mid/side to left/right stereo
@@ -448,9 +427,7 @@ class HCA:
         key2: Optional decryption key (2 bytes) for cipher type 56
     """
 
-    def __init__(
-        self, file_path: Path, key1: int | None = None, key2: int | None = None
-    ):
+    def __init__(self, file_path: Path, key1: int | None = None, key2: int | None = None):
         self.file_path = Path(file_path)
         self.key1 = key1 or bytes(4)
         self.key2 = key2 or bytes(4)
@@ -779,22 +756,15 @@ class HCA:
 
             # Parse fmt block
             sign = (
-                struct.unpack(
-                    "<I", self.header_bytes[header_offset : header_offset + 4]
-                )[0]
-                & magic
+                struct.unpack("<I", self.header_bytes[header_offset : header_offset + 4])[0] & magic
             )
             if sign == 0x00746D66:  # "fmt\x00"
                 struct.pack_into("<I", self.header_bytes, header_offset, sign)
                 self.header_struct.channel_count = self.header_bytes[header_offset + 4]
 
                 sampling_rate_bytes = bytearray(4)
-                sampling_rate_bytes[:3] = self.header_bytes[
-                    header_offset + 5 : header_offset + 8
-                ]
-                self.header_struct.sampling_rate = struct.unpack(
-                    ">I", sampling_rate_bytes
-                )[0]
+                sampling_rate_bytes[:3] = self.header_bytes[header_offset + 5 : header_offset + 8]
+                self.header_struct.sampling_rate = struct.unpack(">I", sampling_rate_bytes)[0]
                 self.header_struct.block_count = struct.unpack(
                     ">I", self.header_bytes[header_offset + 8 : header_offset + 12]
                 )[0]
@@ -804,10 +774,7 @@ class HCA:
 
             # Parse comp or dec block
             sign = (
-                struct.unpack(
-                    "<I", self.header_bytes[header_offset : header_offset + 4]
-                )[0]
-                & magic
+                struct.unpack("<I", self.header_bytes[header_offset : header_offset + 4])[0] & magic
             )
             if sign == 0x706D6F63:  # "comp"
                 struct.pack_into("<I", self.header_bytes, header_offset, sign)
@@ -832,9 +799,7 @@ class HCA:
                 self.header_struct.comp_r01 = self.header_bytes[header_offset + 6]
                 self.header_struct.comp_r02 = self.header_bytes[header_offset + 7]
                 self.header_struct.comp_r03 = self.header_bytes[header_offset + 10] >> 4
-                self.header_struct.comp_r04 = (
-                    self.header_bytes[header_offset + 10] & 0xF
-                )
+                self.header_struct.comp_r04 = self.header_bytes[header_offset + 10] & 0xF
                 self.header_struct.comp_r05 = self.header_bytes[header_offset + 8]
                 self.header_struct.comp_r06 = (
                     self.header_bytes[header_offset + 9]
@@ -854,10 +819,7 @@ class HCA:
 
             # Parse optional vbr block
             sign = (
-                struct.unpack(
-                    "<I", self.header_bytes[header_offset : header_offset + 4]
-                )[0]
-                & magic
+                struct.unpack("<I", self.header_bytes[header_offset : header_offset + 4])[0] & magic
             )
             if sign == 0x00726276:  # "vbr"
                 struct.pack_into("<I", self.header_bytes, header_offset, sign)
@@ -865,10 +827,7 @@ class HCA:
 
             # Parse optional ath block
             sign = (
-                struct.unpack(
-                    "<I", self.header_bytes[header_offset : header_offset + 4]
-                )[0]
-                & magic
+                struct.unpack("<I", self.header_bytes[header_offset : header_offset + 4])[0] & magic
             )
             if sign == 0x00687461:  # "ath"
                 struct.pack_into("<I", self.header_bytes, header_offset, sign)
@@ -881,10 +840,7 @@ class HCA:
 
             # Parse optional loop block
             sign = (
-                struct.unpack(
-                    "<I", self.header_bytes[header_offset : header_offset + 4]
-                )[0]
-                & magic
+                struct.unpack("<I", self.header_bytes[header_offset : header_offset + 4])[0] & magic
             )
             if sign == 0x706F6F6C:  # "loop"
                 struct.pack_into("<I", self.header_bytes, header_offset, sign)
@@ -893,10 +849,7 @@ class HCA:
 
             # Parse optional ciph block
             sign = (
-                struct.unpack(
-                    "<I", self.header_bytes[header_offset : header_offset + 4]
-                )[0]
-                & magic
+                struct.unpack("<I", self.header_bytes[header_offset : header_offset + 4])[0] & magic
             )
             if sign == 0x68706963:  # "ciph"
                 struct.pack_into("<I", self.header_bytes, header_offset, sign)
@@ -904,17 +857,12 @@ class HCA:
                     ">H", self.header_bytes[header_offset + 4 : header_offset + 6]
                 )[0]
                 if self.header_struct.ciph_type not in (0, 1, 0x38):
-                    raise ValueError(
-                        f"Invalid cipher type: {self.header_struct.ciph_type}"
-                    )
+                    raise ValueError(f"Invalid cipher type: {self.header_struct.ciph_type}")
                 header_offset += 6
 
             # Parse optional rva block
             sign = (
-                struct.unpack(
-                    "<I", self.header_bytes[header_offset : header_offset + 4]
-                )[0]
-                & magic
+                struct.unpack("<I", self.header_bytes[header_offset : header_offset + 4])[0] & magic
             )
             if sign == 0x00617672:  # "rva"
                 struct.pack_into("<I", self.header_bytes, header_offset, sign)
@@ -925,10 +873,7 @@ class HCA:
 
             # Parse optional comm block
             sign = (
-                struct.unpack(
-                    "<I", self.header_bytes[header_offset : header_offset + 4]
-                )[0]
-                & magic
+                struct.unpack("<I", self.header_bytes[header_offset : header_offset + 4])[0] & magic
             )
             if sign == 0x6D6D6F63:  # "comm"
                 struct.pack_into("<I", self.header_bytes, header_offset, sign)
@@ -936,10 +881,7 @@ class HCA:
 
             # Parse optional pad block
             sign = (
-                struct.unpack(
-                    "<I", self.header_bytes[header_offset : header_offset + 4]
-                )[0]
-                & magic
+                struct.unpack("<I", self.header_bytes[header_offset : header_offset + 4])[0] & magic
             )
             if sign == 0x00646170:  # "pad"
                 struct.pack_into("<I", self.header_bytes, header_offset, sign)
@@ -947,9 +889,7 @@ class HCA:
 
             # Update checksum
             checksum = self._checksum(self.header_bytes[:-2])
-            struct.pack_into(
-                ">H", self.header_bytes, len(self.header_bytes) - 2, checksum
-            )
+            struct.pack_into(">H", self.header_bytes, len(self.header_bytes) - 2, checksum)
 
             # Read audio data
             self.data = bytearray(
@@ -973,9 +913,7 @@ class HCA:
 
         for i in range(self.header_struct.block_count):
             offset = i * self.header_struct.block_size
-            block = bytearray(
-                self.data[offset : offset + self.header_struct.block_size]
-            )
+            block = bytearray(self.data[offset : offset + self.header_struct.block_size])
             self._mask(block)
 
             # Update checksum
@@ -1026,7 +964,5 @@ class HCA:
                 log.error(f"{e.stderr}")
             raise typer.Exit(1) from e
         except FileNotFoundError:
-            log.error(
-                "ffmpeg not found. Place ffmpeg in the root directory and try again."
-            )
+            log.error("ffmpeg not found. Place ffmpeg in the root directory and try again.")
             raise typer.Exit(1) from None

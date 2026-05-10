@@ -6,9 +6,7 @@ from utils.logger import log
 
 
 class ASS:
-    def __init__(
-        self, srt_file: str, lang: str | None = None, custom_style: str | None = None
-    ):
+    def __init__(self, srt_file: str, lang: str | None = None, custom_style: str | None = None):
         self.srt_file = Path(srt_file)
         self.lang = lang
         self.custom_style = custom_style

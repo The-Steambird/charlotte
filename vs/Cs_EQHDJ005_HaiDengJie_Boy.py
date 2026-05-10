@@ -18,12 +18,8 @@ if TYPE_CHECKING:
 logger = setup_logging()
 
 
-def filter_chain(
-    input_path: Path, preview: bool = False
-) -> tuple[VideoNode] | VideoNode:
-    clip = initialize_clip(
-        clip=BestSource(show_pretty_progress=True).source(input_path), bits=16
-    )
+def filter_chain(input_path: Path, preview: bool = False) -> tuple[VideoNode] | VideoNode:
+    clip = initialize_clip(clip=BestSource(show_pretty_progress=True).source(input_path), bits=16)
 
     # Protective denoise
     ref = mc_degrain(
@@ -80,16 +76,12 @@ if __name__ in {"__main__", "__vapoursynth__", "__vspreview__"}:
     file_name = Path(__file__).stem
     file_path = Path(__file__).parent.parent / "output" / file_name / f"{file_name}.ivf"
 
-    clip, denoise, aa, deband_mask, merge, grain, final = filter_chain(
-        file_path, preview=True
-    )
+    clip, denoise, aa, deband_mask, merge, grain, final = filter_chain(file_path, preview=True)
 
     if is_preview():
         set_output(depth(clip, 8, dither_type=DitherType.NONE), "Source")
         set_output(depth(denoise, 8, dither_type=DitherType.NONE), "Denoised")
-        set_output(
-            core.akarin.Expr([denoise, clip], ["x y - 8 * 32768 +"]), "Denoise Diff"
-        )
+        set_output(core.akarin.Expr([denoise, clip], ["x y - 8 * 32768 +"]), "Denoise Diff")
         set_output(aa, "Anti-Aliased")
         set_output(deband_mask, "Deband Mask")
         set_output(merge, "Deband")
