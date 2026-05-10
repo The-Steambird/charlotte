@@ -52,7 +52,7 @@ class ASS:
             if (i + 1 < len(lines)) and lines[i + 1].strip():
                 if not lines[i + 1].strip().isdigit():
                     i += 1
-                    dialog += "\\n" + lines[i]
+                    dialog = f"{dialog}\\n{lines[i]}"
 
             self.dialog_lines.append(dialog)
             i += 1
