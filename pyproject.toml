@@ -30,6 +30,9 @@ default-groups = [
     "dev",
 ]
 
+[tool.ruff]
+line-length = 100
+
 [tool.ruff.lint]
 select = [
     "ASYNC", # flake8-async
