@@ -114,8 +114,6 @@ def worker(
         clip = filter_chain(source)
     except Exception as e:
         log.warning(f"Error importing VapourSynth script for {file_stem}: {e}")
-        queue.put(False)
-        return
 
     cmd = ffmpeg_params(
         ffmpeg_path=Path.cwd() / "ffmpeg.exe",
