@@ -87,7 +87,6 @@
         {
             "version": "2.2",
             "key": 8986874010832568,
-            "encAudio": true,
             "videos": [
                 "Cs_Inazuma_EQ4002207_ShikishogunRecalling_Boy",
                 "Cs_Inazuma_EQ4002207_ShikishogunRecalling_Girl"
@@ -96,7 +95,6 @@
         {
             "version": "2.3",
             "key": 4206600976229209,
-            "encAudio": true,
             "videos": [
                 "Cs_Inazuma_LQ1200905_IttoOniStroy01",
                 "Cs_Inazuma_LQ1202615_IttoDungeonCrash_Boy",
@@ -110,7 +108,6 @@
         {
             "version": "2.4",
             "key": 7630808905721825,
-            "encAudio": true,
             "videos": [
                 "Cs_LiYue_EQ4003712_HdjFireworksShow_Boy",
                 "Cs_LiYue_EQ4003712_HdjFireworksShow_Girl",
@@ -123,7 +120,6 @@
         {
             "version": "2.5",
             "key": 4614952043623735,
-            "encAudio": true,
             "videos": [
                 "Cs_Inazuma_EQ4005111_MichiaeMatsuri",
                 "Cs_Inazuma_LQ1203105_YaeMiko_Boy",
@@ -137,7 +133,6 @@
         {
             "version": "2.6",
             "key": 5578228838233776,
-            "encAudio": true,
             "videos": [
                 "Cs_Inazuma_EQ400551201_IRODORI_Suikou",
                 "Cs_Inazuma_EQ400560901_IRODORI_Aoinookina",
@@ -149,7 +144,6 @@
         },
         {
             "version": "2.7",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "1031",
@@ -172,7 +166,6 @@
         },
         {
             "version": "2.8",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "40065",
@@ -214,7 +207,6 @@
         },
         {
             "version": "3.0",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "3006",
@@ -236,7 +228,6 @@
         },
         {
             "version": "3.1",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "3016",
@@ -291,7 +282,6 @@
         },
         {
             "version": "3.2",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "3022",
@@ -319,7 +309,6 @@
         },
         {
             "version": "3.3",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "3031",
@@ -347,7 +336,6 @@
         },
         {
             "version": "3.4",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "13022",
@@ -370,7 +358,6 @@
         },
         {
             "version": "3.5",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "8012",
@@ -391,7 +378,6 @@
         },
         {
             "version": "3.6",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "11029",
@@ -419,7 +405,6 @@
         },
         {
             "version": "3.7",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "13032",
@@ -440,7 +425,6 @@
         },
         {
             "version": "3.8",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "40119",
@@ -454,7 +438,6 @@
         },
         {
             "version": "4.0",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "4000",
@@ -493,7 +476,6 @@
         },
         {
             "version": "4.1",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "4010",
@@ -538,7 +520,6 @@
         },
         {
             "version": "4.2",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "4022",
@@ -572,7 +553,6 @@
         },
         {
             "version": "4.3",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "14017",
@@ -594,7 +574,6 @@
         },
         {
             "version": "4.4",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "11035",
@@ -616,7 +595,6 @@
         },
         {
             "version": "4.5",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "14022",
@@ -630,7 +608,6 @@
         },
         {
             "version": "4.6",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "13038",
@@ -651,7 +628,6 @@
         },
         {
             "version": "4.7",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "14027",
@@ -679,7 +655,6 @@
         },
         {
             "version": "4.8",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "14039",
@@ -701,7 +676,6 @@
         },
         {
             "version": "5.0",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "5001",
@@ -746,7 +720,6 @@
         },
         {
             "version": "5.1",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "5011",
@@ -791,7 +764,6 @@
         },
         {
             "version": "5.3",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "5028",
@@ -841,7 +813,6 @@
         },
         {
             "version": "5.4",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "12047",
@@ -863,7 +834,6 @@
         },
         {
             "version": "5.5",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "15032",
@@ -885,7 +855,6 @@
         },
         {
             "version": "5.6",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "_common_",
@@ -922,7 +891,6 @@
         },
         {
             "version": "5.7",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "8018",
@@ -952,7 +920,6 @@
             ]
         },
         {
-            "encAudio": true,
             "version": "5.8",
             "videoGroups": [
                 {
@@ -976,7 +943,6 @@
         },
         {
             "version": "6.0",
-            "encAudio": true,
             "videoGroups": [
                 {
                     "version": "6009",
@@ -1007,7 +973,6 @@
             ]
         },
         {
-            "encAudio": true,
             "version": "6.1",
             "videoGroups": [
                 {
@@ -1060,7 +1025,6 @@
             ]
         },
         {
-            "encAudio": true,
             "version": "6.2",
             "videoGroups": [
                 {
@@ -1089,7 +1053,6 @@
             ]
         },
         {
-            "encAudio": true,
             "version": "6.3",
             "videoGroups": [
                 {
@@ -1139,7 +1102,6 @@
             ]
         },
         {
-            "encAudio": true,
             "version": "6.4",
             "videoGroups": [
                 {
