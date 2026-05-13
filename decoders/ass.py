@@ -46,7 +46,8 @@ class ASS:
                     formatted_time = formatted_time[1:]
                 formatted_times.append(formatted_time)
 
-            dialog = f"Dialogue: 0,{formatted_times[0]},{formatted_times[1]},Default,,0,0,0,,{lines[i + 2]}"
+            shadow = r"{\xshad-0.05\yshad-0.05\blur0.5}"
+            dialog = f"Dialogue: 0,{formatted_times[0]},{formatted_times[1]},Default,,0,0,0,,{shadow}{lines[i + 2]}"
             i += 2
 
             if (i + 1 < len(lines)) and lines[i + 1].strip():
@@ -97,11 +98,11 @@ class ASS:
             style_params = [
                 "Style: Default",  # Format: Name
                 f"{self.fontname}",  # Fontname
-                "14.5",  # Fontsize
+                "10.9",  # Fontsize
                 "&H00FFFFFF",  # PrimaryColour
                 "&H000000FF",  # SecondaryColour
-                "&H00000000",  # OutlineColour
-                "&H00000000",  # BackColour
+                "&H00484848",  # OutlineColour
+                "&H00484848",  # BackColour
                 "0",  # Bold
                 "0",  # Italic
                 "0",  # Underline
@@ -111,8 +112,8 @@ class ASS:
                 "0.0",  # Spacing
                 "0.0",  # Angle
                 "1",  # BorderStyle
-                "0.1",  # Outline
-                "0",  # Shadow
+                "0.05",  # Outline
+                "0.05",  # Shadow
                 "2",  # Alignment
                 "10",  # MarginL
                 "10",  # MarginR
