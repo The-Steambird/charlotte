@@ -246,3 +246,6 @@ ffmpeg.exe
 mkvmerge.exe
 /font
 .vsjet
+/.agents
+CLAUDE.md
+*.json
