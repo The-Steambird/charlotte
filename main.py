@@ -78,7 +78,12 @@ def demux(
             stem = basename_fixes.get(stem, stem)
 
         log.info(f"Processing: {usm_file.name}")
-        key1, key2 = get_decryption_key(usm_file.name)
+        keys = get_decryption_key(usm_file.name)
+        if keys is None:
+            log.warning(f"Could not find decryption keys for {usm_file.name}, skipping...")
+            continue
+        
+        key1, key2 = keys
         usm = USM(usm_file, key1, key2)
         output_path = Path(output) / f"{stem}"
         output_path.mkdir(exist_ok=True)

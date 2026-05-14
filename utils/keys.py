@@ -1,5 +1,4 @@
 import sys
-import tempfile
 
 from pathlib import Path
 from urllib import request
@@ -38,24 +37,22 @@ def calculate_key_from_filename(filename: str) -> int:
     return result
 
 
-def get_upstream_keys(target_path: Path) -> bool:
-    """Fetch keys.json from upstream repository."""
+def fetch_upstream_keys() -> bytes | None:
+    """Fetch keys.json from upstream repository to memory."""
     keys_url = "https://raw.githubusercontent.com/lunarmint/charlotte/refs/heads/master/keys.json"
     try:
         log.info("Attempting to fetch keys.json from upstream...")
-        with request.urlopen(keys_url) as response:
+        with request.urlopen(keys_url, timeout=10) as response:
             if response.status == 200:
-                data = response.read()
-                target_path.write_bytes(data)
-                log.info("Successfully updated keys.json.")
-                return True
+                log.info("Successfully fetched keys.json.")
+                return response.read()
     except Exception as e:
         log.error(f"Failed to download keys.json: {e}")
-    return False
+    return None
 
 
 def find_key_from_file(data: dict, filename: str) -> int | None:
-    for version in data["list"]:
+    for version in data.get("list", []):
         if "videos" in version and filename in version["videos"]:
             return version.get("key", None)
 
@@ -73,55 +70,62 @@ def get_key(filename: str) -> int | None:
     else:
         root_dir = Path(__file__).parent.parent
 
-    keys = root_dir / "keys.json"
+    keys_path = root_dir / "keys.json"
 
-    if not keys.exists():
-        log.info(f"keys.json not found at {keys}.")
-        if not get_upstream_keys(keys):
+    # Fetch if completely missing
+    if not keys_path.exists():
+        log.info(f"keys.json not found at {keys_path}.")
+        upstream_data = fetch_upstream_keys()
+        if not upstream_data:
             log.error("Failed to fetch keys.json.")
             raise typer.Exit(1)
+        keys_path.write_bytes(upstream_data)
+
+    local_bytes = keys_path.read_bytes()
+    try:
+        local_data = orjson.loads(local_bytes)
+    except orjson.JSONDecodeError:
+        log.error("Error decoding local keys.json. Attempting to recover from upstream...")
+        local_data = {"list": []}
+        local_bytes = b""
+
+    # Check local first
+    key = find_key_from_file(local_data, filename)
+    if key is not None:
+        return key
+
+    # Key not found locally, try checking upstream
+    log.info(f"Key for {filename} not found. Checking upstream...")
+    upstream_bytes = fetch_upstream_keys()
+
+    if not upstream_bytes or upstream_bytes == local_bytes:
+        log.info(
+            "Upstream keys.json is identical to local file. Please check back later "
+            "when new keys are available!"
+        )
+        return None
 
     try:
-        data = orjson.loads(keys.read_bytes())
-        key = find_key_from_file(data, filename)
-        if key is not None:
-            return key
-
-        # Key not found locally, try checking upstream
-        log.info(f"Key for {filename} not found. Checking upstream...")
-
-        # Download to a temporary file first
-        with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
-            temp_path = Path(tmp_file.name)
-
-        try:
-            if get_upstream_keys(temp_path):
-                # Check if the new file actually has the key or is different.
-                retry_data = orjson.loads(temp_path.read_bytes())
-                new_key = find_key_from_file(retry_data, filename)
-                # Check if content is different.
-                if retry_data != data:
-                    if new_key:
-                        typer.confirm(
-                            "New key(s) found. Overwrite local keys.json?",
-                            default=False,
-                            abort=True,
-                        )
-                        log.info("Resuming demux...")
-                        keys.write_bytes(temp_path.read_bytes())
-                        return new_key
-                else:
-                    log.info(
-                        "Upstream keys.json is identical to local file. Please check back later "
-                        "when new keys are available!"
-                    )
-        finally:
-            if temp_path.exists():
-                temp_path.unlink()
-
+        upstream_data = orjson.loads(upstream_bytes)
     except orjson.JSONDecodeError:
-        log.error("Error decoding keys.json.")
+        log.error("Error decoding upstream keys.json.")
+        return None
 
+    new_key = find_key_from_file(upstream_data, filename)
+    if new_key is not None:
+        typer.confirm(
+            "New key(s) found. Overwrite local keys.json?",
+            default=False,
+            abort=True,
+        )
+        log.info("Resuming demux...")
+        try:
+            keys_path.write_bytes(upstream_bytes)
+        except OSError as e:
+            log.warning(f"Could not save keys.json: {e}")
+        return new_key
+
+    log.info(f"Key for {filename} not found upstream either.")
     return None
 
 
@@ -135,6 +139,9 @@ def get_decryption_key(filename: str) -> tuple[bytes, bytes] | None:
     basename = Path(filename).stem
     key1 = calculate_key_from_filename(basename)
     key2 = get_key(basename)
+
+    if key2 is None:
+        return None
 
     final_key = 0x100000000000000
     if ((key1 + key2) & 0xFFFFFFFFFFFFFF) != 0:
