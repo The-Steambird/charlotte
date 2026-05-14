@@ -2,18 +2,31 @@
 name = "charlotte"
 version = "0.1.0"
 description = "A cutscene encoder tool for a certain popular anime game."
-authors = [{ name = "lunarmint", email = "developer@chocomint.dev" }]
+authors = [{ name = "lunarmint", email = "me@chocomint.dev" }]
 requires-python = ">=3.14"
 readme = "README.md"
 maintainers = [{ name = "Mint" }]
 dependencies = [
+    "dfttest2>=10",
     "orjson>=3.11.9",
-    "numpy>=2.4.4",
     "pyinstaller>=6.20.0",
     "tqdm>=4.67.3",
     "typer>=0.24.1",
     "vapoursynth>=75",
-    "vsjetpack>=1.4.1",
+    "vapoursynth-adaptivegrain>=0.5.0",
+    "vapoursynth-akarin>=1.4.1",
+    "vapoursynth-bestsource>=17.0",
+    "vapoursynth-bm3dcuda>=2.16",
+    "vapoursynth-dfttest2-nvrtc>=10",
+    "vapoursynth-eedi3>=10.0",
+    "vapoursynth-mvtools>=27",
+    "vapoursynth-nlm-cuda>=4",
+    "vapoursynth-resize2>=0.4.3",
+    "vapoursynth-vszip>=14.1.0",
+    "vapoursynth-zsmooth>=0.15.5",
+    "vsnoise>=1.2.1",
+    "vs-placebo>=2.0.2",
+    "vsjetpack>=1.5.0",
     "vspreview>=0.20.1",
     "vsrepo>=2.0.0",
 ]
@@ -23,6 +36,10 @@ dev = [
     "deptry>=0.25.1",
     "ruff>=0.15.12",
 ]
+
+[[tool.uv.index]]
+name = "vs-wheels"
+url = "https://jaded-encoding-thaumaturgy.github.io/vs-wheels/simple"
 
 [tool.uv]
 package = false
