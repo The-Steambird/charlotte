@@ -1133,6 +1133,14 @@
             "version": "6.5",
             "videoGroups": [
                 {
+                    "key": 9588049168495206,
+                    "version": "16020",
+                    "videos": [
+                        "Cs_NodKrai_LQ1602013_BBJS_Boy",
+                        "Cs_NodKrai_LQ1602007_BBBJS_Girl"
+                    ]
+                },
+                {
                     "key": 3541568626167630,
                     "version": "40238",
                     "videos": [
@@ -1141,11 +1149,10 @@
                     ]
                 },
                 {
-                    "key": 9588049168495206,
-                    "version": "16020",
+                    "key": 9668416782901543,
+                    "version": "_reunion_",
                     "videos": [
-                        "Cs_NodKrai_LQ1602013_BBJS_Boy",
-                        "Cs_NodKrai_LQ1602007_BBBJS_Boy"
+                        "Video_Reunion_65"
                     ]
                 }
             ]
