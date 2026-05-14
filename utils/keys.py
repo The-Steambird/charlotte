@@ -1,11 +1,14 @@
 import sys
 
 from pathlib import Path
-from urllib import request
 
 import orjson
 import typer
+import urllib3
 from utils.logger import log
+
+
+http = urllib3.PoolManager()
 
 
 def calculate_key_from_filename(filename: str) -> int:
@@ -42,10 +45,13 @@ def fetch_upstream_keys() -> bytes | None:
     keys_url = "https://raw.githubusercontent.com/lunarmint/charlotte/refs/heads/master/keys.json"
     try:
         log.info("Attempting to fetch keys.json from upstream...")
-        with request.urlopen(keys_url, timeout=10) as response:
-            if response.status == 200:
-                log.info("Successfully fetched keys.json.")
-                return response.read()
+        response = http.request("GET", keys_url, timeout=10.0)
+        if response.status == 200:
+            log.info("Successfully fetched keys.json.")
+            return response.data
+        log.warning(f"HTTP Error {response.status} while fetching keys.json.")
+    except urllib3.exceptions.HTTPError as e:
+        log.error(f"Failed to connect to upstream to fetch keys.json: {e}")
     except Exception as e:
         log.error(f"Failed to download keys.json: {e}")
     return None

@@ -9,7 +9,7 @@ from utils.languages import AUDIO_LANGUAGES
 from utils.logger import log
 
 
-def mux(output_path: Path, vs_path: Path = None) -> None:
+def mux(output_path: Path, vs_path: Path | None = None) -> None:
     """Mux IVF video and FLAC audio into MKV container using mkvmerge."""
     # Collect video and audio files
     input_file = output_path / f"{output_path.stem}.ivf"
@@ -80,7 +80,6 @@ def mux(output_path: Path, vs_path: Path = None) -> None:
             "Custom fonts not found in the '/font' directory. Subtitles will use the default system font. Check the README to install official fonts."
         )
 
-    # log.debug(f"Command: {" ".join(cmd)}")
     log.info(f"Muxing: {output_mkv.name}")
     try:
         process = subprocess.Popen(
