@@ -82,18 +82,13 @@ def parse_ffmpeg_stderr(process: subprocess.Popen, ffmpeg_progress: tqdm) -> Non
         if not line:
             continue
 
-        parts = line.split("=", 1)
-
-        # If this line is a machine-readable progress entry, process it and skip the rest.
-        if len(parts) == 2 and parts[0].strip() in expected_keys:
-            key, val = parts[0].strip(), parts[1].strip()
+        key, _, val = line.partition("=")
+        if key in expected_keys:
             if key == "frame" and val.isdigit():
                 ffmpeg_progress.update(int(val) - ffmpeg_progress.n)
-
-            continue
-
-        # If it's not a standard progress key, likely FFmpeg warning/error.
-        tqdm.write(line, file=sys.stderr)
+        else:
+            # Unknown progress key, likely ffmpeg warning or error.
+            tqdm.write(line, file=sys.stderr)
 
 
 def worker(
@@ -155,10 +150,15 @@ def worker(
             dynamic_ncols=True,
         ) as ffmpeg_progress,
     ):
-
+        # ffmpeg_pipe writes VS frames into ffmpeg's stdin, then parse_ffmpeg_stderr reads ffmpeg's
+        # stderr on the main thread. They must run concurrently to keep both pipes continuously
+        # drained. If stdin is written without draining stderr, ffmpeg's stderr buffer fills up,
+        # ffmpeg stalls, stdin backs up, creating a deadlock.
         def ffmpeg_pipe() -> None:
             try:
                 with process.stdin:
+                    # Streams encoded Y4M frames into FFmpeg's stdin. clip.output()
+                    # blocks until all frames have been written and stdin is closed.
                     clip.output(
                         process.stdin,
                         y4m=True,
@@ -167,17 +167,24 @@ def worker(
                         ),
                     )
             finally:
+                # Prevent early exit leaving the progress bar stuck.
                 if vapoursynth_progress.n < total_frames:
                     vapoursynth_progress.update(total_frames - vapoursynth_progress.n)
 
         with ThreadPoolExecutor(max_workers=1) as executor:
+            # ffmpeg_pipe runs on a background thread, continuously writing frames to ffmpeg's stdin
+            # while the main thread drains stderr.
             vs_future = executor.submit(ffmpeg_pipe)
+
+            # Blocks until ffmpeg closes stderr (only happens when FFmpeg exits). By then
+            # executor's __exit__ joins the background thread, so vs_future is resolved.
             parse_ffmpeg_stderr(process, ffmpeg_progress)
 
+        # FFmpeg exit, collect the exit code.
         return_code = process.wait()
 
-    if vs_future.exception():
-        log.error(f"\nVapourSynth processing failed: {vs_future.exception()}")
+    if exc := vs_future.exception():
+        log.error(f"\nVapourSynth processing failed: {exc}")
         queue.put(False)
         return
 
