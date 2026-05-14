@@ -1128,6 +1128,27 @@
                     ]
                 }
             ]
+        },
+        {
+            "version": "6.5",
+            "videoGroups": [
+                {
+                    "key": 3541568626167630,
+                    "version": "40238",
+                    "videos": [
+                        "Cs_NodKrai_EQ4023813_MYZ_Boy",
+                        "Cs_NodKrai_EQ4023813_MYZ_Girl"
+                    ]
+                },
+                {
+                    "key": 9588049168495206,
+                    "version": "16020",
+                    "videos": [
+                        "Cs_NodKrai_LQ1602013_BBJS_Boy",
+                        "Cs_NodKrai_LQ1602007_BBBJS_Boy"
+                    ]
+                }
+            ]
         }
     ]
 }
