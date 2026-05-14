@@ -91,8 +91,9 @@ This decrypts the cutscene and writes:
 - Python `3.14+`
 - [uv](https://github.com/astral-sh/uv)
 - Required VapourSynth plugins and ML models:
-  - Place [ArtCNN_R8F64.onnx](https://github.com/Artoriuz/ArtCNN/releases/latest/download/ArtCNN_R8F64.onnx) in `.venv\Lib\site-packages\vapoursynth\plugins\vsrepo\models`
-  - Extract `vsmlrt` [part 1](https://github.com/AmusementClub/vs-mlrt/releases/download/v15.16/vsmlrt-windows-x64-cuda.v15.16.7z.001) & [part 2](https://github.com/AmusementClub/vs-mlrt/releases/download/v15.16/vsmlrt-windows-x64-cuda.v15.16.7z.002) to `.venv\Lib\site-packages\vapoursynth\plugins\vsrepo`. To save space, you may remove all other `\models` included with `vsmlrt` except `ArtCNN_R8F64.onnx`.
+  - Place [ArtCNN_R8F64.onnx](https://github.com/Artoriuz/ArtCNN/releases/latest/download/ArtCNN_R8F64.onnx) in `.venv\Lib\site-packages\vapoursynth\plugins\vsrepo\models\ArtCNN`
+  - Extract `vsmlrt` [part 1](https://github.com/AmusementClub/vs-mlrt/releases/download/v15.16/vsmlrt-windows-x64-cuda.v15.16.7z.001) & [part 2](https://github.com/AmusementClub/vs-mlrt/releases/download/v15.16/vsmlrt-windows-x64-cuda.v15.16.7z.002) to `.venv\Lib\site-packages\vapoursynth\plugins`. Move `vsmlrt.py` to `.venv\Lib\site-packages`
+  - To save space, you may remove all other `\models` included with `vsmlrt` except `ArtCNN_R8F64.onnx`.
 
 - Copy the game `font` directory from:
    ```
