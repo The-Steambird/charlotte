@@ -44,7 +44,7 @@ DICTIONARY = {
 }
 
 
-def get_language(input):
+def get_language(lang: str) -> str:
     """Translate subtitles language code from file name to ISO 639-1."""
-    code, lang = SUBTITLES_LANGUAGES.get(input, ("und", "Unknown"))
+    code, lang = SUBTITLES_LANGUAGES.get(lang, ("und", "Unknown"))
     return DICTIONARY.get(code, "und")
