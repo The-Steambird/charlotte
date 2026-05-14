@@ -28,7 +28,6 @@ dependencies = [
     "vs-placebo>=2.0.2",
     "vsjetpack>=1.5.0",
     "vspreview>=0.20.1",
-    "vsrepo>=2.0.0",
 ]
 
 [dependency-groups]
