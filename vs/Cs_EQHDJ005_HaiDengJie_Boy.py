@@ -24,9 +24,9 @@ def filter_chain(input_path: Path, preview: bool = False) -> tuple[VideoNode] | 
     # Protective denoise
     ref = mc_degrain(
         clip=clip,
-        tr=1,
-        blksize=16,
-        refine=1,
+        tr=2,
+        blksize=32,
+        refine=2,
         thsad=120,
         prefilter=Prefilter.DFTTEST(),
         preset=MVToolsPreset.HQ_SAD,
