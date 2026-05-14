@@ -24,7 +24,7 @@ Charlotte is a Genshin Impact utility that losslessly decrypts `.usm` cutscene f
 - Supports subtitles in 15 languages
 - Optional VapourSynth pipeline for post-processing quality improvements
 
-All known cutscenes from versions 1.0 through 6.4 can be decrypted.
+All known cutscenes from versions 1.0 through 6.5 can be decrypted.
 
 If you have missing keys, pull requests are welcome.
 
@@ -91,14 +91,9 @@ This decrypts the cutscene and writes:
 - Python `3.14+`
 - [uv](https://github.com/astral-sh/uv)
 - Required VapourSynth plugins and ML models:
-  - Place [adaptivegrain_rs.dll](https://github.com/Irrational-Encoding-Wizardry/adaptivegrain/releases/latest/download/adaptivegrain_rs.dll) in `.venv\Lib\site-packages\vapoursynth\plugins\vsrepo`
   - Place [ArtCNN_R8F64.onnx](https://github.com/Artoriuz/ArtCNN/releases/latest/download/ArtCNN_R8F64.onnx) in `.venv\Lib\site-packages\vapoursynth\plugins\vsrepo\models`
   - Extract `vsmlrt` [part 1](https://github.com/AmusementClub/vs-mlrt/releases/download/v15.16/vsmlrt-windows-x64-cuda.v15.16.7z.001) & [part 2](https://github.com/AmusementClub/vs-mlrt/releases/download/v15.16/vsmlrt-windows-x64-cuda.v15.16.7z.002) to `.venv\Lib\site-packages\vapoursynth\plugins\vsrepo`. To save space, you may remove all other `\models` included with `vsmlrt` except `ArtCNN_R8F64.onnx`.
 
-- Install the rest of the plugins:
-    ```sh
-    vsrepo install bs dfttest2 akarin mv bm3dcuda_rtc nlm_cuda vszip eedi3m resize2 zsmooth placebo noise vsmlrt_script
-    ```
 - Copy the game `font` directory from:
    ```
   [Game Directory]\Genshin Impact game\GenshinImpact_Data\StreamingAssets\MiHoYoSDKRes\HttpServerResources
