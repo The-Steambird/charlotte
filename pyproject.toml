@@ -13,11 +13,13 @@ dependencies = [
     "tqdm>=4.67.3",
     "typer>=0.24.1",
     "urllib3>=2.7.0",
-    "vapoursynth>=75",
+    "vapoursynth>=76",
     "vapoursynth-adaptivegrain>=0.5.0",
     "vapoursynth-akarin>=1.4.1",
-    "vapoursynth-bestsource>=17.0",
+    "vapoursynth-bestsource>=18.0",
     "vapoursynth-bm3dcuda>=2.16",
+    "vapoursynth-dctfilter>=3.2",
+    "vapoursynth-deblock>=8.1",
     "vapoursynth-dfttest2-nvrtc>=10",
     "vapoursynth-eedi3>=10.0",
     "vapoursynth-mvtools>=27",
@@ -25,16 +27,16 @@ dependencies = [
     "vapoursynth-resize2>=0.4.3",
     "vapoursynth-vszip>=14.1.0",
     "vapoursynth-zsmooth>=0.15.5",
-    "vsnoise>=1.2.1",
     "vs-placebo>=2.0.2",
     "vsjetpack>=1.5.0",
+    "vsnoise>=1.2.1",
     "vspreview>=0.20.1",
 ]
 
 [dependency-groups]
 dev = [
     "deptry>=0.25.1",
-    "ruff>=0.15.12",
+    "ruff>=0.15.13",
 ]
 
 [[tool.uv.index]]
