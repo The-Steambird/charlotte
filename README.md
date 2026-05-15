@@ -39,9 +39,10 @@ This project is heavily inspired by [GI-cutscenes](https://github.com/ToaHartor/
 - [x] Decrypt `.usm` into `.ivf` video and `.hca` audio
 - [x] Convert `.srt` subtitles into styled `.ass` with matching official cutscene subtitle style and fonts
 - [x] Convert `.hca` audio to `.flac` for archival
+- [x] Automatically fetches subtitles from DimBreath and fonts from the game directory
 - [x] Mux tracks into `.mkv`
-- [x] Add a full VapourSynth processing workflow
-- [ ] Add GUI
+- [x] Full VapourSynth processing workflow
+- [ ] Graphical User Interface
 
 VapourSynth filter scripts take a lot of time to write to ensure quality, hence they will be slowly added over time. If you have encoding knowledge, contributions are welcome!
 
@@ -56,7 +57,7 @@ I should also mention that the VapourSynth filters are extremely heavy on CPU an
 3. Locate `.usm` files at:
    - `[Game Directory]\Genshin Impact game\GenshinImpact_Data\StreamingAssets\VideoAssets\StandaloneWindows64`
 
-Note: availability of older cutscenes depends on your local game files and resource cleanup history.
+Note: the availability of older cutscenes depends on your local game files and resource cleanup history.
 
 ### Usage
 
