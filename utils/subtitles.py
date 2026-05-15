@@ -32,7 +32,14 @@ def fetch_subtitle(stem: str, lang: str) -> bytes | None:
 
 
 def get_subtitle_path(stem: str, lang: str) -> Path | None:
-    input_path = Path.cwd() / "Subtitle" / lang
+    import sys
+
+    if getattr(sys, "frozen", False):
+        root = Path(sys.executable).parent
+    else:
+        root = Path(__file__).parent.parent
+
+    input_path = root / "Subtitle" / lang
     subtitle_path = input_path / f"{stem}_{lang}.srt"
     if subtitle_path.exists():
         return subtitle_path

@@ -1,6 +1,6 @@
 import subprocess
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import typer
 
@@ -9,7 +9,13 @@ from utils.languages import AUDIO_LANGUAGES
 from utils.logger import log
 
 
-def mux(output_path: Path, vs_path: Path | None = None) -> None:
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+def mux(
+    output_path: Path, vs_path: Path | None = None, fonts: tuple[Path, Path] | None = None
+) -> None:
     """Mux IVF video and FLAC audio into MKV container using mkvmerge."""
     # Collect video and audio files
     input_file = output_path / f"{output_path.stem}.ivf"
@@ -56,17 +62,16 @@ def mux(output_path: Path, vs_path: Path | None = None) -> None:
                 "--language",
                 f"0:{languages.get_language(subtitle_lang)}",
                 "--default-track-flag",
-                f"0:{1 if '_EN' in str(subtitle_file) else 0}",
+                f"0:{1 if '_EN.ass' in str(subtitle_file) else 0}",
                 "--forced-display-flag",
-                f"0:{1 if '_EN' in str(subtitle_file) else 0}",
+                f"0:{1 if '_EN.ass' in str(subtitle_file) else 0}",
                 str(subtitle_file),
             ]
         )
 
     # Attach fonts.
-    font_ja = Path.cwd() / "font" / "ja-jp.ttf"
-    font_zh = Path.cwd() / "font" / "zh-cn.ttf"
-    if font_ja.exists() and font_zh.exists():
+    if fonts:
+        font_ja, font_zh = fonts
         cmd.extend(
             [
                 "--attach-file",
@@ -74,10 +79,6 @@ def mux(output_path: Path, vs_path: Path | None = None) -> None:
                 "--attach-file",
                 f"{font_zh}",
             ]
-        )
-    else:
-        log.warning(
-            "Custom fonts not found in the '/font' directory. Subtitles will use the default system font. Check the README to install official fonts."
         )
 
     log.info(f"Muxing: {output_mkv.name}")

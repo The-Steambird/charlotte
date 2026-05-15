@@ -53,8 +53,7 @@ I should also mention that the VapourSynth filters are extremely heavy on CPU an
 
 1. Download `charlotte.exe` from the [latest release](https://github.com/lunarmint/charlotte/releases/latest).
 2. Put `ffmpeg.exe` and `mkvmerge.exe` in the same directory as `charlotte.exe`.
-3. Clone [AnimeGameData](https://gitlab.com/Dimbreath/AnimeGameData) and copy its `Subtitle` folder beside `charlotte.exe`.
-4. Locate `.usm` files at:
+3. Locate `.usm` files at:
    - `[Game Directory]\Genshin Impact game\GenshinImpact_Data\StreamingAssets\VideoAssets\StandaloneWindows64`
 
 Note: availability of older cutscenes depends on your local game files and resource cleanup history.
@@ -95,11 +94,6 @@ This decrypts the cutscene and writes:
   - Place [ArtCNN_R8F64.onnx](https://github.com/Artoriuz/ArtCNN/releases/latest/download/ArtCNN_R8F64.onnx) in `.venv\Lib\site-packages\vapoursynth\plugins\vsrepo\models\ArtCNN`
   - Extract `vsmlrt` [part 1](https://github.com/AmusementClub/vs-mlrt/releases/download/v15.16/vsmlrt-windows-x64-cuda.v15.16.7z.001) & [part 2](https://github.com/AmusementClub/vs-mlrt/releases/download/v15.16/vsmlrt-windows-x64-cuda.v15.16.7z.002) to `.venv\Lib\site-packages\vapoursynth\plugins`. Move `vsmlrt.py` to `.venv\Lib\site-packages`
   - To save space, you may remove all other `\models` included with `vsmlrt` except `ArtCNN_R8F64.onnx`.
-
-- Copy the game `font` directory from:
-   ```
-  [Game Directory]\Genshin Impact game\GenshinImpact_Data\StreamingAssets\MiHoYoSDKRes\HttpServerResources
-  ```
 
 ### Build Command
 

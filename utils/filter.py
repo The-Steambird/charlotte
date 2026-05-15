@@ -36,7 +36,7 @@ def ffmpeg_params(ffmpeg_path: Path, output: Path, custom_x265_params: str = "")
         ]
         x265_params = ":".join(x265_params_list)
 
-    params = [
+    return [
         str(ffmpeg_path),
         "-y",
         "-v", "warning",
@@ -56,8 +56,6 @@ def ffmpeg_params(ffmpeg_path: Path, output: Path, custom_x265_params: str = "")
         "-x265-params", x265_params,
         str(output),
     ]  # fmt: skip
-
-    return params
 
 
 def parse_ffmpeg_stderr(process: subprocess.Popen, ffmpeg_progress: tqdm) -> None:
@@ -99,6 +97,14 @@ def worker(
 ) -> None:
     log.info(f"Applying VapourSynth filter: {file_stem}")
 
+    if getattr(sys, "frozen", False):
+        root = Path(sys.executable).parent
+    else:
+        root = Path(__file__).parent.parent
+
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
+
     try:
         importlib.invalidate_caches()
         module = importlib.import_module(f"vs.{file_stem}")
@@ -113,7 +119,7 @@ def worker(
         return
 
     cmd = ffmpeg_params(
-        ffmpeg_path=Path.cwd() / "ffmpeg.exe",
+        ffmpeg_path=root / "ffmpeg.exe",
         output=output_path / f"{file_stem}_filtered.mkv",
         custom_x265_params=x265_params,
     )
