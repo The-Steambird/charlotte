@@ -37,14 +37,15 @@ This project is heavily inspired by [GI-cutscenes](https://github.com/ToaHartor/
 ## Features
 
 - [x] Decrypt `.usm` into `.ivf` video and `.hca` audio
-- [x] Convert `.srt` subtitles into styled `.ass`
-- [x] Match official cutscene subtitle style and fonts
+- [x] Convert `.srt` subtitles into styled `.ass` with matching official cutscene subtitle style and fonts
 - [x] Convert `.hca` audio to `.flac` for archival
 - [x] Mux tracks into `.mkv`
-- [x] Add full VapourSynth processing workflow
+- [x] Add a full VapourSynth processing workflow
 - [ ] Add GUI
 
 VapourSynth filter scripts take a lot of time to write to ensure quality, hence they will be slowly added over time. If you have encoding knowledge, contributions are welcome!
+
+I should also mention that the VapourSynth filters are extremely heavy on CPU and GPU (to a lesser degree), so it's recommended to have a powerful machine for optimal performance.
 
 ## Quick Start (Windows Binary)
 
