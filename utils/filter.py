@@ -106,9 +106,20 @@ def worker(
         sys.path.insert(0, str(root))
 
     try:
-        importlib.invalidate_caches()
-        module = importlib.import_module(f"vs.{file_stem}")
-        module = importlib.reload(module)
+        module_name = file_stem
+        if not (root / "vs" / f"{file_stem}.py").exists():
+            if file_stem.endswith("_Girl"):
+                alt_stem = file_stem.removesuffix("_Girl") + "_Boy"
+            elif file_stem.endswith("_Boy"):
+                alt_stem = file_stem.removesuffix("_Boy") + "_Girl"
+            else:
+                alt_stem = None
+
+            if alt_stem and (root / "vs" / f"{alt_stem}.py").exists():
+                log.info(f"VapourSynth script for {file_stem} not found, using {alt_stem} instead.")
+                module_name = alt_stem
+
+        module = importlib.import_module(f"vs.{module_name}")
 
         filter_chain = getattr(module, "filter_chain", None)
         source = output_path / f"{file_stem}.ivf"
