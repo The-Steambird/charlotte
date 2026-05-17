@@ -62,18 +62,17 @@ Note: the availability of older cutscenes depends on your local game files and r
 ### Usage
 
 ```sh
-charlotte demux [PATH_TO_USM_FILE_OR_DIR] [OPTIONS]
+charlotte [PATH_TO_USM_FILE_OR_DIR] [OPTIONS]
 ```
 
 ### Example
 
 ```sh
-charlotte demux C:\Users\Mint\Desktop\charlotte\USM\Cs_EQHDJ005_HaiDengJie_Boy.usm
+charlotte "C:\Users\Mint\Desktop\Data\Programming\charlotte\test\USM\Cs_EQHDJ005_HaiDengJie_Boy.usm" -vs -nc
+
 ```
 
-This decrypts the cutscene and writes:
-
-`output/Cs_EQHDJ005_HaiDengJie_Boy/Cs_EQHDJ005_HaiDengJie_Boy.mkv`
+This decrypts the cutscene, applies the VapourSynth filter script, and writes to `output/Cs_EQHDJ005_HaiDengJie_Boy/Cs_EQHDJ005_HaiDengJie_Boy.mkv` without deleting intermediate files.
 
 ### Parameters
 
