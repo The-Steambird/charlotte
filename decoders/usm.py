@@ -3,6 +3,8 @@ import struct
 from pathlib import Path
 from typing import BinaryIO
 
+from tqdm import tqdm
+
 from utils.logger import log
 
 
@@ -19,8 +21,6 @@ MIN_VIDEO_SIZE = 0x200
 
 
 class ChunkHeader:
-    """USM chunk header structure."""
-
     __slots__ = (
         "channel_no",
         "data_offset",
@@ -44,7 +44,6 @@ class ChunkHeader:
 
     @classmethod
     def from_bytes(cls, data: bytes) -> ChunkHeader:
-        """Parse chunk header from 32-byte block."""
         header = cls()
         (
             header.signature,
@@ -60,17 +59,6 @@ class ChunkHeader:
 
 
 class USM:
-    """USM container demuxer.
-
-    Demuxes USM files and extracts video (VP9/IVF) and audio (HCA) streams.
-    Handles encrypted USM files using provided keys.
-
-    Args:
-        file_path: Path to the USM file
-        key1: Decryption key (4 bytes) for video/audio
-        key2: Decryption key (4 bytes) for video/audio
-    """
-
     def __init__(self, file_path: Path, key1: bytes, key2: bytes):
         self.file_path = Path(file_path)
         self.key1 = key1
@@ -80,7 +68,6 @@ class USM:
         self._init_masks(key1, key2)
 
     def _init_masks(self, key1: bytes, key2: bytes) -> None:
-        """Initialize decryption masks from keys."""
         m = self.video_mask1
 
         m[0x00] = key1[0]
@@ -90,7 +77,6 @@ class USM:
         m[0x04] = (key2[0] + 0xF9) & 0xFF
         m[0x05] = (key2[1] ^ 0x13) & 0xFF
         m[0x06] = (key2[2] + 0x61) & 0xFF
-
         m[0x07] = (m[0x00] ^ 0xFF) & 0xFF
         m[0x08] = (m[0x02] + m[0x01]) & 0xFF
         m[0x09] = (m[0x01] - m[0x07]) & 0xFF
@@ -145,50 +131,81 @@ class USM:
     def _open_stream(
         self, file_path: Path, streams: dict, paths: dict, stream_type: str
     ) -> BinaryIO:
-        """Open or retrieve existing file stream."""
         if file_path not in streams:
             streams[file_path] = open(file_path, "wb")
             paths.setdefault(stream_type, []).append(file_path)
         return streams[file_path]
 
+    def _process_chunk(
+        self,
+        header: ChunkHeader,
+        data: bytearray,
+        output_path: Path,
+        base_name: str,
+        streams: dict,
+        file_paths: dict,
+    ) -> None:
+        if header.signature == SIG_VIDEO and header.data_type == 0:
+            self._decrypt_video(data)
+            file_path = output_path / f"{base_name}.ivf"
+            stream = self._open_stream(file_path, streams, file_paths, "ivf")
+            stream.write(data)
+
+        elif header.signature == SIG_AUDIO and header.data_type == 0:
+            file_path = output_path / f"{base_name}_{header.channel_no}.hca"
+            stream = self._open_stream(file_path, streams, file_paths, "hca")
+            stream.write(data)
+
+        elif header.signature not in (
+            SIG_CRID,
+            SIG_VIDEO,  # (non-zero data_type like metadata)
+            SIG_AUDIO,  # (non-zero data_type)
+            SIG_CUE,
+            0x40415050,  # @APP
+            0x40414C50,  # @ALP
+            0x40534254,  # @SBT
+        ):
+            log.warning(f"Unknown signature {header.signature}")
+
     def demux(self, output_path: Path) -> dict[str, list[Path]]:
-        """Demux USM file and extract streams."""
         base_name = self.file_path.stem
         streams = {}
         file_paths = {}
+        file_size = self.file_path.stat().st_size
 
-        with open(self.file_path, "rb") as fp:
+        with (
+            open(self.file_path, "rb") as fp,
+            tqdm(
+                total=file_size,
+                desc="Demuxing USM",
+                unit="B",
+                unit_scale=True,
+                leave=False,
+                dynamic_ncols=True,
+            ) as pbar,
+        ):
             while True:
                 header_data = fp.read(HEADER_SIZE)
                 if len(header_data) < HEADER_SIZE:
+                    pbar.update(len(header_data))
                     break
 
                 header = ChunkHeader.from_bytes(header_data)
+                pbar.update(header.data_size + HEADER_SIZE - 0x18)
 
                 data_size = header.data_size - header.data_offset - header.padding_size
                 fp.seek(header.data_offset - 0x18, 1)
                 data = bytearray(fp.read(data_size))
                 fp.seek(header.padding_size, 1)
 
-                if header.signature == SIG_CRID:
-                    pass  # Container ID chunk, skip
-                elif header.signature == SIG_VIDEO:
-                    if header.data_type == 0:
-                        self._decrypt_video(data)
-                        file_path = output_path / f"{base_name}.ivf"
-                        stream = self._open_stream(file_path, streams, file_paths, "ivf")
-                        stream.write(data)
-                elif header.signature == SIG_AUDIO:
-                    if header.data_type == 0:
-                        file_path = output_path / f"{base_name}_{header.channel_no}.hca"
-                        stream = self._open_stream(file_path, streams, file_paths, "hca")
-                        stream.write(data)
-                elif header.signature == SIG_CUE:
-                    pass  # Cue point chunk, not needed
-                elif header.signature in (0x40415050, 0x40414C50, 0x40534254):
-                    pass  # @APP, @ALP, @SBT chunks, metadata or padding
-                else:
-                    log.warning(f"Unknown signature {header.signature}")
+                self._process_chunk(
+                    header,
+                    data,
+                    output_path,
+                    base_name,
+                    streams,
+                    file_paths,
+                )
 
         for stream in streams.values():
             stream.close()
