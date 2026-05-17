@@ -2,7 +2,7 @@ a = Analysis(
     ["main.py"],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[("vs", "vs")],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
