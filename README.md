@@ -26,7 +26,7 @@ Charlotte is a Genshin Impact utility that losslessly decrypts `.usm` cutscene f
 
 All known cutscenes from versions 1.0 through 6.5 can be decrypted.
 
-If you have missing keys, pull requests are welcome.
+If you have missing keys, pull requests are welcome. I fetch keys myself, but some old keys may be missing.
 
 ## Why Charlotte
 
@@ -55,7 +55,9 @@ I should also mention that the VapourSynth filters are extremely heavy on CPU an
 1. Download `charlotte.exe` from the [latest release](https://github.com/lunarmint/charlotte/releases/latest).
 2. Put `ffmpeg.exe` and `mkvmerge.exe` in the same directory as `charlotte.exe`.
 3. Locate `.usm` files at:
-   - `[Game Directory]\Genshin Impact game\GenshinImpact_Data\StreamingAssets\VideoAssets\StandaloneWindows64`
+```
+[Game Directory]\Genshin Impact game\GenshinImpact_Data\StreamingAssets\VideoAssets\StandaloneWindows64
+```
 
 Note: the availability of older cutscenes depends on your local game files and resource cleanup history.
 
@@ -65,14 +67,22 @@ Note: the availability of older cutscenes depends on your local game files and r
 charlotte [PATH_TO_USM_FILE_OR_DIR] [OPTIONS]
 ```
 
-### Example
+Example:
 
 ```sh
 charlotte "C:\Users\Mint\Desktop\Data\Programming\charlotte\test\USM\Cs_EQHDJ005_HaiDengJie_Boy.usm" -vs -nc
 
 ```
 
+For help:
+
+```sh
+charlotte --help
+```
+
 This decrypts the cutscene, applies the VapourSynth filter script, and writes to `output/Cs_EQHDJ005_HaiDengJie_Boy/Cs_EQHDJ005_HaiDengJie_Boy.mkv` without deleting intermediate files.
+
+**Tip**: If you're running with `-vs` flag, for higher encoding speed, setting Python and FFmpeg in Task Manager to high priority can help. Alternatively, you can leave the terminal on the front so that Windows' Process Scheduling Priority will prioritize Charlotte.
 
 ### Parameters
 
@@ -88,12 +98,20 @@ This decrypts the cutscene, applies the VapourSynth filter script, and writes to
 
 ### Prerequisites
 
-- Python `3.14+`
+- Python 3.14 or higher
 - [uv](https://github.com/astral-sh/uv)
-- Required VapourSynth plugins and ML models:
-  - Place [ArtCNN_R8F64.onnx](https://github.com/Artoriuz/ArtCNN/releases/latest/download/ArtCNN_R8F64.onnx) in `.venv\Lib\site-packages\vapoursynth\plugins\vsrepo\models\ArtCNN`
-  - Extract `vsmlrt` [part 1](https://github.com/AmusementClub/vs-mlrt/releases/download/v15.16/vsmlrt-windows-x64-cuda.v15.16.7z.001) & [part 2](https://github.com/AmusementClub/vs-mlrt/releases/download/v15.16/vsmlrt-windows-x64-cuda.v15.16.7z.002) to `.venv\Lib\site-packages\vapoursynth\plugins`. Move `vsmlrt.py` to `.venv\Lib\site-packages`
-  - To save space, you may remove all other `\models` included with `vsmlrt` except `ArtCNN_R8F64.onnx`.
+
+Install dependencies:
+```sh
+uv sync
+```
+
+Run the project:
+```
+uv run main.py USM/Cs_EQHDJ005_HaiDengJie_Boy.usm -vs -nc
+```
+
+For flag options, refer to the [Parameters](#parameters) section.
 
 ### Build Command
 
