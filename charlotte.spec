@@ -1,8 +1,13 @@
+from PyInstaller.utils.hooks import collect_data_files
+
 a = Analysis(
     ["main.py"],
     pathex=[],
     binaries=[],
-    datas=[("vs", "vs")],
+    datas=[
+        ("vs", "vs"),
+        *collect_data_files("vapoursynth"),
+    ],
     hiddenimports=[
         "vsdeband",
         "vsdenoise",
@@ -18,6 +23,9 @@ a = Analysis(
     optimize=2,
 )
 pyz = PYZ(a.pure)
+
+# Remove the duplicate libvapoursynth.dll from the root
+a.binaries = [x for x in a.binaries if not x[0].lower().startswith('libvapoursynth.dll')]
 
 exe = EXE(
     pyz,
