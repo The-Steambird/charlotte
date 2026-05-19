@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING
 from vsdeband import Grainer, deband_detail_mask, placebo_deband
 from vsdenoise import DFTTest, MVToolsPreset, Prefilter, bm3d, deblock_qed, mc_degrain, nl_means
 from vsjetpack import setup_logging
-from vspreview import is_preview
 from vssource import BestSource
 from vstools import (
     DitherType,
@@ -77,6 +76,8 @@ def filter_chain(input_path: Path, preview: bool = False) -> tuple[VideoNode, ..
 
 
 if __name__ in {"__main__", "__vapoursynth__", "__vspreview__"}:
+    from vspreview import is_preview
+
     file_name = Path(__file__).stem
     file_path = Path(__file__).parent.parent / "output" / file_name / f"{file_name}.ivf"
 

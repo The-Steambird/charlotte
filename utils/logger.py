@@ -10,3 +10,6 @@ logging.basicConfig(
 )
 
 log = logging.getLogger("charlotte")
+
+# Suppress VapourSynth INFO/WARNING logs (e.g. dynamic thread reduction, API3 deprecations)
+logging.getLogger("vapoursynth").setLevel(logging.ERROR)
