@@ -7,6 +7,8 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import vapoursynth as vs
+
 from tqdm import tqdm
 
 from utils.logger import log
@@ -97,6 +99,8 @@ def worker(
     queue: multiprocessing.Queue,
 ) -> None:
     log.info(f"Applying VapourSynth filter: {file_stem}")
+    # Max 8 threads for high-end CPUs. Scale down to 1/2 for low-end CPUs to leave room for FFmpeg.
+    vs.core.num_threads = min(8, max(1, multiprocessing.cpu_count() // 2))
 
     if getattr(sys, "frozen", False):
         root = Path(sys.executable).parent

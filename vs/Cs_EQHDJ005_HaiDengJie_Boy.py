@@ -30,11 +30,11 @@ def filter_chain(input_path: Path, preview: bool = False) -> tuple[VideoNode, ..
     # Denoise
     ref = mc_degrain(
         clip=deblock,
-        tr=3,
-        blksize=32,
-        refine=2,
+        tr=2,
+        blksize=64,
+        refine=3,
         thsad=150,
-        prefilter=Prefilter.DFTTEST(backend=DFTTest.Backend.NVRTC(num_streams=4)),
+        prefilter=Prefilter.DFTTEST(backend=DFTTest.Backend.NVRTC),
         preset=MVToolsPreset.HQ_SAD,
     )
     denoise = bm3d(
