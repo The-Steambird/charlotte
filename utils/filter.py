@@ -1,4 +1,5 @@
 import importlib
+import importlib.util
 import multiprocessing
 import subprocess
 import sys
@@ -107,7 +108,7 @@ def worker(
 
     try:
         module_name = file_stem
-        if not (root / "vs" / f"{file_stem}.py").exists():
+        if importlib.util.find_spec(f"vs.{file_stem}") is None:
             if file_stem.endswith("_Girl"):
                 alt_stem = file_stem.removesuffix("_Girl") + "_Boy"
             elif file_stem.endswith("_Boy"):
@@ -115,7 +116,7 @@ def worker(
             else:
                 alt_stem = None
 
-            if alt_stem and (root / "vs" / f"{alt_stem}.py").exists():
+            if alt_stem and importlib.util.find_spec(f"vs.{alt_stem}") is not None:
                 log.info(f"VapourSynth script for {file_stem} not found, using {alt_stem} instead.")
                 module_name = alt_stem
 
@@ -236,6 +237,7 @@ def vapoursynth_filter(
     process.join()
 
     if process.exitcode != 0:
+        log.error(f"VapourSynth worker exited with code {process.exitcode}")
         return None
 
     if queue.get() is True:

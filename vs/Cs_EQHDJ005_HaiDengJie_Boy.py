@@ -1,7 +1,6 @@
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from vsaa import based_aa
 from vsdeband import Grainer, deband_detail_mask, placebo_deband
 from vsdenoise import DFTTest, MVToolsPreset, Prefilter, bm3d, deblock_qed, mc_degrain, nl_means
 from vsjetpack import setup_logging
@@ -52,14 +51,11 @@ def filter_chain(input_path: Path, preview: bool = False) -> tuple[VideoNode, ..
         clip=denoise, h=0.2, tr=2, ref=ref, planes=[1, 2], backend=nl_means.Backend.CUDA
     )
 
-    # Anti-aliasing
-    aa = based_aa(denoise, rfactor=2.0)
-
     # Deband
-    deband_mask = deband_detail_mask(clip=aa, sigma=1.0, brz=(0.01, 0.02))
+    deband_mask = deband_detail_mask(clip=denoise, sigma=1.0, brz=(0.01, 0.02))
     deband_mask = deband_mask.std.Maximum().std.BoxBlur(hradius=2, vradius=2)
-    deband = placebo_deband(clip=aa, radius=16, thr=2, grain=0, iterations=3)
-    merge = core.std.MaskedMerge(deband, aa, deband_mask)
+    deband = placebo_deband(clip=denoise, radius=16, thr=2, grain=0, iterations=3)
+    merge = core.std.MaskedMerge(deband, denoise, deband_mask)
 
     # Grain
     grain = Grainer.FBM_SIMPLEX(
@@ -76,7 +72,7 @@ def filter_chain(input_path: Path, preview: bool = False) -> tuple[VideoNode, ..
     final = finalize_clip(clip=grain, bits=10)
 
     if preview:
-        return clip, deblock, denoise, aa, deband_mask, merge, grain, final
+        return clip, deblock, denoise, deband_mask, merge, grain, final
     return final
 
 
@@ -84,16 +80,13 @@ if __name__ in {"__main__", "__vapoursynth__", "__vspreview__"}:
     file_name = Path(__file__).stem
     file_path = Path(__file__).parent.parent / "output" / file_name / f"{file_name}.ivf"
 
-    clip, deblock, denoise, aa, deband_mask, merge, grain, final = filter_chain(
-        file_path, preview=True
-    )
+    clip, deblock, denoise, deband_mask, merge, grain, final = filter_chain(file_path, preview=True)
 
     if is_preview():
         set_output(depth(clip, 8, dither_type=DitherType.NONE), "Source")
         set_output(deblock, "Deblock")
         set_output(depth(denoise, 8, dither_type=DitherType.NONE), "Denoised")
         set_output(core.akarin.Expr([denoise, clip], ["x y - 8 * 32768 +"]), "Denoise Diff")
-        set_output(aa, "Anti-Aliased")
         set_output(deband_mask, "Deband Mask")
         set_output(merge, "Deband")
         set_output(grain, "Grained")
