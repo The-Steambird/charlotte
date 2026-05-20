@@ -60,12 +60,12 @@ def fetch_upstream_keys() -> bytes | None:
 def find_key_from_file(data: dict, filename: str) -> int | None:
     for version in data.get("list", []):
         if "videos" in version and filename in version["videos"]:
-            return version.get("key", None)
+            return version.get("videoKey", None)
 
         if "videoGroups" in version:
             for group in version["videoGroups"]:
                 if filename in group["videos"]:
-                    return group.get("key", None)
+                    return group.get("videoKey", None)
     return None
 
 
