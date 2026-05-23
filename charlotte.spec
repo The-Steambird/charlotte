@@ -1,9 +1,12 @@
 from PyInstaller.utils.hooks import collect_data_files
 
+
 a = Analysis(
     ["main.py"],
     pathex=[],
-    binaries=[],
+    binaries=[
+        ("ffmpeg.exe", "."),
+    ],
     datas=[
         ("vs", "vs"),
         *collect_data_files("vapoursynth"),
@@ -25,7 +28,7 @@ a = Analysis(
 pyz = PYZ(a.pure)
 
 # Remove the duplicate libvapoursynth.dll from the root
-a.binaries = [x for x in a.binaries if not x[0].lower().startswith('libvapoursynth.dll')]
+a.binaries = [x for x in a.binaries if not x[0].lower().startswith("libvapoursynth.dll")]
 
 exe = EXE(
     pyz,

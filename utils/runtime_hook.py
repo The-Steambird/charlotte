@@ -1,6 +1,7 @@
 import ctypes
 import os
 import sys
+from pathlib import Path
 
 
 if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
@@ -12,6 +13,10 @@ if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
     LoadLibrary("libvapoursynth.dll") calls reuse this instance, giving the correct
     plugin path _MEIPASS/vapoursynth/plugins/.
     """
-    dll = os.path.join(sys._MEIPASS, "vapoursynth", "libvapoursynth.dll")
-    if os.path.isfile(dll):
-        ctypes.WinDLL(dll)
+    meipass = Path(sys._MEIPASS)
+
+    dll = meipass / "vapoursynth" / "libvapoursynth.dll"
+    if dll.is_file():
+        ctypes.WinDLL(str(dll))
+
+    os.environ["PATH"] = f"{meipass}{os.pathsep}{os.environ.get('PATH', '')}"

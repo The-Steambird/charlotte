@@ -102,10 +102,7 @@ def worker(
     # Max 8 threads for high-end CPUs. Scale down to 1/2 for low-end CPUs to leave room for FFmpeg.
     vs.core.num_threads = min(8, max(1, multiprocessing.cpu_count() // 2))
 
-    if getattr(sys, "frozen", False):
-        root = Path(sys.executable).parent
-    else:
-        root = Path(__file__).parent.parent
+    root = Path(sys._MEIPASS) if getattr(sys, "frozen", False) else Path(__file__).parent.parent
 
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
