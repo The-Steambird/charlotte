@@ -53,7 +53,7 @@ I should also mention that the VapourSynth filters are extremely heavy on CPU an
 ### Prerequisites
 
 1. Download `charlotte.exe` from the [latest release](https://github.com/lunarmint/charlotte/releases/latest).
-2. Put `ffmpeg.exe` and `mkvmerge.exe` in the same directory as `charlotte.exe`.
+2. Put [ffmpeg.exe](https://www.gyan.dev/ffmpeg/builds/#release-builds) and [mkvmerge.exe](https://mkvtoolnix.download/downloads.html#windows) in the same directory as `charlotte.exe`.
 3. Locate `.usm` files at:
 ```
 [Game Directory]\Genshin Impact game\GenshinImpact_Data\StreamingAssets\VideoAssets\StandaloneWindows64
@@ -70,7 +70,7 @@ charlotte [PATH_TO_USM_FILE_OR_DIR] [OPTIONS]
 Example:
 
 ```sh
-charlotte "C:\Users\Mint\Desktop\Data\Programming\charlotte\test\USM\Cs_EQHDJ005_HaiDengJie_Boy.usm" -vs -nc
+charlotte "USM\Cs_EQHDJ005_HaiDengJie_Girl.usm" -vs -nc
 
 ```
 
