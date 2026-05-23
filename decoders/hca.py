@@ -1,5 +1,6 @@
 import struct
 import subprocess
+import sys
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -364,10 +365,10 @@ class HCA:
     def convert_to_flac(self, output_path: Path) -> Path:
         """Convert HCA to FLAC using ffmpeg."""
         flac_file = output_path / f"{self.file_path.stem}.flac"
-
+        root = Path(sys._MEIPASS) if getattr(sys, "frozen", False) else Path(__file__).parent.parent
         # Build ffmpeg command - use the already decrypted HCA file
         cmd = [
-            "ffmpeg",
+            str(root / "ffmpeg.exe"),
             "-y",  # Overwrite output file
             "-loglevel",
             "error",  # Only show errors
