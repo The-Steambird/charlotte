@@ -99,8 +99,9 @@ def worker(
     queue: multiprocessing.Queue,
 ) -> None:
     log.info(f"Applying VapourSynth filter: {file_stem}")
-    # Max 8 threads for high-end CPUs. Scale down to 1/2 for low-end CPUs to leave room for FFmpeg.
+    # Max 8 threads for high-end CPUs. Scale down to 1/2 for low-end CPUs to leave room for ffmpeg.
     vs.core.num_threads = min(8, max(1, multiprocessing.cpu_count() // 2))
+    vs.core.max_cache_size = 4096
 
     root = Path(sys._MEIPASS) if getattr(sys, "frozen", False) else Path(__file__).parent.parent
 
