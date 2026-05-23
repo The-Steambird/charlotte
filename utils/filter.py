@@ -106,7 +106,6 @@ def worker(
     log.info(f"Applying VapourSynth filter: {file_stem}")
     # Max 8 threads for high-end CPUs. Scale down to 1/2 for low-end CPUs to leave room for ffmpeg.
     vs.core.num_threads = min(8, max(1, multiprocessing.cpu_count() // 2))
-    vs.core.max_cache_size = 4096
 
     root = Path(sys._MEIPASS) if getattr(sys, "frozen", False) else Path(__file__).parent.parent
 
@@ -197,21 +196,23 @@ def worker(
                     vapoursynth_progress.update(total_frames - vapoursynth_progress.n)
 
         with ThreadPoolExecutor(max_workers=1) as executor:
-            # ffmpeg_pipe runs on a background thread, continuously writing frames to ffmpeg's stdin
-            # while the main thread drains stderr.
-            vs_future = executor.submit(ffmpeg_pipe)
+            # parse_ffmpeg_stderr runs on a background thread, continuously reading ffmpeg's stderr
+            # while the main thread safely handles VapourSynth (CUDA/COM contexts).
+            stderr_future = executor.submit(parse_ffmpeg_stderr, process, ffmpeg_progress)
 
-            # Blocks until ffmpeg closes stderr (only happens when FFmpeg exits). By then
-            # executor's __exit__ joins the background thread, so vs_future is resolved.
-            parse_ffmpeg_stderr(process, ffmpeg_progress)
+            # Blocks until VapourSynth finishes writing all frames.
+            try:
+                ffmpeg_pipe()
+            except Exception as e:
+                log.error(f"\nVapourSynth processing failed: {e}")
+                queue.put(False)
+                return
+
+            # Wait for stderr reader to finish
+            stderr_future.result()
 
         # FFmpeg exit, collect the exit code.
         return_code = process.wait()
-
-    if exc := vs_future.exception():
-        log.error(f"\nVapourSynth processing failed: {exc}")
-        queue.put(False)
-        return
 
     if return_code != 0:
         log.error(f"FFmpeg exited with code {return_code}")

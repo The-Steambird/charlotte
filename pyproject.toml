@@ -7,7 +7,6 @@ requires-python = ">=3.14"
 readme = "README.md"
 maintainers = [{ name = "Mint" }]
 dependencies = [
-    "dfttest2>=10",
     "orjson>=3.11.9",
     "pyinstaller>=6.20.0",
     "tqdm>=4.67.3",
@@ -17,13 +16,8 @@ dependencies = [
     "vapoursynth-adaptivegrain>=0.5.0",
     "vapoursynth-akarin>=1.4.1",
     "vapoursynth-bestsource>=18.0",
-    "vapoursynth-bm3dcuda>=2.16",
     "vapoursynth-dctfilter>=3.2",
     "vapoursynth-deblock>=8.1",
-    "vapoursynth-dfttest2-nvrtc>=10",
-    "vapoursynth-eedi3>=10.0",
-    "vapoursynth-mvtools>=27",
-    "vapoursynth-nlm-cuda>=4",
     "vapoursynth-resize2>=0.4.3",
     "vapoursynth-vszip>=14.1.0",
     "vapoursynth-zsmooth>=0.15.5",
@@ -36,7 +30,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "deptry>=0.25.1",
-    "ruff>=0.15.13",
+    "ruff>=0.15.14",
 ]
 
 [[tool.uv.index]]
