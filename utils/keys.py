@@ -5,6 +5,7 @@ from pathlib import Path
 import orjson
 import typer
 import urllib3
+
 from utils.logger import log
 
 
@@ -12,27 +13,19 @@ http = urllib3.PoolManager()
 
 
 def calculate_key_from_filename(filename: str) -> int:
-    """Calculate encryption key component from filename.
-    This is the first part of the key calculation, based on a hash of the filename.
-    """
-    # Handle special intro files that share the same base name.
-    intro_files = [
+    filename_fix = [
         "MDAQ001_OPNew_Part1",
         "MDAQ001_OPNew_Part2_PlayerBoy",
         "MDAQ001_OPNew_Part2_PlayerGirl",
     ]
-    if filename in intro_files:
+    if filename in filename_fix:
         filename = "MDAQ001_OP"
 
-    # Calculate hash: sum = char + 3 * sum for each character.
     sum_val = 0
     for char in filename:
         sum_val = ord(char) + 3 * sum_val
 
-    # Mask to 56 bits (0xFFFFFFFFFFFFFF = 2^56 - 1).
     sum_val &= 0xFFFFFFFFFFFFFF
-
-    # Return sum or default value if zero.
     result = 0x100000000000000
     if sum_val > 0:
         result = sum_val
@@ -70,7 +63,6 @@ def find_key_from_file(data: dict, filename: str) -> int | None:
 
 
 def get_key(filename: str) -> int | None:
-    """Find encryption key in keys.json."""
     if getattr(sys, "frozen", False):
         root_dir = Path(sys.executable).parent
     else:
@@ -78,7 +70,7 @@ def get_key(filename: str) -> int | None:
 
     keys_path = root_dir / "keys.json"
 
-    # Fetch if completely missing
+    # Fetch if completely missing.
     if not keys_path.exists():
         log.info(f"keys.json not found at {keys_path}.")
         upstream_data = fetch_upstream_keys()
@@ -95,12 +87,12 @@ def get_key(filename: str) -> int | None:
         local_data = {"list": []}
         local_bytes = b""
 
-    # Check local first
+    # Check local first.
     key = find_key_from_file(local_data, filename)
     if key is not None:
         return key
 
-    # Key not found locally, try checking upstream
+    # Key not found locally, try checking upstream.
     log.info(f"Key for {filename} not found. Checking upstream...")
     upstream_bytes = fetch_upstream_keys()
 
@@ -136,12 +128,6 @@ def get_key(filename: str) -> int | None:
 
 
 def get_decryption_key(filename: str) -> tuple[bytes, bytes] | None:
-    """Get complete decryption key for a USM file.
-
-    Combines the filename-based key with key from keys.json to produce
-    the final decryption key split into two 4-byte components.
-    """
-    # Remove extension if present.
     basename = Path(filename).stem
     key1 = calculate_key_from_filename(basename)
     key2 = get_key(basename)
@@ -153,7 +139,6 @@ def get_decryption_key(filename: str) -> tuple[bytes, bytes] | None:
     if ((key1 + key2) & 0xFFFFFFFFFFFFFF) != 0:
         final_key = (key1 + key2) & 0xFFFFFFFFFFFFFF
 
-    # Split 64-bit key into two 32-bit keys (little-endian).
     key_bytes = final_key.to_bytes(8, byteorder="little")
     key1 = key_bytes[:4]
     key2 = key_bytes[4:]

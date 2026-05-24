@@ -9,10 +9,10 @@ from utils.logger import log
 
 
 # USM chunk signatures
-SIG_CRID = 0x43524944  # CRID - Container ID
-SIG_VIDEO = 0x40534656  # @SFV - Video chunk
-SIG_AUDIO = 0x40534641  # @SFA - Audio chunk
-SIG_CUE = 0x40435545  # @CUE - Cue point
+SIG_CRID = 0x43524944
+SIG_VIDEO = 0x40534656
+SIG_AUDIO = 0x40534641
+SIG_CUE = 0x40435545
 
 HEADER_SIZE = 32
 VIDEO_OFFSET = 0x40
@@ -158,12 +158,12 @@ class USM:
 
         elif header.signature not in (
             SIG_CRID,
-            SIG_VIDEO,  # (non-zero data_type like metadata)
-            SIG_AUDIO,  # (non-zero data_type)
+            SIG_VIDEO,
+            SIG_AUDIO,
             SIG_CUE,
-            0x40415050,  # @APP
-            0x40414C50,  # @ALP
-            0x40534254,  # @SBT
+            0x40415050,
+            0x40414C50,
+            0x40534254,
         ):
             log.warning(f"Unknown signature {header.signature}")
 

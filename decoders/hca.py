@@ -12,8 +12,6 @@ from utils.logger import log
 
 @dataclass
 class HCAHeader:
-    """HCA file header information."""
-
     version: int = 0
     data_offset: int = 0
     block_count: int = 0
@@ -22,16 +20,6 @@ class HCAHeader:
 
 
 class HCA:
-    """HCA audio decoder.
-
-    Decrypts CRI Middleware's HCA (High Compression Audio) format and converts to FLAC via ffmpeg.
-
-    Args:
-        file_path: Path to the HCA file
-        key1: Optional decryption key (4 bytes) for cipher type 56
-        key2: Optional decryption key (4 bytes) for cipher type 56
-    """
-
     def __init__(self, file_path: Path, key1: bytes | None = None, key2: bytes | None = None):
         self.file_path = Path(file_path)
         self.key1 = key1 or bytes(4)
@@ -44,14 +32,6 @@ class HCA:
         self._read_header()
 
     def _init56_create_table(self, key: int) -> bytearray:
-        """Generate a substitution table for cipher type 56.
-
-        Args:
-            key: Input key byte for table generation.
-
-        Returns:
-            A 16-byte substitution table.
-        """
         table = bytearray(0x10)
         mul = (key & 1) << 3 | 5
         add = key & 0xE | 1
@@ -64,11 +44,6 @@ class HCA:
         return table
 
     def _init_mask(self, mask_type: int) -> None:
-        """Initialize the cipher mask table based on the cipher type.
-
-        Args:
-            mask_type: The cipher type identifier (0 = none, 1 = constant, 56 = key-based).
-        """
         if mask_type == 0:
             for i in range(0x100):
                 self.ciph_table[i] = i
@@ -140,19 +115,10 @@ class HCA:
             self.ciph_table[0xFF] = 0xFF
 
     def _mask(self, data: bytearray) -> None:
-        """Apply cipher mask to data."""
         data[:] = data.translate(self.ciph_table)
 
     @staticmethod
     def _checksum(data: bytes) -> int:
-        """Calculate 16-bit checksum for HCA blocks.
-
-        Args:
-            data: The data bytes to checksum (excluding the checksum field itself).
-
-        Returns:
-            The calculated 16-bit checksum.
-        """
         v = [
             0x0000, 0x8005, 0x800F, 0x000A, 0x801B, 0x001E, 0x0014, 0x8011, 0x8033, 0x0036, 0x003C,
             0x8039, 0x0028, 0x802D, 0x8027, 0x0022, 0x8063, 0x0066, 0x006C, 0x8069, 0x0078, 0x807D,
@@ -186,13 +152,7 @@ class HCA:
         return checksum
 
     def _read_header(self) -> None:
-        """Read and parse the HCA file header structure.
-
-        Parses magic bytes, version, header chunks (fmt, comp/dec, vbr, ath, loop, ciph, rva, comm, pad),
-        and verifies the header integrity.
-        """
         with open(self.file_path, "rb") as fp:
-            # Read magic header
             hca_bytes = bytearray(fp.read(8))
 
             magic = 0xFFFFFFFF
@@ -205,22 +165,18 @@ class HCA:
             if sign != 0x00414348:
                 raise ValueError("Invalid HCA header")
 
-            # Write unmasked signature back to hca_bytes
             struct.pack_into("<I", hca_bytes, 0, sign)
 
             self.header_struct.version = struct.unpack(">H", hca_bytes[4:6])[0]
             self.header_struct.data_offset = struct.unpack(">H", hca_bytes[6:8])[0]
 
-            # Read full header
             fp.seek(0)
             self.header_bytes = bytearray(fp.read(self.header_struct.data_offset))
 
-            # Copy unmasked hca_bytes into header
             self.header_bytes[0:8] = hca_bytes[0:8]
 
             header_offset = 8
 
-            # Parse fmt block
             sign = (
                 struct.unpack("<I", self.header_bytes[header_offset : header_offset + 4])[0] & magic
             )
@@ -233,7 +189,6 @@ class HCA:
             else:
                 raise ValueError("fmt block not found")
 
-            # Parse comp or dec block
             sign = (
                 struct.unpack("<I", self.header_bytes[header_offset : header_offset + 4])[0] & magic
             )
@@ -253,7 +208,6 @@ class HCA:
             else:
                 raise ValueError("comp/dec block not found")
 
-            # Parse optional vbr block
             sign = (
                 struct.unpack("<I", self.header_bytes[header_offset : header_offset + 4])[0] & magic
             )
@@ -261,7 +215,6 @@ class HCA:
                 struct.pack_into("<I", self.header_bytes, header_offset, sign)
                 header_offset += 8
 
-            # Parse optional ath block
             sign = (
                 struct.unpack("<I", self.header_bytes[header_offset : header_offset + 4])[0] & magic
             )
@@ -269,7 +222,6 @@ class HCA:
                 struct.pack_into("<I", self.header_bytes, header_offset, sign)
                 header_offset += 6
 
-            # Parse optional loop block
             sign = (
                 struct.unpack("<I", self.header_bytes[header_offset : header_offset + 4])[0] & magic
             )
@@ -277,7 +229,6 @@ class HCA:
                 struct.pack_into("<I", self.header_bytes, header_offset, sign)
                 header_offset += 16
 
-            # Parse optional ciph block
             sign = (
                 struct.unpack("<I", self.header_bytes[header_offset : header_offset + 4])[0] & magic
             )
@@ -290,7 +241,6 @@ class HCA:
                     raise ValueError(f"Invalid cipher type: {self.header_struct.ciph_type}")
                 header_offset += 6
 
-            # Parse optional rva block
             sign = (
                 struct.unpack("<I", self.header_bytes[header_offset : header_offset + 4])[0] & magic
             )
@@ -298,7 +248,6 @@ class HCA:
                 struct.pack_into("<I", self.header_bytes, header_offset, sign)
                 header_offset += 8
 
-            # Parse optional comm block
             sign = (
                 struct.unpack("<I", self.header_bytes[header_offset : header_offset + 4])[0] & magic
             )
@@ -306,7 +255,6 @@ class HCA:
                 struct.pack_into("<I", self.header_bytes, header_offset, sign)
                 header_offset += 5
 
-            # Parse optional pad block
             sign = (
                 struct.unpack("<I", self.header_bytes[header_offset : header_offset + 4])[0] & magic
             )
@@ -314,11 +262,9 @@ class HCA:
                 struct.pack_into("<I", self.header_bytes, header_offset, sign)
                 header_offset += 4
 
-            # Update checksum
             checksum = self._checksum(self.header_bytes[:-2])
             struct.pack_into(">H", self.header_bytes, len(self.header_bytes) - 2, checksum)
 
-            # Read audio data
             self.data = bytearray(
                 fp.read(self.header_struct.block_size * self.header_struct.block_count)
             )
@@ -326,12 +272,6 @@ class HCA:
         self._init_mask(self.header_struct.ciph_type)
 
     def decrypt(self) -> None:
-        """Decrypt the audio data in-place and save to disk.
-
-        This method applies the initialized cipher mask to each block of the audio data,
-        updates the block checksums, and overwrites the input file with the decrypted version.
-        If the file is not encrypted (ciph_type == 0), this operation does nothing.
-        """
         if self.header_struct.ciph_type == 0:
             return
 
@@ -340,12 +280,10 @@ class HCA:
             block = bytearray(self.data[offset : offset + self.header_struct.block_size])
             self._mask(block)
 
-            # Update checksum
             checksum = self._checksum(block[:-2])
             struct.pack_into(">H", block, len(block) - 2, checksum)
             self.data[offset : offset + self.header_struct.block_size] = block
 
-        # Update header to reflect decryption
         self.header_struct.ciph_type = 0
         try:
             ciph_start = self.header_bytes.index(b"ciph")
@@ -353,31 +291,24 @@ class HCA:
         except ValueError:
             pass
 
-        # Re-checksum the header
         checksum = self._checksum(self.header_bytes[:-2])
         struct.pack_into(">H", self.header_bytes, len(self.header_bytes) - 2, checksum)
 
-        # Write decrypted HCA back to file
         with open(self.file_path, "wb") as f:
             f.write(self.header_bytes)
             f.write(self.data)
 
     def convert_to_flac(self, output_path: Path) -> Path:
-        """Convert HCA to FLAC using ffmpeg."""
         flac_file = output_path / f"{self.file_path.stem}.flac"
         root = Path(sys._MEIPASS) if getattr(sys, "frozen", False) else Path(__file__).parent.parent
-        # Build ffmpeg command - use the already decrypted HCA file
         cmd = [
             str(root / "ffmpeg.exe"),
             "-y",  # Overwrite output file
-            "-loglevel",
-            "error",  # Only show errors
-            "-i",
-            str(self.file_path),
-            "-compression_level",
-            "8",
+            "-loglevel", "error",
+            "-i", str(self.file_path),
+            "-compression_level", "8",
             str(flac_file),
-        ]
+        ]  # fmt: skip
 
         try:
             subprocess.run(cmd, capture_output=True, text=True, check=True)
