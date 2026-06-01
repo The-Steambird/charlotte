@@ -1,3 +1,5 @@
+import sys
+
 from pathlib import Path
 
 import urllib3
@@ -32,8 +34,6 @@ def fetch_subtitle(stem: str, lang: str) -> bytes | None:
 
 
 def get_subtitle_path(stem: str, lang: str) -> Path | None:
-    import sys
-
     if getattr(sys, "frozen", False):
         root = Path(sys.executable).parent
     else:
