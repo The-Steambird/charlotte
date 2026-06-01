@@ -18,7 +18,7 @@
 
 # Charlotte
 
-Charlotte is a Genshin Impact utility that losslessly decrypts `.usm` cutscene files into playable `.mkv` videos.
+Charlotte is a Genshin Impact utility that losslessly decrypts `.usm` cutscene files into playable `.mkv` videos. Ships as a self-contained binary — FFmpeg and VapourSynth are bundled, no external tools needed.
 
 - Supports EN, CN, JP, KR audio tracks
 - Supports subtitles in 15 languages
@@ -37,11 +37,14 @@ This project is heavily inspired by [GI-cutscenes](https://github.com/ToaHartor/
 ## Features
 
 - [x] Decrypt `.usm` into `.ivf` video and `.hca` audio
-- [x] Convert `.srt` subtitles into styled `.ass` with matching official cutscene subtitle style and fonts
 - [x] Convert `.hca` audio to `.flac` for archival
+- [x] Convert `.srt` subtitles into styled `.ass` with matching official cutscene subtitle style and fonts
+- [x] Mux all tracks into `.mkv`
+- [x] Bundled lightweight custom FFmpeg — no system installation required
+- [x] Automatically fetches missing decryption keys from upstream
 - [x] Automatically fetches subtitles from DimBreath and fonts from the game directory
-- [x] Mux tracks into `.mkv`
-- [x] Full VapourSynth processing workflow
+- [x] VapourSynth and all plugins bundled inside the binary — zero extra setup
+- [x] Progress bars throughout the entire pipeline
 - [ ] Graphical User Interface
 
 VapourSynth filter scripts take a lot of time to write to ensure quality, hence they will be slowly added over time. If you have encoding knowledge, contributions are welcome!
