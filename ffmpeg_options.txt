@@ -1,7 +1,8 @@
 # Lines starting with this character are ignored
 
 --disable-everything
---enable-demuxer=hca,yuv4mpegpipe
+--enable-demuxer=hca,yuv4mpegpipe,ivf,matroska,flac,ass
+--enable-parser=vp9
 --enable-muxer=matroska,flac
 --enable-decoder=hca,rawvideo
 --enable-encoder=flac,libx265

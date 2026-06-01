@@ -1,6 +1,7 @@
 import subprocess
+import sys
 
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import typer
 
@@ -9,15 +10,10 @@ from utils.languages import AUDIO_LANGUAGES
 from utils.logger import log
 
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
-
 def mux(
     output_path: Path, vs_path: Path | None = None, fonts: tuple[Path, Path] | None = None
 ) -> None:
-    """Mux IVF video and FLAC audio into MKV container using mkvmerge."""
-    # Collect video and audio files
+    """Mux IVF video and FLAC audio into MKV container using ffmpeg."""
     input_file = output_path / f"{output_path.stem}.ivf"
     if vs_path:
         input_file = vs_path
@@ -35,51 +31,57 @@ def mux(
 
     output_mkv = output_path / f"{output_path.stem}.mkv"
 
-    # Build mkvmerge command
-    cmd = ["mkvmerge", "-o", str(output_mkv), str(input_file)]
-
-    # Put JP track with EN sub to the top.
     flac_files.sort(key=lambda x: 0 if "_2.flac" in str(x) else 1)
     subtitle_files.sort(key=lambda x: 0 if "_EN.ass" in str(x) else 1)
 
+    root = Path(sys._MEIPASS) if getattr(sys, "frozen", False) else Path(__file__).parent.parent
+    ffmpeg_path = root / "ffmpeg.exe"
+
+    cmd = [str(ffmpeg_path), "-y", "-v", "error"]
+
+    cmd.extend(["-i", str(input_file)])
     for flac_file in flac_files:
-        index = flac_file.stem.split("_")[-1]
-        cmd.extend(
-            [
-                "--language",
-                f"0:{AUDIO_LANGUAGES.get(index, 'und')}",
-                "--default-track-flag",
-                f"0:{1 if AUDIO_LANGUAGES.get(index, 'und') == 'ja' else 0}",
-                str(flac_file),
-            ]
-        )
-
-    # Add subtitles.
+        cmd.extend(["-i", str(flac_file)])
     for subtitle_file in subtitle_files:
-        subtitle_lang = subtitle_file.stem.split("_")[-1]
-        cmd.extend(
-            [
-                "--language",
-                f"0:{languages.get_language(subtitle_lang)}",
-                "--default-track-flag",
-                f"0:{1 if '_EN.ass' in str(subtitle_file) else 0}",
-                "--forced-display-flag",
-                f"0:{1 if '_EN.ass' in str(subtitle_file) else 0}",
-                str(subtitle_file),
-            ]
-        )
+        cmd.extend(["-i", str(subtitle_file)])
 
-    # Attach fonts.
+    cmd.extend(["-map", "0"])
+    for i in range(len(flac_files)):
+        cmd.extend(["-map", str(i + 1)])
+    for i in range(len(subtitle_files)):
+        cmd.extend(["-map", str(i + 1 + len(flac_files))])
+
+    cmd.extend(["-c", "copy"])
+
+    for i, flac_file in enumerate(flac_files):
+        index = flac_file.stem.split("_")[-1]
+        lang = AUDIO_LANGUAGES.get(index, "und")
+        cmd.extend([f"-metadata:s:a:{i}", f"language={lang}"])
+        cmd.extend([f"-disposition:a:{i}", "default" if lang == "ja" else "0"])
+
+    for i, subtitle_file in enumerate(subtitle_files):
+        subtitle_lang = subtitle_file.stem.split("_")[-1]
+        lang = languages.get_language(subtitle_lang)
+        cmd.extend([f"-metadata:s:s:{i}", f"language={lang}"])
+        is_en = "_EN.ass" in str(subtitle_file)
+        cmd.extend([f"-disposition:s:{i}", "default+forced" if is_en else "0"])
+
     if fonts:
         font_ja, font_zh = fonts
         cmd.extend(
             [
-                "--attach-file",
-                f"{font_ja}",
-                "--attach-file",
-                f"{font_zh}",
+                "-attach",
+                str(font_ja),
+                "-metadata:s:t:0",
+                "mimetype=application/x-truetype-font",
+                "-attach",
+                str(font_zh),
+                "-metadata:s:t:1",
+                "mimetype=application/x-truetype-font",
             ]
         )
+
+    cmd.append(str(output_mkv))
 
     log.info(f"Muxing: {output_mkv.name}")
     try:
@@ -93,7 +95,7 @@ def mux(
         stdout, stderr = process.communicate()
         return_code = process.returncode
         if return_code != 0:
-            log.error(f"Error muxing video: mkvmerge exited with code {return_code}")
+            log.error(f"Error muxing video: ffmpeg exited with code {return_code}")
             if stdout:
                 log.info(f"stdout: {stdout}")
             if stderr:
@@ -102,5 +104,5 @@ def mux(
 
         log.info(f"Created: {output_mkv}")
     except FileNotFoundError:
-        log.error("mkvmerge not found. Place mkvmerge in the root directory and try again.")
+        log.error("FFmpeg not found.")
         raise typer.Exit(1) from None

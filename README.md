@@ -53,8 +53,7 @@ I should also mention that the VapourSynth filters are extremely heavy on CPU an
 ### Prerequisites
 
 1. Download `charlotte.exe` from the [latest release](https://github.com/lunarmint/charlotte/releases/latest).
-2. Put [ffmpeg.exe](https://www.gyan.dev/ffmpeg/builds/#release-builds) and [mkvmerge.exe](https://mkvtoolnix.download/downloads.html#windows) in the same directory as `charlotte.exe`.
-3. Locate `.usm` files at:
+2. Locate `.usm` files at:
 ```
 [Game Directory]\Genshin Impact game\GenshinImpact_Data\StreamingAssets\VideoAssets\StandaloneWindows64
 ```
@@ -110,6 +109,7 @@ Setting `--crf` or `--preset` suppresses these params, letting x265 use its own 
 
 - Python 3.14 or higher
 - [uv](https://github.com/astral-sh/uv)
+- FFmpeg (see below)
 
 Install dependencies:
 ```sh
@@ -122,6 +122,15 @@ uv run main.py USM/Cs_EQHDJ005_HaiDengJie_Boy.usm -vs -nc
 ```
 
 For flag options, refer to the [Parameters](#parameters) section.
+
+### Custom FFmpeg Build
+
+The bundled `ffmpeg.exe` is a lightweight custom build. To rebuild it:
+
+1. Set up [media-autobuild_suite](https://github.com/m-ab-s/media-autobuild_suite).
+2. Copy `ffmpeg_options.txt` from the repo root to `<suite>/build/ffmpeg_options.txt`.
+3. To force a rebuild after changing options, delete `<suite>/local64/bin-video/ffmpeg.exe` before running `media-autobuild_suite.bat`.
+4. Copy the resulting `<suite>/local64/bin-video/ffmpeg.exe` to the repo root.
 
 ### Build Command
 
