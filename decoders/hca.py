@@ -5,8 +5,6 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-import typer
-
 from utils.logger import log
 
 
@@ -317,7 +315,7 @@ class HCA:
             log.error(f"Error converting audio: {e}")
             if e.stderr:
                 log.error(f"{e.stderr}")
-            raise typer.Exit(1) from e
+            raise RuntimeError("FLAC conversion failed.") from e
         except FileNotFoundError:
-            log.error("ffmpeg not found. Place ffmpeg in the root directory and try again.")
-            raise typer.Exit(1) from None
+            log.error("FFmpeg not found. Place FFmpeg in the root directory and try again.")
+            raise RuntimeError("FFmpeg not found.") from None
