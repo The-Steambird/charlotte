@@ -184,30 +184,31 @@ class USM:
                 dynamic_ncols=True,
             ) as pbar,
         ):
-            while True:
-                header_data = fp.read(HEADER_SIZE)
-                if len(header_data) < HEADER_SIZE:
-                    pbar.update(len(header_data))
-                    break
+            try:
+                while True:
+                    header_data = fp.read(HEADER_SIZE)
+                    if len(header_data) < HEADER_SIZE:
+                        pbar.update(len(header_data))
+                        break
 
-                header = ChunkHeader.from_bytes(header_data)
-                pbar.update(header.data_size + HEADER_SIZE - 0x18)
+                    header = ChunkHeader.from_bytes(header_data)
+                    pbar.update(header.data_size + HEADER_SIZE - 0x18)
 
-                data_size = header.data_size - header.data_offset - header.padding_size
-                fp.seek(header.data_offset - 0x18, 1)
-                data = bytearray(fp.read(data_size))
-                fp.seek(header.padding_size, 1)
+                    data_size = header.data_size - header.data_offset - header.padding_size
+                    fp.seek(header.data_offset - 0x18, 1)
+                    data = bytearray(fp.read(data_size))
+                    fp.seek(header.padding_size, 1)
 
-                self._process_chunk(
-                    header,
-                    data,
-                    output_path,
-                    base_name,
-                    streams,
-                    file_paths,
-                )
-
-        for stream in streams.values():
-            stream.close()
+                    self._process_chunk(
+                        header,
+                        data,
+                        output_path,
+                        base_name,
+                        streams,
+                        file_paths,
+                    )
+            finally:
+                for stream in streams.values():
+                    stream.close()
 
         return file_paths
