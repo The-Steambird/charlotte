@@ -24,6 +24,11 @@ jobs:
       - name: Install dependencies
         run: uv sync --no-dev
 
+      - name: Download custom ffmpeg
+        run: gh release download tools --pattern ffmpeg.exe --repo ${{ github.repository }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Build with PyInstaller
         run: uv run pyinstaller charlotte.spec
 
