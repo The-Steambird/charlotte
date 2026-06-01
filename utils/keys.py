@@ -111,17 +111,14 @@ def get_key(filename: str) -> int | None:
 
     new_key = find_key_from_file(upstream_data, filename)
     if new_key is not None:
-        typer.confirm(
-            "New key(s) found. Overwrite local keys.json?",
-            default=False,
-            abort=True,
-        )
-        log.info("Resuming demux...")
-        try:
-            keys_path.write_bytes(upstream_bytes)
-        except OSError as e:
-            log.warning(f"Could not save keys.json: {e}")
-        return new_key
+        if typer.confirm("New key(s) found. Overwrite local keys.json?", default=False):
+            try:
+                keys_path.write_bytes(upstream_bytes)
+            except OSError as e:
+                log.warning(f"Could not save keys.json: {e}")
+            return new_key
+        log.info(f"Skipping {filename}: key update declined.")
+        return None
 
     log.info(f"Key for {filename} not found upstream either.")
     return None
