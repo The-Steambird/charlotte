@@ -162,7 +162,7 @@ def worker(
             desc="VapourSynth",
             unit="frames",
             position=0,
-            leave=True,
+            leave=False,
             dynamic_ncols=True,
         ) as vapoursynth_progress,
         tqdm(
@@ -170,7 +170,7 @@ def worker(
             desc="FFmpeg     ",
             unit="frames",
             position=1,
-            leave=True,
+            leave=False,
             dynamic_ncols=True,
         ) as ffmpeg_progress,
     ):
