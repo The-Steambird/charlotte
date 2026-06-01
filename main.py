@@ -68,13 +68,19 @@ def process_subtitles(stem: str, output_path: Path) -> list[Path]:
     log.info(f"Found {len(subtitle_files)} subtitle file(s).")
 
     ass_files = []
+    empty_langs = []
     for sub_file, lang in subtitle_files:
         try:
             ass = ASS(sub_file, lang)
             if ass.parse_srt():
                 ass_files.append(ass.convert_to_ass(output_path=output_path))
+            elif sub_file.stat().st_size == 0:
+                empty_langs.append(SUBTITLES_LANGUAGES[lang][1])
         except Exception as e:
             log.error(f"Error processing subtitle: {e}")
+
+    if empty_langs:
+        log.info(f"Subtitles empty, skipping: {', '.join(empty_langs)}")
 
     return ass_files
 

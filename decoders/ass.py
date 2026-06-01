@@ -56,9 +56,7 @@ class ASS:
             )
 
         if not self.dialog_lines:
-            if self.srt_file.stat().st_size == 0:
-                log.info(f"{self.srt_file.name} is empty, skipping...")
-            else:
+            if self.srt_file.stat().st_size != 0:
                 log.warning(f"{self.srt_file} is empty or has incorrect format.")
             return False
 
