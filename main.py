@@ -1,4 +1,6 @@
 import multiprocessing
+
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Annotated
 
@@ -47,12 +49,13 @@ def get_fixed_stem(stem: str) -> str:
 
 
 def process_audio(hca_files: list[Path], key1: bytes, key2: bytes, output_path: Path) -> list[Path]:
-    flac_files = []
-    for hca_file in hca_files:
+    def convert_one(hca_file: Path) -> Path:
         hca = HCA(hca_file, key1, key2)
         hca.decrypt()
-        flac_files.append(hca.convert_to_flac(output_path=output_path))
-    return flac_files
+        return hca.convert_to_flac(output_path=output_path)
+
+    with ThreadPoolExecutor() as executor:
+        return list(executor.map(convert_one, hca_files))
 
 
 def process_subtitles(stem: str, output_path: Path) -> list[Path]:
@@ -117,7 +120,10 @@ def process_usm(
     file_paths = usm.demux(output_path=output_path)
 
     hca_files = file_paths.get("hca", [])
-    flac_files = process_audio(hca_files, key1, key2, output_path)
+    try:
+        flac_files = process_audio(hca_files, key1, key2, output_path)
+    except RuntimeError:
+        raise typer.Exit(1) from None
     file_paths.setdefault("flac", []).extend(flac_files)
 
     ass_files = process_subtitles(stem, output_path)
