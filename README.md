@@ -87,12 +87,22 @@ This decrypts the cutscene, applies the VapourSynth filter script, and writes to
 ### Parameters
 
 | Type | Flag | Alias | Description |
-| --- | --- | --- | --- |
+| --- | --- |-----| --- |
 | Argument | `PATH_TO_USM_FILE_OR_DIR` | `-` | Path to one `.usm` file or a directory containing `.usm` files. |
 | Option | `--output [DIR]` | `-o` | Output directory (default: `output`). |
 | Option | `--no-cleanup` | `-nc` | Keep intermediate files (`.ivf`, `.hca`, `.ass`, etc.). |
 | Option | `--vapoursynth` | `-vs` | Apply a matching VapourSynth `.vpy` filter script. |
-| Option | `--x265-params [PARAMS]` | `-` | Pass custom x265 params (colon-separated). |
+| Option | `--crf [VALUE]` | `-crf` | x265 CRF value for VapourSynth output (default: `13.5`). Setting this suppresses the built-in `--x265-params` defaults. |
+| Option | `--preset [PRESET]` | `-preset` | x265 preset for VapourSynth output (default: `slower`). Setting this suppresses the built-in `--x265-params` defaults. |
+| Option | `--x265-params [PARAMS]` | `-x265` | Custom x265 params (colon-separated). Overrides the built-in defaults below. |
+
+When neither `--crf`, `--preset`, nor `--x265-params` is set, the following x265 params are applied automatically:
+
+```
+keyint=300:min-keyint=30:no-open-gop=1:ref=6:bframes=8:lookahead-slices=0:rc-lookahead=60:aq-mode=3:aq-strength=0.75:qcomp=0.72:cbqpoffs=-2:crqpoffs=-2:no-cutree=1:rd=4:psy-rd=2.0:psy-rdoq=1.7:max-merge=5:no-strong-intra-smoothing=1:tskip=1:deblock=-2,-2:no-sao=1:no-sao-non-deblock=1
+```
+
+Setting `--crf` or `--preset` suppresses these params, letting x265 use its own defaults for everything else. To combine custom crf/preset with custom x265 params, use `--x265-params` explicitly (it always takes full precedence).
 
 ## Build From Source
 

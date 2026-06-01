@@ -14,37 +14,49 @@ from tqdm import tqdm
 from utils.logger import log
 
 
-def ffmpeg_params(ffmpeg_path: Path, output: Path, custom_x265_params: str = "") -> list[str]:
+def ffmpeg_params(
+    ffmpeg_path: Path,
+    output: Path,
+    custom_crf: float | None = None,
+    custom_preset: str | None = None,
+    custom_x265_params: str = "",
+) -> list[str]:
+    crf = custom_crf if custom_crf is not None else 13.5
+    preset = custom_preset if custom_preset is not None else "slower"
+
     if custom_x265_params:
         x265_params = custom_x265_params
+    elif custom_crf is None and custom_preset is None:
+        x265_params = ":".join(
+            [
+                "keyint=300",
+                "min-keyint=30",
+                "no-open-gop=1",
+                "ref=6",
+                "bframes=8",
+                "lookahead-slices=0",
+                "rc-lookahead=60",
+                "aq-mode=3",
+                "aq-strength=0.75",
+                "qcomp=0.72",
+                "cbqpoffs=-2",
+                "crqpoffs=-2",
+                "no-cutree=1",
+                "rd=4",
+                "psy-rd=2.0",
+                "psy-rdoq=1.7",
+                "max-merge=5",
+                "no-strong-intra-smoothing=1",
+                "tskip=1",
+                "deblock=-2,-2",
+                "no-sao=1",
+                "no-sao-non-deblock=1",
+            ]
+        )
     else:
-        x265_params_list = [
-            "keyint=300",
-            "min-keyint=30",
-            "no-open-gop=1",
-            "ref=6",
-            "bframes=8",
-            "lookahead-slices=0",
-            "rc-lookahead=60",
-            "aq-mode=3",
-            "aq-strength=0.75",
-            "qcomp=0.72",
-            "cbqpoffs=-2",
-            "crqpoffs=-2",
-            "no-cutree=1",
-            "rd=4",
-            "psy-rd=2.0",
-            "psy-rdoq=1.7",
-            "max-merge=5",
-            "no-strong-intra-smoothing=1",
-            "tskip=1",
-            "deblock=-2,-2",
-            "no-sao=1",
-            "no-sao-non-deblock=1",
-        ]
-        x265_params = ":".join(x265_params_list)
+        x265_params = ""
 
-    return [
+    cmd = [
         str(ffmpeg_path),
         "-y",
         "-v", "info",
@@ -55,15 +67,17 @@ def ffmpeg_params(ffmpeg_path: Path, output: Path, custom_x265_params: str = "")
         "-c:v", "libx265",
         "-pix_fmt", "yuv420p10le",
         "-profile:v", "main10",
-        "-preset", "slower",
-        "-crf", "13.5",
+        "-preset", preset,
+        "-crf", str(crf),
         "-color_primaries", "bt709",
         "-color_trc", "bt709",
         "-colorspace", "bt709",
         "-color_range", "tv",
-        "-x265-params", x265_params,
-        str(output),
     ]  # fmt: skip
+    if x265_params:
+        cmd += ["-x265-params", x265_params]
+    cmd.append(str(output))
+    return cmd
 
 
 def parse_ffmpeg_stderr(process: subprocess.Popen, ffmpeg_progress: tqdm) -> None:
@@ -100,6 +114,8 @@ def parse_ffmpeg_stderr(process: subprocess.Popen, ffmpeg_progress: tqdm) -> Non
 def worker(
     file_stem: str,
     output_path: Path,
+    custom_crf: float | None,
+    custom_preset: str | None,
     x265_params: str,
     queue: multiprocessing.Queue,
 ) -> None:
@@ -139,6 +155,8 @@ def worker(
     cmd = ffmpeg_params(
         ffmpeg_path=root / "ffmpeg.exe",
         output=output_path / f"{file_stem}_filtered.mkv",
+        custom_crf=custom_crf,
+        custom_preset=custom_preset,
         custom_x265_params=x265_params,
     )
 
@@ -225,7 +243,9 @@ def worker(
 def vapoursynth_filter(
     file_stem: str,
     output_path: Path,
-    x265_params: str = "",
+    custom_crf: float | None = None,
+    custom_preset: str | None = None,
+    custom_x265_params: str = "",
 ) -> Path | None:
     """
     Spawns VapourSynth filter processing in an isolated memory process. vssource.BestSource seems to
@@ -239,7 +259,7 @@ def vapoursynth_filter(
 
     process = ctx.Process(
         target=worker,
-        args=(file_stem, output_path, x265_params, queue),
+        args=(file_stem, output_path, custom_crf, custom_preset, custom_x265_params, queue),
     )
     process.start()
     process.join()

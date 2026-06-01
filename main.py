@@ -102,7 +102,9 @@ def process_usm(
     output: str,
     no_cleanup: bool,
     vapoursynth: bool,
-    x265_params: str,
+    crf: float | None,
+    preset: str | None,
+    custom_x265_params: str,
     fonts: tuple[Path, Path] | None = None,
 ) -> None:
     stem = get_fixed_stem(usm_file.stem)
@@ -134,7 +136,9 @@ def process_usm(
         filtered_mkv = vapoursynth_filter(
             file_stem=stem,
             output_path=output_path,
-            x265_params=x265_params,
+            custom_crf=crf,
+            custom_preset=preset,
+            custom_x265_params=custom_x265_params,
         )
         if filtered_mkv:
             file_paths.setdefault("vs", []).append(filtered_mkv)
@@ -170,10 +174,29 @@ def demux(
             ),
         ),
     ] = False,
-    x265_params: Annotated[
+    custom_crf: Annotated[
+        float | None,
+        typer.Option(
+            "--crf",
+            "-crf",
+            help="x265 CRF value for VapourSynth output. When set, suppresses the built-in x265 "
+            "params (default: 13.5 when unset).",
+        ),
+    ] = None,
+    custom_preset: Annotated[
+        str | None,
+        typer.Option(
+            "--preset",
+            "-preset",
+            help="x265 preset for VapourSynth output. When set, suppresses the built-in x265 "
+            "params (default: slower when unset).",
+        ),
+    ] = None,
+    custom_x265_params: Annotated[
         str,
         typer.Option(
             "--x265-params",
+            "-x265",
             help="Custom x265 parameters (colon-separated).",
         ),
     ] = "",
@@ -184,7 +207,16 @@ def demux(
     fonts = fetch_font()
 
     for usm_file in usm_files:
-        process_usm(usm_file, output, no_cleanup, vapoursynth, x265_params, fonts)
+        process_usm(
+            usm_file,
+            output,
+            no_cleanup,
+            vapoursynth,
+            custom_crf,
+            custom_preset,
+            custom_x265_params,
+            fonts,
+        )
 
 
 if __name__ == "__main__":
