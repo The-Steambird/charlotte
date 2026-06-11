@@ -9,8 +9,8 @@ maintainers = [{ name = "Mint" }]
 dependencies = [
     "orjson>=3.11.9",
     "pyinstaller>=6.20.0",
-    "tqdm>=4.67.3",
-    "typer>=0.26.5",
+    "tqdm>=4.68.2",
+    "typer>=0.26.7",
     "urllib3>=2.7.0",
     "vapoursynth>=76",
     "vapoursynth-adaptivegrain>=0.5.0",
@@ -19,7 +19,7 @@ dependencies = [
     "vapoursynth-dctfilter>=3.2",
     "vapoursynth-deblock>=8.1",
     "vapoursynth-resize2>=0.4.3",
-    "vapoursynth-vszip>=14.2.0",
+    "vapoursynth-vszip>=14.3.0",
     "vapoursynth-zsmooth>=0.15.5",
     "vs-placebo>=2.0.2",
     "vsjetpack>=1.5.0",
@@ -30,7 +30,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "deptry>=0.25.1",
-    "ruff>=0.15.15",
+    "ruff>=0.15.17",
 ]
 
 [[tool.uv.index]]
