@@ -116,7 +116,7 @@ def demux(
         return
 
     log.info(f"Found {len(usm_files)} USM file(s).")
-    Path(output).mkdir(exist_ok=True)
+    Path(output).mkdir(parents=True, exist_ok=True)
     opts = Options(
         output=output,
         no_cleanup=no_cleanup,
@@ -127,6 +127,7 @@ def demux(
         fonts=fetch_font(),
     )
 
+    failures = 0
     for usm_file in usm_files:
         try:
             process_usm(usm_file, opts, reporter)
@@ -135,8 +136,13 @@ def demux(
             reporter.event("cancelled", file=usm_file.name)
             return
         except CharlotteError as e:
+            log.error(f"Failed to process {usm_file.name}: {e}")
             reporter.event("error", file=usm_file.name, message=str(e))
-            raise typer.Exit(1) from None
+            failures += 1
+
+    if failures:
+        log.warning(f"{failures} of {len(usm_files)} file(s) failed.")
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":
