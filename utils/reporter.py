@@ -12,7 +12,7 @@ import typer
 
 from tqdm import tqdm
 
-from utils.errors import Canceled
+from utils.errors import Cancelled
 from utils.logger import log
 
 
@@ -60,7 +60,7 @@ class Reporter:
         # calls poll_cancel(). filter.py calls poll_cancel() directly to avoid wait and properly
         # terminate dangling worker.
         if self.poll_cancel():
-            raise Canceled
+            raise Cancelled
 
     def event(self, kind, **data):
         # Machine-readable structured events. only JsonReporter emits these.
