@@ -21,7 +21,6 @@ if TYPE_CHECKING:
     from utils.reporter import Reporter
 
 
-# USM stems whose names don't match the subtitle repository naming.
 BASENAME_FIXES = {
     "Cs_4131904_HaiDaoChuXian_Boy": "Cs_Activity_4001103_Summertime_Boy",
     "Cs_4131904_HaiDaoChuXian_Girl": "Cs_Activity_4001103_Summertime_Girl",
@@ -31,7 +30,6 @@ BASENAME_FIXES = {
 
 @dataclass(frozen=True)
 class Options:
-
     output: str
     no_cleanup: bool
     vapoursynth: bool
@@ -41,10 +39,14 @@ class Options:
     fonts: tuple[Path, Path] | None = None
 
 
-def process_audio(hca_files: list[Path], key1: bytes, key2: bytes, output_path: Path) -> list[Path]:
+def process_audio(
+    hca_files: list[Path], key1: bytes, key2: bytes, output_path: Path, keep_decrypted: bool
+) -> list[Path]:
     def convert_one(hca_file: Path) -> Path:
         hca = HCA(hca_file, key1, key2)
         hca.decrypt()
+        if keep_decrypted:
+            hca.save()
         return hca.convert_to_flac(output_path=output_path)
 
     with ThreadPoolExecutor() as executor:
@@ -97,7 +99,7 @@ def cleanup_files(file_paths: dict[str, list[Path]], output_path: Path) -> None:
 def process_usm(usm_file: Path, opts: Options, reporter: Reporter) -> None:
     reporter.checkpoint()
 
-    stem = BASENAME_FIXES.get(usm_file.stem, usm_file.stem)
+    stem = usm_file.stem
     log.info(f"Processing: {usm_file.name}")
     reporter.event("job_start", file=usm_file.name, stem=stem)
 
@@ -120,10 +122,12 @@ def process_usm(usm_file: Path, opts: Options, reporter: Reporter) -> None:
         reporter.checkpoint()
 
         hca_files = file_paths.get("hca", [])
-        flac_files = process_audio(hca_files, key1, key2, output_path)
+        flac_files = process_audio(
+            hca_files, key1, key2, output_path, keep_decrypted=opts.no_cleanup
+        )
         file_paths.setdefault("flac", []).extend(flac_files)
 
-        ass_files = process_subtitles(stem, output_path)
+        ass_files = process_subtitles(BASENAME_FIXES.get(stem, stem), output_path)
         file_paths.setdefault("ass", []).extend(ass_files)
 
         reporter.checkpoint()
@@ -168,11 +172,12 @@ def process_usm(usm_file: Path, opts: Options, reporter: Reporter) -> None:
 def probe_usm(usm_file: Path, keys_data: dict, reporter: Reporter) -> None:
     """Report what is available for this file without processing anything: no
     downloads, no prompts, no writes."""
-    # Keys are indexed by the original stem; subtitles and vs scripts use the
-    # remapped one.
-    key = find_key_from_file(keys_data, usm_file.stem) is not None
-    stem = BASENAME_FIXES.get(usm_file.stem, usm_file.stem)
-    subtitles = [lang for lang in SUBTITLES_LANGUAGES if local_subtitle_path(stem, lang).exists()]
+    stem = usm_file.stem
+    sub_stem = BASENAME_FIXES.get(stem, stem)
+    key = find_key_from_file(keys_data, stem) is not None
+    subtitles = [
+        lang for lang in SUBTITLES_LANGUAGES if local_subtitle_path(sub_stem, lang).exists()
+    ]
     vs_script = find_vs_script(stem)
 
     level = log.info if key else log.warning
