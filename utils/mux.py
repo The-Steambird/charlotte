@@ -2,9 +2,8 @@ import subprocess
 
 from pathlib import Path
 
-from utils import languages
 from utils.errors import CharlotteError
-from utils.languages import AUDIO_LANGUAGES
+from utils.languages import AUDIO_LANGUAGES, get_language
 from utils.logger import log
 from utils.paths import bundle_root
 
@@ -21,17 +20,15 @@ def mux(
     subtitle_files = list(output_path.joinpath("subs").glob("*.ass"))
 
     if not input_file.exists():
-        log.error(f"File not found: {input_file}")
-        return
+        raise CharlotteError(f"Mux input not found: {input_file.name}")
 
     if not flac_files:
-        log.error("No FLAC files found to mux.")
-        return
+        raise CharlotteError("No FLAC files found to mux.")
 
     output_mkv = output_path / f"{output_path.stem}.mkv"
 
-    flac_files.sort(key=lambda x: 0 if "_2.flac" in str(x) else 1)
-    subtitle_files.sort(key=lambda x: 0 if "_EN.ass" in str(x) else 1)
+    flac_files.sort(key=lambda x: 0 if x.name.endswith("_2.flac") else 1)
+    subtitle_files.sort(key=lambda x: 0 if x.name.endswith("_EN.ass") else 1)
 
     ffmpeg_path = bundle_root() / "ffmpeg.exe"
 
@@ -59,9 +56,9 @@ def mux(
 
     for i, subtitle_file in enumerate(subtitle_files):
         subtitle_lang = subtitle_file.stem.split("_")[-1]
-        lang = languages.get_language(subtitle_lang)
+        lang = get_language(subtitle_lang)
         cmd.extend([f"-metadata:s:s:{i}", f"language={lang}"])
-        is_en = "_EN.ass" in str(subtitle_file)
+        is_en = subtitle_file.name.endswith("_EN.ass")
         cmd.extend([f"-disposition:s:{i}", "default+forced" if is_en else "0"])
 
     if fonts:
@@ -83,24 +80,17 @@ def mux(
 
     log.info(f"Muxing: {output_mkv.name}")
     try:
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            universal_newlines=True,
-        )
-
-        stdout, stderr = process.communicate()
-        return_code = process.returncode
-        if return_code != 0:
-            log.error(f"Error muxing video: ffmpeg exited with code {return_code}")
-            if stdout:
-                log.info(f"stdout: {stdout}")
-            if stderr:
-                log.error(f"stderr: {stderr}")
-            raise CharlotteError(f"ffmpeg exited with code {return_code}")
-
-        log.info(f"Created: {output_mkv}")
+        result = subprocess.run(cmd, capture_output=True, text=True)
     except FileNotFoundError:
         log.error("FFmpeg not found.")
         raise CharlotteError("FFmpeg not found.") from None
+
+    if result.returncode != 0:
+        log.error(f"Error muxing video: ffmpeg exited with code {result.returncode}")
+        if result.stdout:
+            log.info(f"stdout: {result.stdout}")
+        if result.stderr:
+            log.error(f"stderr: {result.stderr}")
+        raise CharlotteError(f"ffmpeg exited with code {result.returncode}")
+
+    log.info(f"Created: {output_mkv}")
