@@ -1,8 +1,11 @@
 import struct
 
+from contextlib import ExitStack
+from io import BufferedWriter
 from pathlib import Path
-from typing import TYPE_CHECKING, BinaryIO
+from typing import TYPE_CHECKING, NamedTuple
 
+from utils.errors import CharlotteError
 from utils.logger import log
 
 
@@ -10,67 +13,28 @@ if TYPE_CHECKING:
     from utils.reporter import Reporter
 
 
-# USM chunk signatures
-SIG_CRID = 0x43524944
-SIG_VIDEO = 0x40534656
-SIG_AUDIO = 0x40534641
-SIG_CUE = 0x40435545
-
-HEADER_SIZE = 32
-VIDEO_OFFSET = 0x40
-MASK_SIZE = 0x20
-MIN_VIDEO_SIZE = 0x200
-
-
-class ChunkHeader:
-    __slots__ = (
-        "channel_no",
-        "data_offset",
-        "data_size",
-        "data_type",
-        "frame_rate",
-        "frame_time",
-        "padding_size",
-        "signature",
-    )
-
-    def __init__(self):
-        self.signature = 0
-        self.data_size = 0
-        self.data_offset = 0
-        self.padding_size = 0
-        self.channel_no = 0
-        self.data_type = 0
-        self.frame_time = 0
-        self.frame_rate = 0
+class ChunkHeader(NamedTuple):
+    signature: bytes
+    data_size: int
+    data_offset: int
+    padding_size: int
+    channel_no: int
+    data_type: int
 
     @classmethod
-    def from_bytes(cls, data: bytes) -> ChunkHeader:
-        header = cls()
-        (
-            header.signature,
-            header.data_size,
-            header.data_offset,
-            header.padding_size,
-            header.channel_no,
-            header.data_type,
-            header.frame_time,
-            header.frame_rate,
-        ) = struct.unpack(">I I x B H B 2x B I I 8x", data)
-        return header
+    def from_bytes(cls, raw: bytes) -> ChunkHeader:
+        return cls._make(struct.unpack(">4s I x B H B 2x B 16x", raw))
 
 
 class USM:
     def __init__(self, file_path: Path, key1: bytes, key2: bytes):
         self.file_path = Path(file_path)
-        self.key1 = key1
-        self.key2 = key2
-        self.video_mask1 = bytearray(MASK_SIZE)
-        self.video_mask2 = bytearray(MASK_SIZE)
-        self._init_masks(key1, key2)
+        self.video_mask1 = self.build_mask(key1, key2)
+        self.video_mask2 = bytes(b ^ 0xFF for b in self.video_mask1)
 
-    def _init_masks(self, key1: bytes, key2: bytes) -> None:
-        m = self.video_mask1
+    @staticmethod
+    def build_mask(key1: bytes, key2: bytes) -> bytes:
+        m = bytearray(0x20)
 
         m[0x00] = key1[0]
         m[0x01] = key1[1]
@@ -105,105 +69,77 @@ class USM:
         m[0x1E] = (m[0x05] - m[0x16]) & 0xFF
         m[0x1F] = (m[0x1D] ^ m[0x13]) & 0xFF
 
-        for i in range(MASK_SIZE):
-            self.video_mask2[i] = (m[i] ^ 0xFF) & 0xFF
+        return bytes(m)
 
-    def _decrypt_video(self, data: bytearray) -> None:
-        """Decrypt video chunk in-place."""
-        size = len(data) - VIDEO_OFFSET
-        if size < MIN_VIDEO_SIZE:
+    def decrypt_video(self, data: bytearray) -> None:
+        if len(data) - 0x40 < 0x200:
             return
 
-        mask = bytearray(self.video_mask2)
+        mask2 = int.from_bytes(self.video_mask2)
+        end = len(data)
 
-        for i in range(0x100, size):
-            idx = i & 0x1F
-            pos = i + VIDEO_OFFSET
-            data[pos] ^= mask[idx]
-            mask[idx] = (data[pos] ^ self.video_mask2[idx]) & 0xFF
+        m = mask2
+        pos = 0x140
+        while pos + 0x20 <= end:
+            dec = int.from_bytes(data[pos : pos + 0x20]) ^ m
+            data[pos : pos + 0x20] = dec.to_bytes(0x20)
+            m = dec ^ mask2
+            pos += 0x20
+        if pos < end:
+            tail = end - pos
+            dec = int.from_bytes(data[pos:end]) ^ (m >> (8 * (0x20 - tail)))
+            data[pos:end] = dec.to_bytes(tail)
 
-        mask[:MASK_SIZE] = self.video_mask1[:MASK_SIZE]
-        for i in range(0x100):
-            idx = i & 0x1F
-            pos = i + VIDEO_OFFSET
-            pos2 = 0x100 + i + VIDEO_OFFSET
-            mask[idx] ^= data[pos2]
-            data[pos] ^= mask[idx]
-
-    def _open_stream(
-        self, file_path: Path, streams: dict, paths: dict, stream_type: str
-    ) -> BinaryIO:
-        if file_path not in streams:
-            streams[file_path] = open(file_path, "wb")
-            paths.setdefault(stream_type, []).append(file_path)
-        return streams[file_path]
-
-    def _process_chunk(
-        self,
-        header: ChunkHeader,
-        data: bytearray,
-        output_path: Path,
-        base_name: str,
-        streams: dict,
-        file_paths: dict,
-    ) -> None:
-        if header.signature == SIG_VIDEO and header.data_type == 0:
-            self._decrypt_video(data)
-            file_path = output_path / f"{base_name}.ivf"
-            stream = self._open_stream(file_path, streams, file_paths, "ivf")
-            stream.write(data)
-
-        elif header.signature == SIG_AUDIO and header.data_type == 0:
-            file_path = output_path / f"{base_name}_{header.channel_no}.hca"
-            stream = self._open_stream(file_path, streams, file_paths, "hca")
-            stream.write(data)
-
-        elif header.signature not in (
-            SIG_CRID,
-            SIG_VIDEO,
-            SIG_AUDIO,
-            SIG_CUE,
-            0x40415050,
-            0x40414C50,
-            0x40534254,
-        ):
-            log.warning(f"Unknown signature {header.signature}")
+        m = int.from_bytes(self.video_mask1)
+        for pos in range(0x40, 0x140, 0x20):
+            m ^= int.from_bytes(data[pos + 0x100 : pos + 0x100 + 0x20])
+            dec = int.from_bytes(data[pos : pos + 0x20]) ^ m
+            data[pos : pos + 0x20] = dec.to_bytes(0x20)
 
     def demux(self, output_path: Path, reporter: Reporter) -> dict[str, list[Path]]:
         base_name = self.file_path.stem
-        streams = {}
-        file_paths = {}
+        streams: dict[Path, BufferedWriter] = {}
+        file_paths: dict[str, list[Path]] = {}
+        known = {b"CRID", b"@SFV", b"@SFA", b"@CUE", b"@APP", b"@ALP", b"@SBT"}
         file_size = self.file_path.stat().st_size
 
         with (
             open(self.file_path, "rb") as fp,
             reporter.task("demux", total=file_size, unit="B") as task,
+            ExitStack() as open_streams,
         ):
-            try:
-                while True:
-                    header_data = fp.read(HEADER_SIZE)
-                    if len(header_data) < HEADER_SIZE:
-                        task.advance(len(header_data))
-                        break
+            def write_to(filename: str, kind: str, payload: bytes) -> None:
+                path = output_path / filename
+                if path not in streams:
+                    streams[path] = open_streams.enter_context(open(path, "wb"))
+                    file_paths.setdefault(kind, []).append(path)
+                streams[path].write(payload)
 
-                    header = ChunkHeader.from_bytes(header_data)
-                    task.advance(header.data_size + HEADER_SIZE - 0x18)
+            while True:
+                header_data = fp.read(32)
+                if len(header_data) < 32:
+                    task.advance(len(header_data))
+                    break
 
-                    data_size = header.data_size - header.data_offset - header.padding_size
-                    fp.seek(header.data_offset - 0x18, 1)
-                    data = bytearray(fp.read(data_size))
-                    fp.seek(header.padding_size, 1)
+                header = ChunkHeader.from_bytes(header_data)
+                task.advance(header.data_size + 8)
 
-                    self._process_chunk(
-                        header,
-                        data,
-                        output_path,
-                        base_name,
-                        streams,
-                        file_paths,
-                    )
-            finally:
-                for stream in streams.values():
-                    stream.close()
+                payload_size = header.data_size - header.data_offset - header.padding_size
+                if payload_size < 0:
+                    raise CharlotteError(f"Corrupt USM chunk in {self.file_path.name}")
+
+                fp.seek(header.data_offset - 0x18, 1)
+                data = fp.read(payload_size)
+                fp.seek(header.padding_size, 1)
+
+                payload_type = header.data_type & 0x3
+                if header.signature == b"@SFV" and payload_type == 0:
+                    buffer = bytearray(data)
+                    self.decrypt_video(buffer)
+                    write_to(f"{base_name}.ivf", "ivf", buffer)
+                elif header.signature == b"@SFA" and payload_type == 0:
+                    write_to(f"{base_name}_{header.channel_no}.hca", "hca", data)
+                elif header.signature not in known:
+                    log.warning(f"Unknown signature {header.signature!r}")
 
         return file_paths
