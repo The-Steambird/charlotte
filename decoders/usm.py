@@ -1,11 +1,13 @@
 import struct
 
 from pathlib import Path
-from typing import BinaryIO
-
-from tqdm import tqdm
+from typing import TYPE_CHECKING, BinaryIO
 
 from utils.logger import log
+
+
+if TYPE_CHECKING:
+    from utils.reporter import Reporter
 
 
 # USM chunk signatures
@@ -167,7 +169,7 @@ class USM:
         ):
             log.warning(f"Unknown signature {header.signature}")
 
-    def demux(self, output_path: Path) -> dict[str, list[Path]]:
+    def demux(self, output_path: Path, reporter: Reporter) -> dict[str, list[Path]]:
         base_name = self.file_path.stem
         streams = {}
         file_paths = {}
@@ -175,24 +177,17 @@ class USM:
 
         with (
             open(self.file_path, "rb") as fp,
-            tqdm(
-                total=file_size,
-                desc="Demuxing USM",
-                unit="B",
-                unit_scale=True,
-                leave=False,
-                dynamic_ncols=True,
-            ) as pbar,
+            reporter.task("demux", total=file_size, unit="B") as task,
         ):
             try:
                 while True:
                     header_data = fp.read(HEADER_SIZE)
                     if len(header_data) < HEADER_SIZE:
-                        pbar.update(len(header_data))
+                        task.advance(len(header_data))
                         break
 
                     header = ChunkHeader.from_bytes(header_data)
-                    pbar.update(header.data_size + HEADER_SIZE - 0x18)
+                    task.advance(header.data_size + HEADER_SIZE - 0x18)
 
                     data_size = header.data_size - header.data_offset - header.padding_size
                     fp.seek(header.data_offset - 0x18, 1)

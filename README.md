@@ -67,7 +67,12 @@ Example:
 
 ```sh
 charlotte "USM\Cs_EQHDJ005_HaiDengJie_Girl.usm" -vs -nc
+```
 
+To check what is available for your files (decryption key, local subtitles, VapourSynth script) without processing anything:
+
+```sh
+charlotte "USM" --probe
 ```
 
 For help:
@@ -88,6 +93,7 @@ This decrypts the cutscene, applies the VapourSynth filter script, and writes to
 | Option | `--output [DIR]` | `-o` | Output directory (default: `output`). |
 | Option | `--no-cleanup` | `-nc` | Keep intermediate files (`.ivf`, `.hca`, `.ass`, etc.). |
 | Option | `--vapoursynth` | `-vs` | Apply a matching VapourSynth `.vpy` filter script. |
+| Option | `--probe` | `-p` | Only report what is available for each file (decryption key, local subtitles, VapourSynth script). Read-only: nothing is processed or fetched. |
 | Option | `--crf [VALUE]` | `-crf` | x265 CRF value for VapourSynth output (default: `13.5`). Setting this suppresses the built-in `--x265-params` defaults. |
 | Option | `--preset [PRESET]` | `-preset` | x265 preset for VapourSynth output (default: `slower`). Setting this suppresses the built-in `--x265-params` defaults. |
 | Option | `--x265-params [PARAMS]` | `-x265` | Custom x265 params (colon-separated). Overrides the built-in defaults below. |

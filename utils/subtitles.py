@@ -1,10 +1,9 @@
-import sys
-
 from pathlib import Path
 
 import urllib3
 
 from utils.logger import log
+from utils.paths import app_root
 
 
 http = urllib3.PoolManager()
@@ -33,21 +32,20 @@ def fetch_subtitle(stem: str, lang: str) -> bytes | None:
     return None
 
 
-def get_subtitle_path(stem: str, lang: str) -> Path | None:
-    if getattr(sys, "frozen", False):
-        root = Path(sys.executable).parent
-    else:
-        root = Path(__file__).parent.parent
+def local_subtitle_path(stem: str, lang: str) -> Path:
+    """Where this subtitle lives locally; the file may not exist yet."""
+    return app_root() / "Subtitle" / lang / f"{stem}_{lang}.srt"
 
-    input_path = root / "Subtitle" / lang
-    subtitle_path = input_path / f"{stem}_{lang}.srt"
+
+def get_subtitle_path(stem: str, lang: str) -> Path | None:
+    subtitle_path = local_subtitle_path(stem, lang)
     if subtitle_path.exists():
         return subtitle_path
 
     upstream_data = fetch_subtitle(stem, lang)
     if upstream_data:
         try:
-            input_path.mkdir(parents=True, exist_ok=True)
+            subtitle_path.parent.mkdir(parents=True, exist_ok=True)
             subtitle_path.write_bytes(upstream_data)
             return subtitle_path
         except OSError as e:

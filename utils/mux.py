@@ -1,13 +1,12 @@
 import subprocess
-import sys
 
 from pathlib import Path
 
-import typer
-
 from utils import languages
+from utils.errors import CharlotteError
 from utils.languages import AUDIO_LANGUAGES
 from utils.logger import log
+from utils.paths import bundle_root
 
 
 def mux(
@@ -34,8 +33,7 @@ def mux(
     flac_files.sort(key=lambda x: 0 if "_2.flac" in str(x) else 1)
     subtitle_files.sort(key=lambda x: 0 if "_EN.ass" in str(x) else 1)
 
-    root = Path(sys._MEIPASS) if getattr(sys, "frozen", False) else Path(__file__).parent.parent
-    ffmpeg_path = root / "ffmpeg.exe"
+    ffmpeg_path = bundle_root() / "ffmpeg.exe"
 
     cmd = [str(ffmpeg_path), "-y", "-v", "error"]
 
@@ -100,9 +98,9 @@ def mux(
                 log.info(f"stdout: {stdout}")
             if stderr:
                 log.error(f"stderr: {stderr}")
-            raise typer.Exit(1)
+            raise CharlotteError(f"ffmpeg exited with code {return_code}")
 
         log.info(f"Created: {output_mkv}")
     except FileNotFoundError:
         log.error("FFmpeg not found.")
-        raise typer.Exit(1) from None
+        raise CharlotteError("FFmpeg not found.") from None

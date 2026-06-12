@@ -1,11 +1,12 @@
 import struct
 import subprocess
-import sys
 
 from dataclasses import dataclass
 from pathlib import Path
 
+from utils.errors import CharlotteError
 from utils.logger import log
+from utils.paths import bundle_root
 
 
 @dataclass
@@ -298,9 +299,8 @@ class HCA:
 
     def convert_to_flac(self, output_path: Path) -> Path:
         flac_file = output_path / f"{self.file_path.stem}.flac"
-        root = Path(sys._MEIPASS) if getattr(sys, "frozen", False) else Path(__file__).parent.parent
         cmd = [
-            str(root / "ffmpeg.exe"),
+            str(bundle_root() / "ffmpeg.exe"),
             "-y",  # Overwrite output file
             "-loglevel", "error",
             "-i", str(self.file_path),
@@ -315,7 +315,7 @@ class HCA:
             log.error(f"Error converting audio: {e}")
             if e.stderr:
                 log.error(f"{e.stderr}")
-            raise RuntimeError("FLAC conversion failed.") from e
+            raise CharlotteError("FLAC conversion failed.") from e
         except FileNotFoundError:
             log.error("FFmpeg not found. Place FFmpeg in the root directory and try again.")
-            raise RuntimeError("FFmpeg not found.") from None
+            raise CharlotteError("FFmpeg not found.") from None

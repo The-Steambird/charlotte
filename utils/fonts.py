@@ -4,14 +4,11 @@ import sys
 from pathlib import Path
 
 from utils.logger import log
+from utils.paths import app_root
 
 
 def fetch_font() -> tuple[Path, Path] | None:
-    if getattr(sys, "frozen", False):
-        root = Path(sys.executable).parent
-    else:
-        root = Path(__file__).parent.parent
-
+    root = app_root()
     font_ja = root / "font" / "ja-jp.ttf"
     font_zh = root / "font" / "zh-cn.ttf"
 

@@ -1,21 +1,16 @@
 import multiprocessing
 
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
-from decoders.ass import ASS
-from decoders.hca import HCA
-from decoders.usm import USM
-from utils.filter import vapoursynth_filter
+from pipeline import Options, probe_usm, process_usm
+from utils.errors import Cancelled, CharlotteError
 from utils.fonts import fetch_font
-from utils.keys import get_decryption_key
-from utils.languages import SUBTITLES_LANGUAGES
-from utils.logger import log
-from utils.mux import mux
-from utils.subtitles import get_subtitle_path
+from utils.keys import load_local_keys
+from utils.logger import log, route_logs_to_stderr
+from utils.reporter import ConsoleReporter, JsonReporter, Reporter
 
 
 app = typer.Typer(help="USM video file demuxer and converter")
@@ -37,124 +32,6 @@ def collect_files(input_path: Path) -> list[Path]:
 
     log.error(f"Error: {input_path} is not a valid file or directory")
     raise typer.Exit(1)
-
-
-def get_fixed_stem(stem: str) -> str:
-    basename_fixes = {
-        "Cs_4131904_HaiDaoChuXian_Boy": "Cs_Activity_4001103_Summertime_Boy",
-        "Cs_4131904_HaiDaoChuXian_Girl": "Cs_Activity_4001103_Summertime_Girl",
-        "Cs_200211_WanYeXianVideo": "Cs_DQAQ200211_WanYeXianVideo",
-    }
-    return basename_fixes.get(stem, stem)
-
-
-def process_audio(hca_files: list[Path], key1: bytes, key2: bytes, output_path: Path) -> list[Path]:
-    def convert_one(hca_file: Path) -> Path:
-        hca = HCA(hca_file, key1, key2)
-        hca.decrypt()
-        return hca.convert_to_flac(output_path=output_path)
-
-    with ThreadPoolExecutor() as executor:
-        return list(executor.map(convert_one, hca_files))
-
-
-def process_subtitles(stem: str, output_path: Path) -> list[Path]:
-    subtitle_files = []
-    for lang in SUBTITLES_LANGUAGES:
-        sub_path = get_subtitle_path(stem, lang)
-        if sub_path:
-            subtitle_files.append((sub_path, lang))
-
-    log.info(f"Found {len(subtitle_files)} subtitle file(s).")
-
-    ass_files = []
-    empty_langs = []
-    for sub_file, lang in subtitle_files:
-        try:
-            ass = ASS(sub_file, lang)
-            if ass.parse_srt():
-                ass_files.append(ass.convert_to_ass(output_path=output_path))
-            elif sub_file.stat().st_size == 0:
-                empty_langs.append(SUBTITLES_LANGUAGES[lang][1])
-        except Exception as e:
-            log.error(f"Error processing subtitle: {e}")
-
-    if empty_langs:
-        log.info(f"Subtitles empty, skipping: {', '.join(empty_langs)}")
-
-    return ass_files
-
-
-def cleanup_files(file_paths: dict[str, list[Path]], output_path: Path) -> None:
-    import shutil
-
-    for value in file_paths.values():
-        for file in value:
-            try:
-                file.unlink(missing_ok=True)
-            except OSError as e:
-                log.error(f"Failed to delete {file.name}: {e}")
-
-    subs_dir = output_path / "subs"
-    try:
-        if subs_dir.is_dir():
-            shutil.rmtree(subs_dir)
-    except OSError as e:
-        log.error(f"Failed to remove directory {subs_dir.name}: {e}")
-
-
-def process_usm(
-    usm_file: Path,
-    output: str,
-    no_cleanup: bool,
-    vapoursynth: bool,
-    crf: float | None,
-    preset: str | None,
-    custom_x265_params: str,
-    fonts: tuple[Path, Path] | None = None,
-) -> None:
-    stem = get_fixed_stem(usm_file.stem)
-    log.info(f"Processing: {usm_file.name}")
-
-    keys = get_decryption_key(usm_file.name)
-    if keys is None:
-        log.warning(f"Could not find decryption keys for {usm_file.name}, skipping...")
-        return
-
-    key1, key2 = keys
-    usm = USM(usm_file, key1, key2)
-    output_path = Path(output) / f"{stem}"
-    output_path.mkdir(exist_ok=True)
-    file_paths = usm.demux(output_path=output_path)
-
-    hca_files = file_paths.get("hca", [])
-    try:
-        flac_files = process_audio(hca_files, key1, key2, output_path)
-    except RuntimeError:
-        raise typer.Exit(1) from None
-    file_paths.setdefault("flac", []).extend(flac_files)
-
-    ass_files = process_subtitles(stem, output_path)
-    file_paths.setdefault("ass", []).extend(ass_files)
-
-    filtered_mkv: Path | None = None
-    if vapoursynth:
-        filtered_mkv = vapoursynth_filter(
-            file_stem=stem,
-            output_path=output_path,
-            custom_crf=crf,
-            custom_preset=preset,
-            custom_x265_params=custom_x265_params,
-        )
-        if filtered_mkv:
-            file_paths.setdefault("vs", []).append(filtered_mkv)
-        else:
-            log.warning(f"Failed to apply VapourSynth filter for {stem}, skipping...")
-
-    mux(output_path, vs_path=filtered_mkv, fonts=fonts)
-
-    if not no_cleanup:
-        cleanup_files(file_paths, output_path)
 
 
 @app.command()
@@ -206,23 +83,60 @@ def demux(
             help="Custom x265 parameters (colon-separated).",
         ),
     ] = "",
+    json_output: Annotated[
+        bool,
+        typer.Option(
+            "--json",
+            help="Emit newline-delimited JSON events on stdout for a GUI/automation frontend.",
+        ),
+    ] = False,
+    probe: Annotated[
+        bool,
+        typer.Option(
+            "--probe",
+            "-p",
+            help="Only report what is available for each file (decryption key, local "
+            "subtitles, VapourSynth script). Read-only: nothing is processed or fetched.",
+        ),
+    ] = False,
 ) -> None:
+    reporter: Reporter
+    if json_output:
+        route_logs_to_stderr()
+        reporter = JsonReporter()
+    else:
+        reporter = ConsoleReporter()
+
     usm_files = collect_files(Path(usm_path))
+
+    if probe:
+        keys_data = load_local_keys()
+        for usm_file in usm_files:
+            probe_usm(usm_file, keys_data, reporter)
+        return
+
     log.info(f"Found {len(usm_files)} USM file(s).")
     Path(output).mkdir(exist_ok=True)
-    fonts = fetch_font()
+    opts = Options(
+        output=output,
+        no_cleanup=no_cleanup,
+        vapoursynth=vapoursynth,
+        crf=custom_crf,
+        preset=custom_preset,
+        x265_params=custom_x265_params,
+        fonts=fetch_font(),
+    )
 
     for usm_file in usm_files:
-        process_usm(
-            usm_file,
-            output,
-            no_cleanup,
-            vapoursynth,
-            custom_crf,
-            custom_preset,
-            custom_x265_params,
-            fonts,
-        )
+        try:
+            process_usm(usm_file, opts, reporter)
+        except Cancelled:
+            log.info(f"Cancelled during {usm_file.name}.")
+            reporter.event("cancelled", file=usm_file.name)
+            return
+        except CharlotteError as e:
+            reporter.event("error", file=usm_file.name, message=str(e))
+            raise typer.Exit(1) from None
 
 
 if __name__ == "__main__":

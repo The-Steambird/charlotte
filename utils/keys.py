@@ -1,12 +1,18 @@
-import sys
+import functools
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import orjson
-import typer
 import urllib3
 
+from utils.errors import CharlotteError
 from utils.logger import log
+from utils.paths import app_root
+
+
+if TYPE_CHECKING:
+    from utils.reporter import Reporter
 
 
 http = urllib3.PoolManager()
@@ -33,8 +39,10 @@ def calculate_key_from_filename(filename: str) -> int:
     return result
 
 
+@functools.cache
 def fetch_upstream_keys() -> bytes | None:
-    """Fetch keys.json from upstream repository to memory."""
+    """Fetch keys.json from upstream repository to memory. Cached: at most one request
+    per run, even when a whole batch is missing keys."""
     keys_url = "https://raw.githubusercontent.com/lunarmint/charlotte/refs/heads/master/keys.json"
     try:
         log.info("Attempting to fetch keys.json from upstream...")
@@ -62,13 +70,17 @@ def find_key_from_file(data: dict, filename: str) -> int | None:
     return None
 
 
-def get_key(filename: str) -> int | None:
-    if getattr(sys, "frozen", False):
-        root_dir = Path(sys.executable).parent
-    else:
-        root_dir = Path(__file__).parent.parent
+def load_local_keys() -> dict:
+    """Read-only parse of the local keys.json for probing; empty when missing or
+    corrupt. Never fetches, prompts, or writes - that is get_key's job."""
+    try:
+        return orjson.loads((app_root() / "keys.json").read_bytes())
+    except OSError, orjson.JSONDecodeError:
+        return {}
 
-    keys_path = root_dir / "keys.json"
+
+def get_key(filename: str, reporter: Reporter) -> int | None:
+    keys_path = app_root() / "keys.json"
 
     # Fetch if completely missing.
     if not keys_path.exists():
@@ -76,7 +88,7 @@ def get_key(filename: str) -> int | None:
         upstream_data = fetch_upstream_keys()
         if not upstream_data:
             log.error("Failed to fetch keys.json.")
-            raise typer.Exit(1)
+            raise CharlotteError("Failed to fetch keys.json.")
         keys_path.write_bytes(upstream_data)
 
     local_bytes = keys_path.read_bytes()
@@ -111,7 +123,7 @@ def get_key(filename: str) -> int | None:
 
     new_key = find_key_from_file(upstream_data, filename)
     if new_key is not None:
-        if typer.confirm("New key(s) found. Overwrite local keys.json?", default=False):
+        if reporter.ask("New key(s) found. Overwrite local keys.json?", default=False):
             try:
                 keys_path.write_bytes(upstream_bytes)
             except OSError as e:
@@ -124,20 +136,17 @@ def get_key(filename: str) -> int | None:
     return None
 
 
-def get_decryption_key(filename: str) -> tuple[bytes, bytes] | None:
+def get_decryption_key(filename: str, reporter: Reporter) -> tuple[bytes, bytes] | None:
     basename = Path(filename).stem
     key1 = calculate_key_from_filename(basename)
-    key2 = get_key(basename)
+    key2 = get_key(basename, reporter)
 
     if key2 is None:
         return None
 
-    final_key = 0x100000000000000
-    if ((key1 + key2) & 0xFFFFFFFFFFFFFF) != 0:
-        final_key = (key1 + key2) & 0xFFFFFFFFFFFFFF
+    final_key = (key1 + key2) & 0xFFFFFFFFFFFFFF
+    if final_key == 0:
+        final_key = 0x100000000000000
 
     key_bytes = final_key.to_bytes(8, byteorder="little")
-    key1 = key_bytes[:4]
-    key2 = key_bytes[4:]
-
-    return key1, key2
+    return key_bytes[:4], key_bytes[4:]

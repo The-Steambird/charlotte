@@ -1,5 +1,6 @@
 import logging
 
+from rich.console import Console
 from rich.logging import RichHandler
 
 
@@ -13,5 +14,11 @@ logging.basicConfig(
 
 log = logging.getLogger("charlotte")
 
-# Suppress VapourSynth INFO/WARNING logs (e.g. dynamic thread reduction, API3 deprecations)
 logging.getLogger("vapoursynth").setLevel(logging.ERROR)
+
+
+def route_logs_to_stderr() -> None:
+    """Route normal log to stderr leaving only JSON logs to stdout."""
+    for handler in logging.getLogger().handlers:
+        if isinstance(handler, RichHandler):
+            handler.console = Console(stderr=True)
