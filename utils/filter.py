@@ -8,8 +8,6 @@ from contextlib import ExitStack
 from pathlib import Path
 from queue import Empty
 
-import vapoursynth as vs
-
 from utils.errors import Cancelled
 from utils.paths import bundle_root
 from utils.reporter import QueueReporter, Reporter
@@ -135,6 +133,8 @@ def worker(
     x265_params: str,
     queue: multiprocessing.Queue,
 ) -> None:
+    import vapoursynth as vs
+
     reporter = QueueReporter(queue)
     reporter.log("info", f"Applying VapourSynth filter: {file_stem}")
     # Max 8 threads for high-end CPUs. Scale down to 1/2 for low-end CPUs to leave room for ffmpeg.
@@ -156,10 +156,8 @@ def worker(
             )
 
         module = importlib.import_module(f"vs.{module_name}")
-
-        filter_chain = getattr(module, "filter_chain", None)
         source = output_path / f"{file_stem}.ivf"
-        clip = filter_chain(source)
+        clip = module.filter_chain(source)
     except Exception as e:
         reporter.log("warning", f"Error importing VapourSynth script for {file_stem}: {e}")
         queue.put(("result", False))
