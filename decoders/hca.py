@@ -206,6 +206,7 @@ class HCA:
         self.data = bytearray(blob[data_offset : data_offset + self.block_size * self.block_count])
 
     def decrypt(self) -> None:
+        """Decrypt header and data in memory leaving file on disk untouched."""
         if self.ciph_type == 0:
             return
 
@@ -213,17 +214,18 @@ class HCA:
         size = self.block_size
         self.data = self.data.translate(table)
         view = memoryview(self.data)
-        # Stop before a trailing partial block (truncated file).
+
         for offset in range(0, len(self.data) - size + 1, size):
             crc = crc16(view[offset : offset + size - 2])
             struct.pack_into(">H", self.data, offset + size - 2, crc)
 
-        # Mark the header as unencrypted (ciph type 0) and re-seal its checksum.
         self.ciph_type = 0
         struct.pack_into(">H", self.header, self.ciph_offset + 4, 0)
         crc = crc16(self.header[:-2])
         struct.pack_into(">H", self.header, len(self.header) - 2, crc)
 
+    def save(self) -> None:
+        """Write the decrypted stream back to the source .hca for -nc runs."""
         with open(self.file_path, "wb") as f:
             f.write(self.header)
             f.write(self.data)
@@ -234,18 +236,21 @@ class HCA:
             str(bundle_root() / "ffmpeg.exe"),
             "-y",  # Overwrite output file
             "-loglevel", "error",
-            "-i", str(self.file_path),
+            "-f", "hca",
+            "-i", "pipe:0",
             "-compression_level", "8",
             str(flac_file),
         ]  # fmt: skip
 
         try:
-            subprocess.run(cmd, capture_output=True, text=True, check=True)
+            # Read from memory so the decrypted stream don't need to write to disk first to read.
+            payload = b"".join((self.header, self.data))
+            subprocess.run(cmd, input=payload, capture_output=True, check=True)
             return flac_file
         except subprocess.CalledProcessError as e:
             log.error(f"Error converting audio: {e}")
             if e.stderr:
-                log.error(f"{e.stderr}")
+                log.error(e.stderr.decode("utf-8", errors="replace"))
             raise CharlotteError("FLAC conversion failed.") from e
         except FileNotFoundError:
             log.error("FFmpeg not found. Place FFmpeg in the root directory and try again.")
