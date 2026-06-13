@@ -1,7 +1,6 @@
 import struct
 
 from contextlib import ExitStack
-from io import BufferedWriter
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
@@ -10,6 +9,8 @@ from utils.logger import log
 
 
 if TYPE_CHECKING:
+    from io import BufferedWriter
+
     from utils.reporter import Reporter
 
 
@@ -108,6 +109,7 @@ class USM:
             reporter.task("demux", total=file_size, unit="B") as task,
             ExitStack() as open_streams,
         ):
+
             def write_to(filename: str, kind: str, payload: bytes) -> None:
                 path = output_path / filename
                 if path not in streams:

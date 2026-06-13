@@ -1,11 +1,15 @@
 import subprocess
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from utils.errors import CharlotteError
 from utils.languages import AUDIO_LANGUAGES, get_language
 from utils.logger import log
 from utils.paths import bundle_root
+
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def mux(
