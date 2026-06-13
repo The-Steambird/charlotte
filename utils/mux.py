@@ -80,7 +80,7 @@ def mux(
 
     log.info(f"Muxing: {output_mkv.name}")
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     except FileNotFoundError:
         log.error("FFmpeg not found.")
         raise CharlotteError("FFmpeg not found.") from None
