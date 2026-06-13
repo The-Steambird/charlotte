@@ -1,9 +1,13 @@
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import urllib3
 
 from utils.logger import log
 from utils.paths import app_root
+
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 http = urllib3.PoolManager()
