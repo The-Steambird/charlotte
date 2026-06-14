@@ -63,7 +63,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "orjson", specifier = ">=3.11.9" },
-    { name = "pyinstaller", specifier = ">=6.20.0" },
+    { name = "pyinstaller", specifier = ">=6.21.0" },
     { name = "tqdm", specifier = ">=4.68.2" },
     { name = "typer", specifier = ">=0.26.7" },
     { name = "urllib3", specifier = ">=2.7.0" },
@@ -75,7 +75,7 @@ requires-dist = [
     { name = "vapoursynth-deblock", specifier = ">=8.1" },
     { name = "vapoursynth-resize2", specifier = ">=0.4.3" },
     { name = "vapoursynth-vszip", specifier = ">=14.3.0" },
-    { name = "vapoursynth-zsmooth", specifier = ">=0.15.5" },
+    { name = "vapoursynth-zsmooth", specifier = ">=0.16.0" },
     { name = "vs-placebo", specifier = ">=2.0.2" },
     { name = "vsjetpack", specifier = ">=1.5.0" },
     { name = "vsnoise", specifier = ">=1.2.1" },
@@ -456,7 +456,7 @@ wheels = [
 
 [[package]]
 name = "pyinstaller"
-version = "6.20.0"
+version = "6.21.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "altgraph" },
@@ -467,32 +467,31 @@ dependencies = [
     { name = "pywin32-ctypes", marker = "sys_platform == 'win32'" },
     { name = "setuptools" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/46/60/d03d52e6690d4e9caf333dcd14550cde634ce6c118b3bc8fa3112c3186fd/pyinstaller-6.20.0.tar.gz", hash = "sha256:95c5c7e03d5d61e9dfb8ef259c699cf492bb1041beb6dbe83696608cec07347a", size = 4048728, upload-time = "2026-04-22T20:59:36.96Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d5/4d/ec706c3fcf39e26888c35b39615ff4d5865d184069666c47492cff1fbe50/pyinstaller-6.21.0.tar.gz", hash = "sha256:bb9fab705983e393a2d1cac77d6972513057ad800215fd861dc15ff5272e98fd", size = 4061519, upload-time = "2026-06-13T14:15:06.25Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d0/e4/e228d6d1bbb7fd62dc660a8fb202a583b023d3a3624ca95d1a9290ee4d6a/pyinstaller-6.20.0-py3-none-macosx_10_13_universal2.whl", hash = "sha256:bf3be4e1284ee78ddccba5e29f99443a12a7b4673168288ffc4c9d38c6f7b90e", size = 1047642, upload-time = "2026-04-22T20:58:32.006Z" },
-    { url = "https://files.pythonhosted.org/packages/ce/bd/afb631bcb3f9040efebd4f6d067f0828b51710818f69fb41a2d4b7787f52/pyinstaller-6.20.0-py3-none-manylinux2014_aarch64.whl", hash = "sha256:72ae9c1fdea134afa791f58bdc9a1934d5c7609753c111e0026bfc272b32b712", size = 742494, upload-time = "2026-04-22T20:58:36.285Z" },
-    { url = "https://files.pythonhosted.org/packages/76/08/0729a5bac14754150e5d83b39d87d842eb42b0bffcaa03dbad6252e23a39/pyinstaller-6.20.0-py3-none-manylinux2014_i686.whl", hash = "sha256:1031bcc307f3fbeffd4e162723e64d46dbf591c82dd0997413afb2a07328b941", size = 754191, upload-time = "2026-04-22T20:58:40.603Z" },
-    { url = "https://files.pythonhosted.org/packages/e6/82/bc0ee4c7b97db1958eb651e0da9fb1e672e5ae53ca8867fd97701de52906/pyinstaller-6.20.0-py3-none-manylinux2014_ppc64le.whl", hash = "sha256:8df3b3f347659fa2562d8d193a98ad4600133b8b8d07c268df89e4154376750e", size = 751902, upload-time = "2026-04-22T20:58:44.7Z" },
-    { url = "https://files.pythonhosted.org/packages/3d/e7/770002d6aaa54173881cb2c49bb195ba67b97bf39bac1cdf320f28401629/pyinstaller-6.20.0-py3-none-manylinux2014_s390x.whl", hash = "sha256:b0d3cc9dd8120d448459bd3880a12e2f9774c51443af49047801446377999a59", size = 748634, upload-time = "2026-04-22T20:58:48.579Z" },
-    { url = "https://files.pythonhosted.org/packages/fe/db/68ba1fccb71278b2124fb90b37b7c8c0bc4c1173fba45b94466df3d9cb7f/pyinstaller-6.20.0-py3-none-manylinux2014_x86_64.whl", hash = "sha256:03696bb6350177c6bc23bcaf78e71a33c4a89b6754dd90d1be2f318e978c918b", size = 748490, upload-time = "2026-04-22T20:58:52.749Z" },
-    { url = "https://files.pythonhosted.org/packages/03/0f/ac77ffa996a56be3d5c8f85734a007f8347240691657f9704e7de2527fa3/pyinstaller-6.20.0-py3-none-musllinux_1_1_aarch64.whl", hash = "sha256:6357f1699f6af84f37e7367f031d4f68abdba65543b83990c9e8f5a4cebed0b7", size = 747650, upload-time = "2026-04-22T20:58:57.093Z" },
-    { url = "https://files.pythonhosted.org/packages/e0/56/1ee91c3a2bc10ca1f36da10a6fd55ff7efc4dec367171eb25992a827874f/pyinstaller-6.20.0-py3-none-musllinux_1_1_x86_64.whl", hash = "sha256:0ab39c690abad26ba148e8f664f0478acc82a733997f4f22e757774832802da9", size = 747413, upload-time = "2026-04-22T20:59:01.174Z" },
-    { url = "https://files.pythonhosted.org/packages/d7/55/ae264339996953c4cdf9d89d916a0a8fa26a83cf917a742fff8b9d5f3fe8/pyinstaller-6.20.0-py3-none-win32.whl", hash = "sha256:9a7637e8e44b4387b13667fdcaac86ab6b29c446c16d34d8401539b81838759c", size = 1331584, upload-time = "2026-04-22T20:59:07.201Z" },
-    { url = "https://files.pythonhosted.org/packages/76/8c/300f57578882cce259bfb5ae56fda3b69caa3fe9df40a176c719920ea6e2/pyinstaller-6.20.0-py3-none-win_amd64.whl", hash = "sha256:d588844e890ee80c4365867f98146636e1849bbca8e4284bbf0c809aff0f161a", size = 1391851, upload-time = "2026-04-22T20:59:14.024Z" },
-    { url = "https://files.pythonhosted.org/packages/8a/ea/b2f8e1642aecda78c0b75c7321f708e49e10bb3c00dd4f148c40761a1527/pyinstaller-6.20.0-py3-none-win_arm64.whl", hash = "sha256:bd53282c0a73e5c95573e1ddc8e5d564d4932bec91efbaed4dc5fdff9c2ae7f2", size = 1332259, upload-time = "2026-04-22T20:59:20.509Z" },
+    { url = "https://files.pythonhosted.org/packages/0c/4a/53cf98bf66daed012dc9cd78c8203f19a675d696f2fc12afcf8c5049a0e0/pyinstaller-6.21.0-py3-none-macosx_10_13_universal2.whl", hash = "sha256:327d132389f37912609e01be62810cf96b5aa95b613903e4b8692e0d12fb0eda", size = 1052350, upload-time = "2026-06-13T14:13:55.88Z" },
+    { url = "https://files.pythonhosted.org/packages/30/83/b591295c352ef464c50b4c6ffff1c4f771d875c9e833f578d1b9f564f6b3/pyinstaller-6.21.0-py3-none-manylinux2014_aarch64.whl", hash = "sha256:7071d4b094d5b40deeef5fa3d3b98a1b846087f7562b49209663d5f9281fe251", size = 748477, upload-time = "2026-06-13T14:14:00.327Z" },
+    { url = "https://files.pythonhosted.org/packages/3d/8f/88fff4e403873b1e22286911350e75ff00db014aa08e57045da9d4328993/pyinstaller-6.21.0-py3-none-manylinux2014_i686.whl", hash = "sha256:6b6374d652107dd4a2eeece903ff82bb4045bb5e1006c5a158a6dcdbefe84bf2", size = 760877, upload-time = "2026-06-13T14:14:04.836Z" },
+    { url = "https://files.pythonhosted.org/packages/8a/13/f0e48fbdfd1d05d948157121cea8b1b823dcb89efe6934b71fdd8bdb3f0f/pyinstaller-6.21.0-py3-none-manylinux2014_ppc64le.whl", hash = "sha256:4e3108b3f02384560da70e39b8bf22b0ad597d02bd68a40d76ea91c1cfa00cad", size = 759194, upload-time = "2026-06-13T14:14:10.61Z" },
+    { url = "https://files.pythonhosted.org/packages/dd/d5/ea7878cf9924ed30d946d8288777424e6d069d94f5bde56b4d0890069664/pyinstaller-6.21.0-py3-none-manylinux2014_s390x.whl", hash = "sha256:697532279f535ad572bda613db4f821540e235c7854ca6da4d3bf0373f4415ee", size = 754979, upload-time = "2026-06-13T14:14:15.226Z" },
+    { url = "https://files.pythonhosted.org/packages/9f/09/51b8905714b733bac66dbc041a7821372d70d888d273ae474c4037d4202d/pyinstaller-6.21.0-py3-none-manylinux2014_x86_64.whl", hash = "sha256:605169523a6b5ace39f13dfbff21add9f2bc43df99c7daf9394fefb2c45e8b6f", size = 754812, upload-time = "2026-06-13T14:14:20.264Z" },
+    { url = "https://files.pythonhosted.org/packages/4b/43/d77779439d8c6c2e27a77bcfbd1d5cc0f568ebb611bb472b11af81b5f177/pyinstaller-6.21.0-py3-none-musllinux_1_1_aarch64.whl", hash = "sha256:5fa56746c1e76f93634d018502301378a2d0c382553d37d8c3c34ff436c12dd1", size = 753887, upload-time = "2026-06-13T14:14:25.268Z" },
+    { url = "https://files.pythonhosted.org/packages/51/8f/c22df1f6837784ac349057ba693f08e7b1ca7a0e06f9c33c63bc6280007b/pyinstaller-6.21.0-py3-none-musllinux_1_1_x86_64.whl", hash = "sha256:42395ec76df8e8120c36b13339d9db8cab83e316a12839ee303cc00fc941bb74", size = 753779, upload-time = "2026-06-13T14:14:29.445Z" },
+    { url = "https://files.pythonhosted.org/packages/c9/76/1ce8a27ce62ba8cf3a87c9ce6d575610f4e55d7cb0123e7512fc3f4b921a/pyinstaller-6.21.0-py3-none-win32.whl", hash = "sha256:c6b28d30d8fd99ce162ff3aab5013ed44dbfb747566b1f01b9bed7964d7c14e9", size = 1336462, upload-time = "2026-06-13T14:14:35.785Z" },
+    { url = "https://files.pythonhosted.org/packages/c1/fa/ca1d7e5257dd8566a9dfc0dfb02f8a8075eeb53d4b2d3c579f1276759042/pyinstaller-6.21.0-py3-none-win_amd64.whl", hash = "sha256:7fae06c494ce0ebfe6bd3055c0e409def884f63af2e3705d06bd431ad9237fc7", size = 1397487, upload-time = "2026-06-13T14:14:42.328Z" },
+    { url = "https://files.pythonhosted.org/packages/dc/75/21b51523ce8d96629b71311775a0a65f5f5a872124ab0de33e5c848f8bff/pyinstaller-6.21.0-py3-none-win_arm64.whl", hash = "sha256:f13c95c9c03fb567217135919f93815c305813126780b0ed6e0123cb8acaf025", size = 1346094, upload-time = "2026-06-13T14:14:48.914Z" },
 ]
 
 [[package]]
 name = "pyinstaller-hooks-contrib"
-version = "2026.4"
+version = "2026.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "packaging" },
-    { name = "setuptools" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c7/fe/9278c29394bf69169febc21f96b4252c3ee7c8ec22c2fc545004bed47e71/pyinstaller_hooks_contrib-2026.4.tar.gz", hash = "sha256:766c281acb1ecc32e21c8c667056d7ebf5da0aabd5e30c219f9c2a283620eeaa", size = 173050, upload-time = "2026-03-31T14:10:51.188Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/94/5b/c9fe0db5e83ee1c39b2258fa21d23b15e1a60786b6c5990ee5074ead8bb6/pyinstaller_hooks_contrib-2026.6.tar.gz", hash = "sha256:bef5002c32f4f50bd55b005da12cff64eca8783e7eaf86a06a62410164bab725", size = 173354, upload-time = "2026-06-08T22:37:16.152Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/88/f4/035fb8c06deff827f540a9a4ed9122c54e5376fca3e42eddf0c263730775/pyinstaller_hooks_contrib-2026.4-py3-none-any.whl", hash = "sha256:1de1a5e49a878122010b88c7e295502bc69776c157c4a4dc78741a4e6178b00f", size = 455496, upload-time = "2026-03-31T14:10:49.867Z" },
+    { url = "https://files.pythonhosted.org/packages/e7/31/f2d7343d8ed5f7c4678377886f6ce533e6eaaa131b252ce950114c2a7efa/pyinstaller_hooks_contrib-2026.6-py3-none-any.whl", hash = "sha256:fd13b8ac126b35361175edacd41a0d97080b75dd5f4b594ecefefff969509dd3", size = 457159, upload-time = "2026-06-08T22:37:14.722Z" },
 ]
 
 [[package]]
@@ -935,20 +934,20 @@ wheels = [
 
 [[package]]
 name = "vapoursynth-zsmooth"
-version = "0.15.5"
+version = "0.16.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "vapoursynth" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/97/48/8b35a6804d816610ceffdc2391d98f5630300cc9d6a9cc7e824740094ea0/vapoursynth_zsmooth-0.15.5.tar.gz", hash = "sha256:7c3b0c496f5af9e84db351575e86ab12004f5c929ce18a3681450dff6be929c7", size = 106950, upload-time = "2026-05-01T00:40:43.809Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f3/80/710b0c98818ea68f45339cb1ebfc513babcafb369f36207c6769dceecc2b/vapoursynth_zsmooth-0.16.0.tar.gz", hash = "sha256:5e25975c6e01f5e4f0ec06f830bdd77a4cdaf080141032627101e09918759f03", size = 118989, upload-time = "2026-06-13T00:44:17.118Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2a/b1/36fa181d4a279c49e3152014032ea3ff1744582eb26fbae436dc9a1b0579/vapoursynth_zsmooth-0.15.5-py3-none-macosx_11_0_arm64.whl", hash = "sha256:1a9f17879e7cd529d3a315256fda74429baf916d04b239232be7beb9e5f08615", size = 623413, upload-time = "2026-05-01T00:40:31.603Z" },
-    { url = "https://files.pythonhosted.org/packages/f2/37/933b7f6df164816d8c990ee8415003233251d4511857be263c9d42b37f6b/vapoursynth_zsmooth-0.15.5-py3-none-macosx_11_0_x86_64.whl", hash = "sha256:cd928cd905579600f61828369ba26a655b4ac109ead5d8aa6c5061424e756372", size = 2223559, upload-time = "2026-05-01T00:40:33.101Z" },
-    { url = "https://files.pythonhosted.org/packages/0a/29/ad576280401e28ffafca0f22a67aff7962d046da63f47df7e72623c782d8/vapoursynth_zsmooth-0.15.5-py3-none-manylinux_2_17_aarch64.whl", hash = "sha256:e3e886a36e022bb3fa1b7a5ad87997df926b9527e1ada3f11c0f7170c7e53f37", size = 1606065, upload-time = "2026-05-01T00:40:34.771Z" },
-    { url = "https://files.pythonhosted.org/packages/89/9c/beb6b37075b804b6b4688cf969450ad20e89b2d5d06b51ea0095809f11ea/vapoursynth_zsmooth-0.15.5-py3-none-manylinux_2_17_x86_64.whl", hash = "sha256:a6697fbcee6d11086ca36a7bf73b01917e9891cf59dd318ec0c397dbbfdf7b4e", size = 6940759, upload-time = "2026-05-01T00:40:36.416Z" },
-    { url = "https://files.pythonhosted.org/packages/0d/ab/2d3fae9fcad1d1c6284ac45c61300e08c634a34917358bcb7598cd8212fd/vapoursynth_zsmooth-0.15.5-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:107851d3fec64e1d363f336a3afdb689137448feb5d5585b8808b7c91240af1d", size = 1605957, upload-time = "2026-05-01T00:40:38.384Z" },
-    { url = "https://files.pythonhosted.org/packages/fc/ea/5045f680dbb7253e3c36aa5f66031349741999dfe273b7a8533ba87c69ff/vapoursynth_zsmooth-0.15.5-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:af5aaee5d7c7ca3dbf68c72cca8ebd1de60d74bf1fd20c4afe57d39ffeafe00f", size = 6940383, upload-time = "2026-05-01T00:40:40.397Z" },
-    { url = "https://files.pythonhosted.org/packages/d3/76/c49065f9978a31e1ec5fd94944cca564cf5fcb9685ba63741fbae66abf0f/vapoursynth_zsmooth-0.15.5-py3-none-win_amd64.whl", hash = "sha256:9dc464bf39439a16250d5ab7795eb78590d4e9d85fa1568507dca84389d992b9", size = 6676287, upload-time = "2026-05-01T00:40:42.205Z" },
+    { url = "https://files.pythonhosted.org/packages/a8/ac/6404d719c058020b36b098b0765925f5e8331d431daf788e2b435906faf6/vapoursynth_zsmooth-0.16.0-py3-none-macosx_11_0_arm64.whl", hash = "sha256:69b17a4b5bd2a4ec1178cab28041a1631e288ab2e5cf881dddd87884891bf9f0", size = 1231737, upload-time = "2026-06-13T00:44:04.638Z" },
+    { url = "https://files.pythonhosted.org/packages/2c/91/f06c5751b0e44423ea6c104343611a4db67a9bb37e4db6f568df5d074966/vapoursynth_zsmooth-0.16.0-py3-none-macosx_11_0_x86_64.whl", hash = "sha256:f7d73666ea8585981ec51b8681548f3a5014295481107245047d9bbbff5d60a0", size = 2877272, upload-time = "2026-06-13T00:44:06.396Z" },
+    { url = "https://files.pythonhosted.org/packages/79/f9/30da2f0070b127f50a0b1e89b3da8a8762b1461e62b3c7847415752cf3ab/vapoursynth_zsmooth-0.16.0-py3-none-manylinux_2_17_aarch64.whl", hash = "sha256:518fc5b49373b49aa98adc33d393232b1617bd0a9184dbbdd4eb330ad296d574", size = 2290110, upload-time = "2026-06-13T00:44:07.888Z" },
+    { url = "https://files.pythonhosted.org/packages/1a/f6/731ca09a571eb03e2b9d6ab638ce016086ceeaa16cf7f5dcc05babd0a5cd/vapoursynth_zsmooth-0.16.0-py3-none-manylinux_2_17_x86_64.whl", hash = "sha256:d1ba5fcc6428e4ac63974ca4e0978cf586b4a1d9e1beb930cb925d7b98d7e78b", size = 10540725, upload-time = "2026-06-13T00:44:09.549Z" },
+    { url = "https://files.pythonhosted.org/packages/81/3e/4cb5a6f3b3491861276ad20acf6ce23940dcbce0af2d1bffff0855ab63e1/vapoursynth_zsmooth-0.16.0-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:48598729fe3bc471a30d56621d7de003f2549e94da14d221cca2a530a1d1ed57", size = 2290811, upload-time = "2026-06-13T00:44:11.447Z" },
+    { url = "https://files.pythonhosted.org/packages/d8/c4/31bc2366028b4dc3abfda26ae2d3c85d71552f9186434a832145daa27436/vapoursynth_zsmooth-0.16.0-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:6d8b76f9b28292028ca170785e53a92523c5f8c696cac95418471ee65cb3a209", size = 10542515, upload-time = "2026-06-13T00:44:13.064Z" },
+    { url = "https://files.pythonhosted.org/packages/5b/67/f76fe88e0bac8716f203334410ca2d54d7ae9340db4c4e1f8d3c236a7379/vapoursynth_zsmooth-0.16.0-py3-none-win_amd64.whl", hash = "sha256:ee2c95deb1d1caffc53c591f439531f08d02953bf9d72207a00f1e7faf5fb8d0", size = 10272411, upload-time = "2026-06-13T00:44:15.254Z" },
 ]
 
 [[package]]

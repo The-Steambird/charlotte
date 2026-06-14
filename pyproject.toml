@@ -8,7 +8,7 @@ readme = "README.md"
 maintainers = [{ name = "Mint" }]
 dependencies = [
     "orjson>=3.11.9",
-    "pyinstaller>=6.20.0",
+    "pyinstaller>=6.21.0",
     "tqdm>=4.68.2",
     "typer>=0.26.7",
     "urllib3>=2.7.0",
@@ -20,7 +20,7 @@ dependencies = [
     "vapoursynth-deblock>=8.1",
     "vapoursynth-resize2>=0.4.3",
     "vapoursynth-vszip>=14.3.0",
-    "vapoursynth-zsmooth>=0.15.5",
+    "vapoursynth-zsmooth>=0.16.0",
     "vs-placebo>=2.0.2",
     "vsjetpack>=1.5.0",
     "vsnoise>=1.2.1",
