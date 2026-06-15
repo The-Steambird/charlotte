@@ -1,7 +1,13 @@
+import io
+import json
+import shutil
+import zipfile
+
 from typing import TYPE_CHECKING
 
 import urllib3
 
+from utils.errors import CharlotteError
 from utils.logger import log
 from utils.paths import app_root
 
@@ -9,50 +15,133 @@ from utils.paths import app_root
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from utils.reporter import Reporter
+
 
 http = urllib3.PoolManager()
 
 
-def fetch_subtitle(stem: str, lang: str) -> bytes | None:
-    url = (
-        f"https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/Subtitle/{lang}/{stem}_{lang}.srt"
-    )
+SUBTITLE_ARCHIVE_URL = (
+    "https://gitlab.com/Dimbreath/AnimeGameData/-/archive/master/"
+    "AnimeGameData-master.zip?path=Subtitle"
+)
 
-    try:
-        log.debug(f"Fetching {stem}_{lang}.srt from upstream...")
-        response = http.request("GET", url, timeout=10.0)
-        if response.status == 200:
-            log.debug(f"Successfully fetched {stem}_{lang}.srt.")
-            return response.data
-        if response.status == 404:
-            log.debug(f"{stem}_{lang}.srt not found upstream (404).")
-        else:
-            log.warning(f"HTTP Error {response.status} while fetching {stem}_{lang}.srt.")
-    except urllib3.exceptions.HTTPError as e:
-        log.warning(f"Failed to fetch from upstream for {stem}_{lang}.srt: {e}")
-    except Exception as e:
-        log.error(f"Failed to download subtitle {stem}_{lang}.srt: {e}")
+SUBTITLE_COMMITS_URL = (
+    "https://gitlab.com/api/v4/projects/Dimbreath%2FAnimeGameData/repository/commits"
+    "?path=Subtitle&ref_name=master&per_page=1"
+)
 
-    return None
+
+def subtitle_dir() -> Path:
+    return app_root() / "Subtitle"
 
 
 def local_subtitle_path(stem: str, lang: str) -> Path:
-    """Where this subtitle lives locally; the file may not exist yet."""
-    return app_root() / "Subtitle" / lang / f"{stem}_{lang}.srt"
+    return subtitle_dir() / lang / f"{stem}_{lang}.srt"
 
 
-def get_subtitle_path(stem: str, lang: str) -> Path | None:
-    subtitle_path = local_subtitle_path(stem, lang)
-    if subtitle_path.exists():
-        return subtitle_path
+def sync_marker() -> Path:
+    # Delete this file to force subtitle re-sync.
+    return subtitle_dir() / ".sync.json"
 
-    upstream_data = fetch_subtitle(stem, lang)
-    if upstream_data:
-        try:
-            subtitle_path.parent.mkdir(parents=True, exist_ok=True)
-            subtitle_path.write_bytes(upstream_data)
-            return subtitle_path
-        except OSError as e:
-            log.error(f"Failed to save subtitle to {subtitle_path}: {e}")
 
-    return None
+def stored_commit() -> str:
+    try:
+        data = json.loads(sync_marker().read_text())
+        return data.get("commit", "") if isinstance(data, dict) else ""
+    except OSError, ValueError:
+        return ""
+
+
+def write_commit(commit: str) -> None:
+    try:
+        sync_marker().write_text(json.dumps({"commit": commit}))
+    except OSError as e:
+        log.warning(f"Failed to write subtitle sync marker: {e}")
+
+
+def latest_commit() -> str:
+    try:
+        response = http.request("GET", SUBTITLE_COMMITS_URL, timeout=10.0)
+    except urllib3.exceptions.HTTPError as e:
+        raise CharlotteError(f"Could not check for updates: {e}") from e
+
+    if response.status != 200:
+        raise CharlotteError(f"Could not check for updates (HTTP {response.status}).")
+
+    try:
+        return json.loads(response.data)[0]["id"]
+    except ValueError, KeyError, IndexError:
+        raise CharlotteError("Unknown response from subtitle upstream.") from None
+
+
+def fetch_archive() -> zipfile.ZipFile:
+    try:
+        response = http.request("GET", SUBTITLE_ARCHIVE_URL, timeout=120.0)
+    except urllib3.exceptions.HTTPError as e:
+        raise CharlotteError(f"Download failed: {e}") from e
+
+    if response.status != 200:
+        raise CharlotteError(f"Download failed (HTTP {response.status}).")
+
+    try:
+        return zipfile.ZipFile(io.BytesIO(response.data))
+    except zipfile.BadZipFile as e:
+        raise CharlotteError("Archive is not a valid zip.") from e
+
+
+def extract_member(archive: zipfile.ZipFile, name: str, target: Path) -> bool:
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with archive.open(name) as src, open(target, "wb") as out:
+            shutil.copyfileobj(src, out)
+        return True
+    except OSError as e:
+        log.warning(f"Failed to write {target.name}: {e}")
+        return False
+
+
+def sync_subtitles(reporter: Reporter) -> None:
+    """Mirror the upstream Subtitle/ folder into the local cache when the upstream commit differs
+    from the one in Subtitle/.sync.json."""
+    try:
+        latest = latest_commit()
+        if latest == stored_commit():
+            log.debug("Subtitles already up to date.")
+            return
+
+        log.info("Subtitle update found, downloading archive from GitLab...")
+        archive = fetch_archive()
+    except CharlotteError as e:
+        log.warning(f"Skipping subtitle sync: {e}. Using local cache.")
+        return
+
+    with archive:
+        # AnimeGameData-master-Subtitle/Subtitle/<LANG>/<file>.srt -> drop the top-level prefix
+        # dir so files land in <root>/Subtitle/<LANG>/...
+        root = app_root()
+        targets = []
+        for name in archive.namelist():
+            _, _, rel = name.partition("/")
+            # Only .srt leaves, and guard against zip-slip (../ escaping the cache).
+            if rel.startswith("Subtitle/") and rel.endswith(".srt") and ".." not in rel.split("/"):
+                targets.append((name, root / rel))
+
+        if not targets:
+            log.warning("Subtitle archive contained no subtitles, using local cache.")
+            return
+
+        written = 0
+        with reporter.task("subtitles", len(targets), unit="file") as task:
+            for name, target in targets:
+                if extract_member(archive, name, target):
+                    written += 1
+                task.advance()
+
+    # Mark the commit when every file landed. A partial write re-downloads next run.
+    if written == len(targets):
+        write_commit(latest)
+
+    log.info(f"Synced {written} subtitle file(s) into {subtitle_dir()}.")
+    if written < len(targets):
+        log.warning(f"{len(targets) - written} subtitle file(s) failed to write.")
