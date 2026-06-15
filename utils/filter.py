@@ -5,27 +5,30 @@ import sys
 
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
-from pathlib import Path
 from queue import Empty
+from typing import TYPE_CHECKING
 
 from utils.errors import Cancelled
 from utils.paths import bundle_root
 from utils.reporter import QueueReporter, Reporter
 
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+DEFAULT_CRF = 13.5
+DEFAULT_PRESET = "slower"
+
+
 def ffmpeg_params(
     ffmpeg_path: Path,
     output: Path,
-    custom_crf: float | None = None,
-    custom_preset: str | None = None,
-    custom_x265_params: str = "",
+    crf: float,
+    preset: str,
+    x265_params: str = "",
 ) -> list[str]:
-    crf = custom_crf if custom_crf is not None else 13.5
-    preset = custom_preset if custom_preset is not None else "slower"
-
-    if custom_x265_params:
-        x265_params = custom_x265_params
-    elif custom_crf is None and custom_preset is None:
+    if not x265_params and crf == DEFAULT_CRF and preset == DEFAULT_PRESET:
         x265_params = ":".join(
             [
                 "keyint=300",
@@ -52,8 +55,6 @@ def ffmpeg_params(
                 "no-sao-non-deblock=1",
             ]
         )
-    else:
-        x265_params = ""
 
     cmd = [
         str(ffmpeg_path),
@@ -128,8 +129,8 @@ def find_vs_script(stem: str) -> str | None:
 def worker(
     file_stem: str,
     output_path: Path,
-    custom_crf: float | None,
-    custom_preset: str | None,
+    crf: float,
+    preset: str,
     x265_params: str,
     queue: multiprocessing.Queue,
 ) -> None:
@@ -166,9 +167,9 @@ def worker(
     cmd = ffmpeg_params(
         ffmpeg_path=root / "ffmpeg.exe",
         output=output_path / f"{file_stem}_filtered.mkv",
-        custom_crf=custom_crf,
-        custom_preset=custom_preset,
-        custom_x265_params=x265_params,
+        crf=crf,
+        preset=preset,
+        x265_params=x265_params,
     )
 
     try:
@@ -240,9 +241,9 @@ def vapoursynth_filter(
     file_stem: str,
     output_path: Path,
     reporter: Reporter,
-    custom_crf: float | None = None,
-    custom_preset: str | None = None,
-    custom_x265_params: str = "",
+    crf: float,
+    preset: str,
+    x265_params: str = "",
 ) -> Path | None:
     """
     Spawns VapourSynth filter processing in an isolated memory process. vssource.BestSource seems to
@@ -256,7 +257,7 @@ def vapoursynth_filter(
 
     process = ctx.Process(
         target=worker,
-        args=(file_stem, output_path, custom_crf, custom_preset, custom_x265_params, queue),
+        args=(file_stem, output_path, crf, preset, x265_params, queue),
     )
     process.start()
 

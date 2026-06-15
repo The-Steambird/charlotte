@@ -33,8 +33,8 @@ class Options:
     output: str
     no_cleanup: bool
     vapoursynth: bool
-    crf: float | None
-    preset: str | None
+    crf: float
+    preset: str
     x265_params: str
     fonts: tuple[Path, Path] | None = None
     manual_key: int | None = None
@@ -161,9 +161,9 @@ def process_usm(usm_file: Path, opts: Options, reporter: Reporter) -> None:
                 file_stem=stem,
                 output_path=output_path,
                 reporter=reporter,
-                custom_crf=opts.crf,
-                custom_preset=opts.preset,
-                custom_x265_params=opts.x265_params,
+                crf=opts.crf,
+                preset=opts.preset,
+                x265_params=opts.x265_params,
             )
             if filtered_mkv:
                 file_paths.setdefault("vs", []).append(filtered_mkv)
