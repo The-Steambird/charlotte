@@ -1,5 +1,6 @@
 import importlib
 import multiprocessing
+import re
 import subprocess
 import sys
 
@@ -19,6 +20,19 @@ if TYPE_CHECKING:
 
 DEFAULT_CRF = 13.5
 DEFAULT_PRESET = "slower"
+
+# Map ffmpeg log level to internal levels (error/warning/info/debug).
+FFMPEG_LEVELS = {
+    "panic": "error",
+    "fatal": "error",
+    "error": "error",
+    "warning": "warning",
+    "info": "info",
+    "verbose": "debug",
+    "debug": "debug",
+    "trace": "debug",
+}
+LEVEL_TAG = re.compile(r"\[(panic|fatal|error|warning|info|verbose|debug|trace)]")
 
 
 def ffmpeg_params(
@@ -59,6 +73,7 @@ def ffmpeg_params(
     cmd = [
         str(ffmpeg_path),
         "-y",
+        "-hide_banner",
         "-v", "info",
         "-nostats",
         "-progress", "pipe:2",
@@ -81,7 +96,6 @@ def ffmpeg_params(
 
 
 def parse_ffmpeg_stderr(process: subprocess.Popen, ffmpeg_task, reporter: Reporter) -> None:
-    """Reads ffmpeg's stderr: frame counts drive progress, everything else is logged."""
     expected_keys = {
         "frame",
         "fps",
@@ -107,14 +121,12 @@ def parse_ffmpeg_stderr(process: subprocess.Popen, ffmpeg_task, reporter: Report
             if key == "frame" and val.isdigit():
                 ffmpeg_task.set_completed(int(val))
         else:
-            # Unknown progress key, likely ffmpeg warning or error.
-            reporter.log("warning", line)
+            # Forward ffmpeg/x265 log lines at its own tagged only real warnings show as warnings.
+            match = LEVEL_TAG.search(line)
+            reporter.log(FFMPEG_LEVELS[match.group(1)] if match else "info", line)
 
 
 def find_vs_script(stem: str) -> str | None:
-    """Which vs/ module to use for this stem: exact match, then the Boy/Girl
-    counterpart. vs/ scripts are plain files under bundle_root() both from source and
-    frozen (the spec bundles them as data), so a file check is the module lookup."""
     candidates = [stem]
     if stem.endswith("_Girl"):
         candidates.append(stem.removesuffix("_Girl") + "_Boy")
