@@ -1,5 +1,4 @@
 import ctypes
-import json
 import msvcrt
 import os
 import sys
@@ -8,6 +7,7 @@ from contextlib import contextmanager
 from ctypes import wintypes
 from itertools import count
 
+import orjson
 import typer
 
 from tqdm import tqdm
@@ -161,7 +161,7 @@ class JsonReporter(Reporter):
         self.emit({"type": "session_start", "protocol": PROTOCOL_VERSION})
 
     def emit(self, obj):
-        line = json.dumps(obj, ensure_ascii=True)
+        line = orjson.dumps(obj).decode("utf-8")
         try:
             self.out.write(line + "\n")
             self.out.flush()
@@ -216,8 +216,8 @@ class JsonReporter(Reporter):
             if not line:
                 continue
             try:
-                cmd = json.loads(line)
-            except ValueError, TypeError:
+                cmd = orjson.loads(line)
+            except orjson.JSONDecodeError, TypeError:
                 continue
             if not isinstance(cmd, dict):
                 continue
@@ -247,8 +247,8 @@ class JsonReporter(Reporter):
         while b"\n" in self.buf:
             raw, _, self.buf = self.buf.partition(b"\n")
             try:
-                cmd = json.loads(raw)
-            except ValueError, TypeError:
+                cmd = orjson.loads(raw)
+            except orjson.JSONDecodeError, TypeError:
                 continue
             if isinstance(cmd, dict) and cmd.get("type") == "cancel":
                 self.cancelled = True

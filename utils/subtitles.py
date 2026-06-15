@@ -1,9 +1,9 @@
 import io
-import json
 import zipfile
 
 from typing import TYPE_CHECKING
 
+import orjson
 import urllib3
 
 from utils.errors import CharlotteError
@@ -46,7 +46,7 @@ def sync_marker() -> Path:
 
 def stored_commit() -> str:
     try:
-        data = json.loads(sync_marker().read_text())
+        data = orjson.loads(sync_marker().read_text())
         return data.get("commit", "") if isinstance(data, dict) else ""
     except OSError, ValueError:
         return ""
@@ -54,7 +54,7 @@ def stored_commit() -> str:
 
 def write_commit(commit: str) -> None:
     try:
-        sync_marker().write_text(json.dumps({"commit": commit}))
+        sync_marker().write_bytes(orjson.dumps({"commit": commit}))
     except OSError as e:
         log.warning(f"Failed to write subtitle sync marker: {e}")
 
@@ -69,7 +69,7 @@ def latest_commit() -> str:
         raise CharlotteError(f"Could not check for updates (HTTP {response.status}).")
 
     try:
-        return json.loads(response.data)[0]["id"]
+        return orjson.loads(response.data)[0]["id"]
     except ValueError, KeyError, IndexError:
         raise CharlotteError("Unknown response from subtitle upstream.") from None
 
