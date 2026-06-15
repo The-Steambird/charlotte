@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from decoders.ass import ASS
-from decoders.hca import HCA
+from decoders.hca import AUDIO_CODECS, HCA
 from decoders.usm import USM
 from utils.errors import Cancelled
 from utils.filter import find_vs_script, vapoursynth_filter
@@ -14,7 +14,7 @@ from utils.keys import find_key_from_file, get_decryption_key
 from utils.languages import SUBTITLES_LANGUAGES
 from utils.logger import log
 from utils.mux import mux
-from utils.subtitles import get_subtitle_path, local_subtitle_path
+from utils.subtitles import local_subtitle_path
 
 
 if TYPE_CHECKING:
@@ -37,17 +37,28 @@ class Options:
     preset: str | None
     x265_params: str
     fonts: tuple[Path, Path] | None = None
+    manual_key: int | None = None
+    default_audio: str = "ja"
+    default_subtitle: str = "EN"
+    audio_codec: str = "flac"
+    skip_existing: bool = False
+    flat: bool = False
 
 
 def process_audio(
-    hca_files: list[Path], key1: bytes, key2: bytes, output_path: Path, keep_decrypted: bool
+    hca_files: list[Path],
+    key1: bytes,
+    key2: bytes,
+    output_path: Path,
+    keep_decrypted: bool,
+    codec: str,
 ) -> list[Path]:
     def convert_one(hca_file: Path) -> Path:
         hca = HCA(hca_file, key1, key2)
         hca.decrypt()
         if keep_decrypted:
             hca.save()
-        return hca.convert_to_flac(output_path=output_path)
+        return hca.convert(output_path=output_path, codec=codec)
 
     with ThreadPoolExecutor() as executor:
         return list(executor.map(convert_one, hca_files))
@@ -56,8 +67,8 @@ def process_audio(
 def process_subtitles(stem: str, output_path: Path) -> list[Path]:
     subtitle_files = []
     for lang in SUBTITLES_LANGUAGES:
-        sub_path = get_subtitle_path(stem, lang)
-        if sub_path:
+        sub_path = local_subtitle_path(stem, lang)
+        if sub_path.exists():
             subtitle_files.append((sub_path, lang))
 
     log.info(f"Found {len(subtitle_files)} subtitle file(s).")
@@ -103,7 +114,13 @@ def process_usm(usm_file: Path, opts: Options, reporter: Reporter) -> None:
     log.info(f"Processing: {usm_file.name}")
     reporter.event("job_start", file=usm_file.name, stem=stem)
 
-    keys = get_decryption_key(usm_file.name, reporter)
+    final_mkv = Path(opts.output) / (f"{stem}.mkv" if opts.flat else f"{stem}/{stem}.mkv")
+    if opts.skip_existing and final_mkv.exists():
+        log.info(f"Skipping {usm_file.name}: output already exists.")
+        reporter.event("job_skipped", file=usm_file.name, reason="exists")
+        return
+
+    keys = get_decryption_key(usm_file.name, reporter, manual_key=opts.manual_key)
     if keys is None:
         log.warning(f"Could not find decryption keys for {usm_file.name}, skipping...")
         reporter.event("job_skipped", file=usm_file.name, reason="no_key")
@@ -116,18 +133,24 @@ def process_usm(usm_file: Path, opts: Options, reporter: Reporter) -> None:
     output_path.mkdir(exist_ok=True)
     file_paths = usm.demux(output_path=output_path, reporter=reporter)
 
-    # Cancel is only observed at stage boundaries here (and continuously inside
-    # vapoursynth_filter); on cancel, drop this job's intermediates and bail.
     try:
         reporter.checkpoint()
 
         hca_files = file_paths.get("hca", [])
-        flac_files = process_audio(
-            hca_files, key1, key2, output_path, keep_decrypted=opts.no_cleanup
+        audio_files = process_audio(
+            hca_files,
+            key1,
+            key2,
+            output_path,
+            keep_decrypted=opts.no_cleanup,
+            codec=opts.audio_codec,
         )
-        file_paths.setdefault("flac", []).extend(flac_files)
+        file_paths.setdefault("audio", []).extend(audio_files)
 
-        ass_files = process_subtitles(BASENAME_FIXES.get(stem, stem), output_path)
+        ass_files = process_subtitles(
+            stem=BASENAME_FIXES.get(stem, stem),
+            output_path=output_path,
+        )
         file_paths.setdefault("ass", []).extend(ass_files)
 
         reporter.checkpoint()
@@ -149,22 +172,32 @@ def process_usm(usm_file: Path, opts: Options, reporter: Reporter) -> None:
 
         reporter.checkpoint()
 
-        mux(output_path, vs_path=filtered_mkv, fonts=opts.fonts)
+        mux(
+            output_path,
+            vs_path=filtered_mkv,
+            fonts=opts.fonts,
+            default_audio=opts.default_audio,
+            default_subtitle=opts.default_subtitle,
+            audio_extension=AUDIO_CODECS.get(opts.audio_codec, AUDIO_CODECS["flac"])[0],
+        )
     except Cancelled:
-        # A partial {stem}_filtered.mkv may survive this: an orphaned ffmpeg can
-        # still hold it. The GUI's Job Object reaps that ffmpeg on exit.
         if not opts.no_cleanup:
             cleanup_files(file_paths, output_path)
         raise
 
-    if not opts.no_cleanup:
+    if opts.flat:
+        final_mkv.parent.mkdir(parents=True, exist_ok=True)
+        (output_path / f"{stem}.mkv").replace(final_mkv)
+        if not opts.no_cleanup:
+            shutil.rmtree(output_path, ignore_errors=True)
+    elif not opts.no_cleanup:
         cleanup_files(file_paths, output_path)
 
     reporter.event(
         "result",
         file=usm_file.name,
         stem=stem,
-        output=str(output_path / f"{stem}.mkv"),
+        output=str(final_mkv),
         status="ok",
     )
 
