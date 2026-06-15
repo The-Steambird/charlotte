@@ -1,13 +1,13 @@
 AUDIO_LANGUAGES = {
-    "0": "zh",
-    "1": "en",
-    "2": "ja",
-    "3": "ko",
+    "0": ("zh", "中文"),
+    "1": ("en", "English"),
+    "2": ("ja", "日本語"),
+    "3": ("ko", "한국어"),
 }
 
 SUBTITLES_LANGUAGES = {
-    "CHS": ("zh", "简体中文"),
-    "CHT": ("zh", "繁體中文"),
+    "CHS": ("zh-Hans", "简体中文"),
+    "CHT": ("zh-Hant", "繁體中文"),
     "DE": ("de", "Deutsch"),
     "EN": ("en", "English"),
     "ES": ("es", "Español"),
@@ -25,5 +25,5 @@ SUBTITLES_LANGUAGES = {
 
 
 def get_language(lang: str) -> str:
-    """Translate subtitles language code from file name to ISO 639-1."""
+    """Translate the subtitle file-name code to a BCP-47 language tag."""
     return SUBTITLES_LANGUAGES.get(lang, ("und", "Unknown"))[0]
