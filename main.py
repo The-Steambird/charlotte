@@ -1,42 +1,62 @@
 import multiprocessing
 
+from enum import StrEnum
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, NoReturn
 
 import typer
 
+from decoders.hca import AUDIO_CODECS
 from pipeline import Options, probe_usm, process_usm
 from utils.errors import Cancelled, CharlotteError
 from utils.fonts import fetch_font
 from utils.keys import load_local_keys
+from utils.languages import AUDIO_LANGUAGES, SUBTITLES_LANGUAGES
 from utils.logger import log, route_logs_to_stderr
 from utils.reporter import ConsoleReporter, JsonReporter, Reporter
+from utils.subtitles import sync_subtitles
 
 
 app = typer.Typer(help="USM video file demuxer and converter")
 
 
-def collect_files(input_path: Path) -> list[Path]:
-    if input_path.is_file():
-        if input_path.suffix.lower() != ".usm":
-            log.error("Error: File must have a .usm extension")
-            raise typer.Exit(1)
-        return [input_path]
+AudioCodec = StrEnum("AudioCodec", {codec: codec for codec in AUDIO_CODECS})
+AudioLanguage = StrEnum("AudioLanguage", {lang: lang for lang, _ in AUDIO_LANGUAGES.values()})
+SubtitleLanguage = StrEnum("SubtitleLanguage", {lang: lang for lang in SUBTITLES_LANGUAGES})
 
-    if input_path.is_dir():
-        files = list(input_path.glob("*.usm"))
-        if not files:
-            log.error("No .usm files found in directory")
-            raise typer.Exit(1)
-        return files
 
-    log.error(f"Error: {input_path} is not a valid file or directory")
-    raise typer.Exit(1)
+def collect_files(input_paths: list[Path], reporter: Reporter) -> list[Path]:
+    def fail(message: str, name: str) -> NoReturn:
+        log.error(message)
+        reporter.event("error", file=name, message=message)
+        raise typer.Exit(1)
+
+    files: list[Path] = []
+    for path in input_paths:
+        if path.is_file():
+            if path.suffix.lower() != ".usm":
+                fail(f"Not a .usm file: {path}", path.name)
+            files.append(path)
+        elif path.is_dir():
+            found = sorted(path.glob("*.usm"))
+            if not found:
+                fail(f"No .usm files found in directory: {path}", str(path))
+            files.extend(found)
+        else:
+            fail(f"Not a valid file or directory: {path}", str(path))
+
+    files = list(dict.fromkeys(files))
+    if not files:
+        fail("No .usm input files provided.", "")
+    return files
 
 
 @app.command()
 def demux(
-    usm_path: Annotated[str, typer.Argument(help="USM file or directory containing USM files.")],
+    usm_paths: Annotated[
+        list[Path] | None,
+        typer.Argument(help="USM file(s) or directory(ies) containing USM files."),
+    ] = None,
     output: Annotated[str, typer.Option("--output", "-o", help="Output directory.")] = "output",
     no_cleanup: Annotated[
         bool,
@@ -87,6 +107,7 @@ def demux(
         bool,
         typer.Option(
             "--json",
+            "-json",
             help="Emit newline-delimited JSON events on stdout for a GUI/automation frontend.",
         ),
     ] = False,
@@ -99,6 +120,39 @@ def demux(
             "subtitles, VapourSynth script). Read-only: nothing is processed or fetched.",
         ),
     ] = False,
+    key: Annotated[
+        int | None,
+        typer.Option(
+            "--key",
+            "-k",
+            help="Manually supply the decryption key (videoKey/key2) for a single file."
+            "Bypasses the keys.json lookup and is not written back. Only valid with one file.",
+        ),
+    ] = None,
+    default_audio: Annotated[
+        AudioLanguage,
+        typer.Option("--default-audio", "-da", help="Audio language to flag as default."),
+    ] = AudioLanguage.ja,
+    default_subtitle: Annotated[
+        SubtitleLanguage,
+        typer.Option("--default-sub", "-ds", help="Subtitle language code to flag as default."),
+    ] = SubtitleLanguage.EN,
+    audio_codec: Annotated[
+        AudioCodec,
+        typer.Option("--audio-codec", "-ac", help="Audio codec for muxed tracks."),
+    ] = AudioCodec.flac,
+    skip_existing: Annotated[
+        bool,
+        typer.Option("--skip-existing", "-se", help="Skip .mkv files that already exists."),
+    ] = False,
+    flat: Annotated[
+        bool,
+        typer.Option(
+            "--flat",
+            "-f",
+            help="Write .mkv directly into the output directory without a parent folder.",
+        ),
+    ] = False,
 ) -> None:
     reporter: Reporter
     if json_output:
@@ -107,7 +161,11 @@ def demux(
     else:
         reporter = ConsoleReporter()
 
-    usm_files = collect_files(Path(usm_path))
+    usm_files = collect_files(usm_paths or [], reporter)
+
+    if key is not None and len(usm_files) > 1:
+        log.error("--key is only valid with a single input file.")
+        raise typer.Exit(1)
 
     if probe:
         keys_data = load_local_keys()
@@ -117,6 +175,7 @@ def demux(
 
     log.info(f"Found {len(usm_files)} USM file(s).")
     Path(output).mkdir(parents=True, exist_ok=True)
+    sync_subtitles(reporter)
     opts = Options(
         output=output,
         no_cleanup=no_cleanup,
@@ -125,6 +184,12 @@ def demux(
         preset=custom_preset,
         x265_params=custom_x265_params,
         fonts=fetch_font(),
+        manual_key=key,
+        default_audio=default_audio.value,
+        default_subtitle=default_subtitle.value,
+        audio_codec=audio_codec.value,
+        skip_existing=skip_existing,
+        flat=flat,
     )
 
     failures = 0

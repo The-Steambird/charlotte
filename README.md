@@ -30,16 +30,16 @@ This project is heavily inspired by [GI-cutscenes](https://github.com/ToaHartor/
 
 ## Features
 
-- [x] Decrypt `.usm` into `.ivf` video and `.hca` EN, CN, JP, KR audio tracks
-- [x] Convert `.hca` audio to `.flac` for archival
-- [x] Convert `.srt` subtitles into styled `.ass` in 15 languages with matching official cutscene subtitle style and fonts
-- [x] Mux all tracks into `.mkv`
-- [x] Bundled lightweight custom FFmpeg — no system installation required
-- [x] Automatically fetches missing decryption keys, subtitles from DimBreath, and fonts from the game directory
-- [x] VapourSynth pipeline for post-processing quality improvements
-- [x] Custom lightweight FFmpeg build bundled inside the executable
-- [x] Progress bars throughout the entire pipeline
-- [ ] Graphical User Interface
+- Losslessly decrypt `.usm` into `.ivf` video and `.hca` EN, CN, JP, KR audio tracks
+- Convert `.hca` audio to lossless `.flac`, or `.opus` (VBR 256kbps) for smaller files
+- Convert `.srt` subtitles into styled `.ass` in 15 languages with matching official cutscene subtitle style and fonts
+- Mux all tracks into `.mkv`, with selectable default audio and subtitle tracks
+- Automatically syncs the full subtitle collection (all 15 languages) from DimBreath, re-downloading only when it changes upstream
+- Manual decryption key entry
+- Automatically fetches missing decryption keys, and fonts from the game directory
+- VapourSynth pipeline for post-processing quality improvements
+- Bundled lightweight custom FFmpeg — no system installation required
+- Graphical User Interface (coming soon!)
 
 VapourSynth filter scripts take a lot of time to write to ensure quality, hence they will be slowly added over time. If you have encoding knowledge, contributions are welcome!
 
@@ -60,13 +60,23 @@ Note: the availability of older cutscenes depends on your local game files and r
 ### Usage
 
 ```sh
-charlotte [PATH_TO_USM_FILE_OR_DIR] [OPTIONS]
+charlotte [PATHS...] [OPTIONS]
 ```
+
+`PATHS` is one or more `.usm` files and/or directories containing `.usm` files.
 
 Example:
 
 ```sh
 charlotte "USM\Cs_EQHDJ005_HaiDengJie_Girl.usm" -vs -nc
+```
+
+This decrypts the cutscene, applies the VapourSynth filter script, and writes to `output/Cs_EQHDJ005_HaiDengJie_Girl/Cs_EQHDJ005_HaiDengJie_Girl.mkv` without deleting intermediate files.
+
+Process several files and/or directories at once:
+
+```sh
+charlotte "USM\Cs_A.usm" "USM\Cs_B.usm" "MoreCutscenes" -o output
 ```
 
 To check what is available for your files (decryption key, local subtitles, VapourSynth script) without processing anything:
@@ -81,22 +91,26 @@ For help:
 charlotte --help
 ```
 
-This decrypts the cutscene, applies the VapourSynth filter script, and writes to `output/Cs_EQHDJ005_HaiDengJie_Boy/Cs_EQHDJ005_HaiDengJie_Boy.mkv` without deleting intermediate files.
-
 **Tip**: If you're running with `-vs` flag, for higher encoding speed, setting Python and FFmpeg in Task Manager to high priority can help. Alternatively, you can leave the terminal on the front so that Windows' Process Scheduling Priority will prioritize Charlotte.
 
 ### Parameters
 
-| Type | Flag | Alias | Description |
-| --- | --- |-----| --- |
-| Argument | `PATH_TO_USM_FILE_OR_DIR` | `-` | Path to one `.usm` file or a directory containing `.usm` files. |
-| Option | `--output [DIR]` | `-o` | Output directory (default: `output`). |
-| Option | `--no-cleanup` | `-nc` | Keep intermediate files (`.ivf`, `.hca`, `.ass`, etc.). |
-| Option | `--vapoursynth` | `-vs` | Apply a matching VapourSynth `.vpy` filter script. |
-| Option | `--probe` | `-p` | Only report what is available for each file (decryption key, local subtitles, VapourSynth script). Read-only: nothing is processed or fetched. |
-| Option | `--crf [VALUE]` | `-crf` | x265 CRF value for VapourSynth output (default: `13.5`). Setting this suppresses the built-in `--x265-params` defaults. |
-| Option | `--preset [PRESET]` | `-preset` | x265 preset for VapourSynth output (default: `slower`). Setting this suppresses the built-in `--x265-params` defaults. |
-| Option | `--x265-params [PARAMS]` | `-x265` | Custom x265 params (colon-separated). Overrides the built-in defaults below. |
+| Type     | Flag                         | Alias     | Description                                                                                                                                    |
+|----------|------------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------|
+| Argument | `PATHS...`                   | `-`       | One or more `.usm` files and/or directories containing `.usm` files.                                                                           |
+| Option   | `--output [DIR]`             | `-o`      | Output directory (default: `output`).                                                                                                          |
+| Option   | `--flat`                     | `-f`      | Write `{name}.mkv` directly into the output directory instead of a per-cutscene subfolder.                                                     |
+| Option   | `--skip-existing`            | `-se`     | Skip any file whose output `.mkv` already exists.                                                                                              |
+| Option   | `--no-cleanup`               | `-nc`     | Keep intermediate files (`.ivf`, `.hca`, `.ass`, etc.).                                                                                        |
+| Option   | `--audio-codec [CODEC]`      | `-ac`     | Audio codec for muxed tracks: `flac` (default, lossless) or `opus` (smaller; requires an FFmpeg build with libopus).                           |
+| Option   | `--default-audio [LANG]`     | `-da`     | Audio language flagged as default in the `.mkv`: `zh`, `en`, `ja` (default), `ko`.                                                             |
+| Option   | `--default-subtitle [CODE]`  | `-ds`     | Subtitle language flagged as default: `EN` (default), `JP`, `CHS`, `CHT`, `DE`, …                                                              |
+| Option   | `--key [KEY]`                | `-k`      | Manually input a key for a single file                                                                                                         |
+| Option   | `--vapoursynth`              | `-vs`     | Apply a matching VapourSynth filter script from `vs/`.                                                                                         |
+| Option   | `--crf [VALUE]`              | `-crf`    | x265 CRF value for VapourSynth output (default: `13.5`).                                                                                       |
+| Option   | `--preset [PRESET]`          | `-preset` | x265 preset for VapourSynth output (default: `slower`).                                                                                        |
+| Option   | `--x265-params [PARAMS]`     | `-x265`   | Custom x265 params (colon-separated). Overrides the built-in defaults below.                                                                   |
+| Option   | `--probe`                    | `-p`      | Only report what is available for each file (decryption key, local subtitles, VapourSynth script). Read-only: nothing is processed or fetched. |
 
 When neither `--crf`, `--preset`, nor `--x265-params` is set, the following x265 params are applied automatically:
 
