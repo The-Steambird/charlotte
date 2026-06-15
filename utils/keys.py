@@ -71,8 +71,7 @@ def find_key_from_file(data: dict, filename: str) -> int | None:
 
 
 def load_local_keys() -> dict:
-    """Read-only parse of the local keys.json for probing; empty when missing or
-    corrupt. Never fetches, prompts, or writes - that is get_key's job."""
+    """Read-only parse of the local keys.json for probing."""
     try:
         return orjson.loads((app_root() / "keys.json").read_bytes())
     except OSError, orjson.JSONDecodeError:
@@ -108,6 +107,9 @@ def get_key(filename: str, reporter: Reporter) -> int | None:
     log.info(f"Key for {filename} not found. Checking upstream...")
     upstream_bytes = fetch_upstream_keys()
 
+    if upstream_bytes is None:
+        return None
+
     if not upstream_bytes or upstream_bytes == local_bytes:
         log.info(
             "Upstream keys.json is identical to local file. Please check back later "
@@ -136,10 +138,12 @@ def get_key(filename: str, reporter: Reporter) -> int | None:
     return None
 
 
-def get_decryption_key(filename: str, reporter: Reporter) -> tuple[bytes, bytes] | None:
+def get_decryption_key(
+    filename: str, reporter: Reporter, manual_key: int | None = None
+) -> tuple[bytes, bytes] | None:
     basename = Path(filename).stem
     key1 = calculate_key_from_filename(basename)
-    key2 = get_key(basename, reporter)
+    key2 = manual_key if manual_key is not None else get_key(basename, reporter)
 
     if key2 is None:
         return None
