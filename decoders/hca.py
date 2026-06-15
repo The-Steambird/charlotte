@@ -132,6 +132,12 @@ def build_cipher_table(ciph_type: int, key1: bytes, key2: bytes) -> bytearray:
     return table
 
 
+AUDIO_CODECS = {
+    "flac": (".flac", ["-compression_level", "8"]),
+    "opus": (".mka", ["-c:a", "libopus", "-b:a", "256k", "-vbr", "on"]),
+}
+
+
 class HCA:
     def __init__(self, file_path: Path, key1: bytes | None = None, key2: bytes | None = None):
         self.file_path = Path(file_path)
@@ -230,28 +236,29 @@ class HCA:
             f.write(self.header)
             f.write(self.data)
 
-    def convert_to_flac(self, output_path: Path) -> Path:
-        flac_file = output_path / f"{self.file_path.stem}.flac"
+    def convert(self, output_path: Path, codec: str = "flac") -> Path:
+        extension, codec_args = AUDIO_CODECS.get(codec, AUDIO_CODECS["flac"])
+        output_file = output_path / f"{self.file_path.stem}{extension}"
         cmd = [
             str(bundle_root() / "ffmpeg.exe"),
             "-y",  # Overwrite output file
             "-loglevel", "error",
             "-f", "hca",
             "-i", "pipe:0",
-            "-compression_level", "8",
-            str(flac_file),
+            *codec_args,
+            str(output_file),
         ]  # fmt: skip
 
         try:
             # Read from memory so the decrypted stream don't need to write to disk first to read.
             payload = b"".join((self.header, self.data))
             subprocess.run(cmd, input=payload, capture_output=True, check=True)
-            return flac_file
+            return output_file
         except subprocess.CalledProcessError as e:
             log.error(f"Error converting audio: {e}")
             if e.stderr:
                 log.error(e.stderr.decode("utf-8", errors="replace"))
-            raise CharlotteError("FLAC conversion failed.") from e
+            raise CharlotteError("Audio conversion failed.") from e
         except FileNotFoundError:
             log.error("FFmpeg not found. Place FFmpeg in the root directory and try again.")
             raise CharlotteError("FFmpeg not found.") from None
