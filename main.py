@@ -1,6 +1,5 @@
 import multiprocessing
 
-from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, NoReturn
 
@@ -9,6 +8,7 @@ import typer
 from decoders.hca import AUDIO_CODECS
 from pipeline import Options, probe_usm, process_usm
 from utils.errors import Cancelled, CharlotteError
+from utils.filter import DEFAULT_CRF, DEFAULT_PRESET
 from utils.fonts import fetch_font
 from utils.keys import load_local_keys
 from utils.languages import AUDIO_LANGUAGES, SUBTITLES_LANGUAGES
@@ -20,9 +20,28 @@ from utils.subtitles import sync_subtitles
 app = typer.Typer(help="USM video file demuxer and converter")
 
 
-AudioCodec = StrEnum("AudioCodec", {codec: codec for codec in AUDIO_CODECS})
-AudioLanguage = StrEnum("AudioLanguage", {lang: lang for lang, _ in AUDIO_LANGUAGES.values()})
-SubtitleLanguage = StrEnum("SubtitleLanguage", {lang: lang for lang in SUBTITLES_LANGUAGES})
+AUDIO_CODEC_CHOICES = list(AUDIO_CODECS)
+AUDIO_CHOICES = [tag for tag, _ in AUDIO_LANGUAGES.values()]
+SUBTITLE_CHOICES = list(SUBTITLES_LANGUAGES)
+
+
+def choice_metavar(choices: list[str]) -> str:
+    """Display flag parameter choices for --help in lowercase."""
+    return f"[{'|'.join(choice.lower() for choice in choices)}]"
+
+
+def choice_normalizer(choices: list[str]):
+    """Case-insensitive typer callback mapping input."""
+    table = {choice.casefold(): choice for choice in choices}
+
+    def normalize(value: str) -> str:
+        canonical = table.get(value.casefold())
+        if canonical is None:
+            allowed = ", ".join(choice.lower() for choice in choices)
+            raise typer.BadParameter(f"must be one of: {allowed}")
+        return canonical
+
+    return normalize
 
 
 def collect_files(input_paths: list[Path], reporter: Reporter) -> list[Path]:
@@ -77,30 +96,30 @@ def demux(
             ),
         ),
     ] = False,
-    custom_crf: Annotated[
-        float | None,
+    crf: Annotated[
+        float,
         typer.Option(
             "--crf",
             "-crf",
-            help="x265 CRF value for VapourSynth output. When set, suppresses the built-in x265 "
-            "params (default: 13.5 when unset).",
+            help="x265 CRF value for VapourSynth output. A non-default value suppresses the "
+            "built-in x265 params (see README).",
         ),
-    ] = None,
-    custom_preset: Annotated[
-        str | None,
+    ] = DEFAULT_CRF,
+    preset: Annotated[
+        str,
         typer.Option(
             "--preset",
             "-preset",
-            help="x265 preset for VapourSynth output. When set, suppresses the built-in x265 "
-            "params (default: slower when unset).",
+            help="x265 preset for VapourSynth output. A non-default value suppresses the "
+            "built-in x265 params (see README).",
         ),
-    ] = None,
-    custom_x265_params: Annotated[
+    ] = DEFAULT_PRESET,
+    x265_params: Annotated[
         str,
         typer.Option(
             "--x265-params",
             "-x265",
-            help="Custom x265 parameters (colon-separated).",
+            help="Custom x265 parameters (colon-separated). See README.md for default values used.",
         ),
     ] = "",
     json_output: Annotated[
@@ -116,31 +135,44 @@ def demux(
         typer.Option(
             "--probe",
             "-p",
-            help="Only report what is available for each file (decryption key, local "
-            "subtitles, VapourSynth script). Read-only: nothing is processed or fetched.",
+            help="Read-only check what is available for each file (decryption key, local "
+            "subtitles, VapourSynth script).",
         ),
     ] = False,
     key: Annotated[
         int | None,
-        typer.Option(
-            "--key",
-            "-k",
-            help="Manually supply the decryption key (videoKey/key2) for a single file."
-            "Bypasses the keys.json lookup and is not written back. Only valid with one file.",
-        ),
+        typer.Option("--key", "-k", help="Manually supply the decryption key for a single file."),
     ] = None,
     default_audio: Annotated[
-        AudioLanguage,
-        typer.Option("--default-audio", "-da", help="Audio language to flag as default."),
-    ] = AudioLanguage.ja,
+        str,
+        typer.Option(
+            "--default-audio",
+            "-da",
+            help="Audio language to flag as default.",
+            metavar=choice_metavar(AUDIO_CHOICES),
+            callback=choice_normalizer(AUDIO_CHOICES),
+        ),
+    ] = "ja",
     default_subtitle: Annotated[
-        SubtitleLanguage,
-        typer.Option("--default-sub", "-ds", help="Subtitle language code to flag as default."),
-    ] = SubtitleLanguage.EN,
+        str,
+        typer.Option(
+            "--default-sub",
+            "-ds",
+            help="Subtitle language code to flag as default.",
+            metavar=choice_metavar(SUBTITLE_CHOICES),
+            callback=choice_normalizer(SUBTITLE_CHOICES),
+        ),
+    ] = "en",
     audio_codec: Annotated[
-        AudioCodec,
-        typer.Option("--audio-codec", "-ac", help="Audio codec for muxed tracks."),
-    ] = AudioCodec.flac,
+        str,
+        typer.Option(
+            "--audio-codec",
+            "-ac",
+            help="Audio codec for muxed tracks.",
+            metavar=choice_metavar(AUDIO_CODEC_CHOICES),
+            callback=choice_normalizer(AUDIO_CODEC_CHOICES),
+        ),
+    ] = "flac",
     skip_existing: Annotated[
         bool,
         typer.Option("--skip-existing", "-se", help="Skip .mkv files that already exists."),
@@ -180,14 +212,14 @@ def demux(
         output=output,
         no_cleanup=no_cleanup,
         vapoursynth=vapoursynth,
-        crf=custom_crf,
-        preset=custom_preset,
-        x265_params=custom_x265_params,
+        crf=crf,
+        preset=preset,
+        x265_params=x265_params,
         fonts=fetch_font(),
         manual_key=key,
-        default_audio=default_audio.value,
-        default_subtitle=default_subtitle.value,
-        audio_codec=audio_codec.value,
+        default_audio=default_audio,
+        default_subtitle=default_subtitle,
+        audio_codec=audio_codec,
         skip_existing=skip_existing,
         flat=flat,
     )
