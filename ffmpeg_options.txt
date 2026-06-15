@@ -2,11 +2,12 @@
 
 --disable-everything
 --enable-demuxer=hca,yuv4mpegpipe,ivf,matroska,flac,ass
---enable-parser=vp9
+--enable-parser=vp9,opus
 --enable-muxer=matroska,flac
 --enable-decoder=hca,rawvideo
---enable-encoder=flac,libx265
+--enable-encoder=flac,libx265,libopus
 --enable-protocol=file,pipe
 --enable-filter=aresample,scale
 --enable-libx265
+--enable-libopus
 --enable-gpl
