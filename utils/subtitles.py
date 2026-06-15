@@ -1,6 +1,5 @@
 import io
 import json
-import shutil
 import zipfile
 
 from typing import TYPE_CHECKING
@@ -93,8 +92,8 @@ def fetch_archive() -> zipfile.ZipFile:
 def extract_member(archive: zipfile.ZipFile, name: str, target: Path) -> bool:
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
-        with archive.open(name) as src, open(target, "wb") as out:
-            shutil.copyfileobj(src, out)
+        with archive.open(name) as src:
+            target.write_bytes(src.read())
         return True
     except OSError as e:
         log.warning(f"Failed to write {target.name}: {e}")
