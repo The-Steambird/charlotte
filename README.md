@@ -95,22 +95,22 @@ charlotte --help
 
 ### Parameters
 
-| Type     | Flag                         | Alias     | Description                                                                                                                                    |
-|----------|------------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------|
-| Argument | `PATHS...`                   | `-`       | One or more `.usm` files and/or directories containing `.usm` files.                                                                           |
-| Option   | `--output [DIR]`             | `-o`      | Output directory (default: `output`).                                                                                                          |
-| Option   | `--flat`                     | `-f`      | Write `{name}.mkv` directly into the output directory instead of a per-cutscene subfolder.                                                     |
-| Option   | `--skip-existing`            | `-se`     | Skip any file whose output `.mkv` already exists.                                                                                              |
-| Option   | `--no-cleanup`               | `-nc`     | Keep intermediate files (`.ivf`, `.hca`, `.ass`, etc.).                                                                                        |
-| Option   | `--audio-codec [CODEC]`      | `-ac`     | Audio codec for muxed tracks: `flac` (default, lossless) or `opus` (smaller; requires an FFmpeg build with libopus).                           |
-| Option   | `--default-audio [LANG]`     | `-da`     | Audio language flagged as default in the `.mkv`: `zh`, `en`, `ja` (default), `ko`.                                                             |
-| Option   | `--default-subtitle [CODE]`  | `-ds`     | Subtitle language flagged as default: `EN` (default), `JP`, `CHS`, `CHT`, `DE`, …                                                              |
-| Option   | `--key [KEY]`                | `-k`      | Manually input a key for a single file                                                                                                         |
-| Option   | `--vapoursynth`              | `-vs`     | Apply a matching VapourSynth filter script from `vs/`.                                                                                         |
-| Option   | `--crf [VALUE]`              | `-crf`    | x265 CRF value for VapourSynth output (default: `13.5`).                                                                                       |
-| Option   | `--preset [PRESET]`          | `-preset` | x265 preset for VapourSynth output (default: `slower`).                                                                                        |
-| Option   | `--x265-params [PARAMS]`     | `-x265`   | Custom x265 params (colon-separated). Overrides the built-in defaults below.                                                                   |
-| Option   | `--probe`                    | `-p`      | Only report what is available for each file (decryption key, local subtitles, VapourSynth script). Read-only: nothing is processed or fetched. |
+| Type     | Flag                     | Alias     | Description                                                                                                                                    |
+|----------|--------------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------|
+| Argument | `PATHS...`               | `-`       | One or more `.usm` files and/or directories containing `.usm` files.                                                                           |
+| Option   | `--output [DIR]`         | `-o`      | Output directory (default: `output`).                                                                                                          |
+| Option   | `--flat`                 | `-f`      | Write `{name}.mkv` directly into the output directory instead of a per-cutscene subfolder.                                                     |
+| Option   | `--skip-existing`        | `-se`     | Skip any file whose output `.mkv` already exists.                                                                                              |
+| Option   | `--no-cleanup`           | `-nc`     | Keep intermediate files (`.ivf`, `.hca`, `.ass`, etc.).                                                                                        |
+| Option   | `--audio-codec [CODEC]`  | `-ac`     | Audio codec for muxed tracks: `flac` (default, lossless) or `opus` (smaller; requires an FFmpeg build with libopus).                           |
+| Option   | `--default-audio [LANG]` | `-da`     | Audio language flagged as default in the `.mkv`: `zh`, `en`, `ja` (default), `ko`.                                                             |
+| Option   | `--default-sub [CODE]`   | `-ds`     | Subtitle language flagged as default: `chs`, `cht`, `de`, `en` (default), `es`, `fr`, `id`, `it`, `jp`, `kr`, `pt`, `ru`, `th`, `tr`, `vi`.    |
+| Option   | `--key [KEY]`            | `-k`      | Manually input a key for a single file                                                                                                         |
+| Option   | `--vapoursynth`          | `-vs`     | Apply a matching VapourSynth filter script from `vs/`.                                                                                         |
+| Option   | `--crf [VALUE]`          | `-crf`    | x265 CRF value for VapourSynth output (default: `13.5`).                                                                                       |
+| Option   | `--preset [PRESET]`      | `-preset` | x265 preset for VapourSynth output (default: `slower`).                                                                                        |
+| Option   | `--x265-params [PARAMS]` | `-x265`   | Custom x265 params (colon-separated). Overrides the built-in defaults below.                                                                   |
+| Option   | `--probe`                | `-p`      | Only report what is available for each file (decryption key, local subtitles, VapourSynth script). Read-only: nothing is processed or fetched. |
 
 When neither `--crf`, `--preset`, nor `--x265-params` is set, the following x265 params are applied automatically:
 
