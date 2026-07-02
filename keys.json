@@ -51,7 +51,9 @@
                 "Video_Reunion_58",
                 "Video_Reunion_60",
                 "Video_Reunion_61",
-                "Video_Reunion_62"
+                "Video_Reunion_62",
+                "Cs_Xm_DrDataPhase_Boy",
+                "Cs_Xm_DrDataPhase_Girl"
             ]
         },
         {
@@ -1188,6 +1190,45 @@
 					"parentQuestId": "_reunion_",
 					"videos": [
 						"Video_Reunion_66"
+					]
+				}
+			]
+		},
+        {
+			"version": "6.7",
+			"videoGroups": [
+				{
+					"videoKey": 8364515898595274,
+					"parentQuestId": "76132",
+					"videos": [
+                        "Cs_NodKrai_WQ7613220_HJFS_Boy",
+                        "Cs_NodKrai_WQ7613220_HJFS_Girl",
+                        "Cs_NodKrai_WQ7613221_HJZL_Boy",
+                        "Cs_NodKrai_WQ7613221_HJZL_Girl"
+                    ]
+				},
+                {
+					"videoKey": 4126459040218290,
+					"parentQuestId": "40245",
+					"videos": [
+                        "Cs_FD_EQ402452601_HJ"
+                    ]
+				},
+                {
+					"videoKey": 9533335115327366,
+					"parentQuestId": "40246",
+					"videos": [
+                        "Cs_FD_EQ402460901_FZ_Boy",
+                        "Cs_FD_EQ402460901_FZ_Girl",
+                        "Cs_FD_EQ402461001_BB_Boy",
+                        "Cs_FD_EQ402461001_BB_Girl"
+                    ]
+				},
+				{
+					"videoKey": 1352072859642299,
+					"parentQuestId": "_reunion_",
+					"videos": [
+						"Video_Reunion_67"
 					]
 				}
 			]

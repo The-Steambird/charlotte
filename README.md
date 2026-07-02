@@ -18,9 +18,9 @@
 
 # Charlotte
 
-Charlotte is a Genshin Impact utility that losslessly decrypts `.usm` cutscene files into playable `.mkv` videos, covering all known cutscenes from versions 1.0 through 6.6. Ships as a self-contained binary – no external tools required.
+Charlotte is a Genshin Impact utility that losslessly decrypts `.usm` cutscene files into playable `.mkv` videos, covering all known cutscenes from versions 1.0 through 6.7.
 
-If you have missing keys, pull requests are welcome. I fetch keys myself, but some old keys may be missing.
+If you have missing keys, pull requests are welcome. I try to fetch new keys myself, but some old keys may be missing.
 
 ## Why Charlotte
 
