@@ -12,7 +12,7 @@ from utils.filter import DEFAULT_CRF, DEFAULT_PRESET
 from utils.fonts import fetch_font
 from utils.keys import load_local_keys
 from utils.languages import AUDIO_LANGUAGES, SUBTITLES_LANGUAGES
-from utils.logger import log, route_logs_to_stderr
+from utils.logger import log
 from utils.reporter import ConsoleReporter, JsonReporter, Reporter
 from utils.subtitles import sync_subtitles
 
@@ -186,15 +186,8 @@ def demux(
         ),
     ] = False,
 ) -> None:
-    reporter: Reporter
-    if json_output:
-        route_logs_to_stderr()
-        reporter = JsonReporter()
-    else:
-        reporter = ConsoleReporter()
-
+    reporter = JsonReporter() if json_output else ConsoleReporter()
     usm_files = collect_files(usm_paths or [], reporter)
-
     if key is not None and len(usm_files) > 1:
         log.error("--key is only valid with a single input file.")
         raise typer.Exit(1)

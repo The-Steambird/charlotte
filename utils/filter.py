@@ -5,13 +5,10 @@ import subprocess
 import sys
 
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import ExitStack
-from queue import Empty
 from typing import TYPE_CHECKING
 
-from utils.errors import Cancelled
 from utils.paths import bundle_root
-from utils.reporter import QueueReporter, Reporter
+from utils.reporter import QueueReporter, Reporter, relay_worker
 
 
 if TYPE_CHECKING:
@@ -121,7 +118,6 @@ def parse_ffmpeg_stderr(process: subprocess.Popen, ffmpeg_task, reporter: Report
             if key == "frame" and val.isdigit():
                 ffmpeg_task.set_completed(int(val))
         else:
-            # Forward ffmpeg/x265 log lines at its own tagged only real warnings show as warnings.
             match = LEVEL_TAG.search(line)
             reporter.log(FFMPEG_LEVELS[match.group(1)] if match else "info", line)
 
@@ -148,19 +144,16 @@ def worker(
 ) -> None:
     import vapoursynth as vs
 
-    reporter = QueueReporter(queue)
-    reporter.log("info", f"Applying VapourSynth filter: {file_stem}")
-    # Max 8 threads for high-end CPUs. Scale down to 1/2 for low-end CPUs to leave room for ffmpeg.
     vs.core.num_threads = min(8, max(1, multiprocessing.cpu_count() // 2))
 
-    root = bundle_root()
+    reporter = QueueReporter(queue)
+    reporter.log("info", f"Applying VapourSynth filter: {file_stem}")
 
+    root = bundle_root()
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
 
     try:
-        # No match falls through with the stem itself so the import error below
-        # reports it, same as any other broken script.
         module_name = find_vs_script(file_stem) or file_stem
         if module_name != file_stem:
             reporter.log(
@@ -200,27 +193,14 @@ def worker(
 
     total_frames = clip.num_frames
 
-    with (
-        reporter.task("vapoursynth", total=total_frames, unit="frames") as vapoursynth_task,
-        reporter.task("ffmpeg", total=total_frames, unit="frames") as ffmpeg_task,
-    ):
+    with reporter.task("ffmpeg", total=total_frames, unit="frames") as ffmpeg_task:
         # ffmpeg_pipe writes VS frames into ffmpeg's stdin, then parse_ffmpeg_stderr reads ffmpeg's
         # stderr on the main thread. They must run concurrently to keep both pipes continuously
         # drained. If stdin is written without draining stderr, ffmpeg's stderr buffer fills up,
         # ffmpeg stalls, stdin backs up, creating a deadlock.
         def ffmpeg_pipe() -> None:
-            try:
-                with process.stdin:
-                    # Streams encoded Y4M frames into FFmpeg's stdin. clip.output()
-                    # blocks until all frames have been written and stdin is closed.
-                    clip.output(
-                        process.stdin,
-                        y4m=True,
-                        progress_update=lambda current, _: vapoursynth_task.set_completed(current),
-                    )
-            finally:
-                # Prevent early exit leaving the progress bar stuck.
-                vapoursynth_task.set_completed(total_frames)
+            with process.stdin as stdin:
+                clip.output(stdin, y4m=True)
 
         with ThreadPoolExecutor(max_workers=1) as executor:
             # parse_ffmpeg_stderr runs on a background thread, continuously reading ffmpeg's stderr
@@ -235,10 +215,8 @@ def worker(
                 queue.put(("result", False))
                 return
 
-            # Wait for stderr reader to finish
             stderr_future.result()
 
-        # FFmpeg exit, collect the exit code.
         return_code = process.wait()
 
     if return_code != 0:
@@ -272,41 +250,7 @@ def vapoursynth_filter(
         args=(file_stem, output_path, crf, preset, x265_params, queue),
     )
     process.start()
-
-    # Relay the worker's events through our reporter (the parent owns the terminal /
-    # stdout; the worker only writes to this queue). "task_end" is ignored - ExitStack
-    # closes the bars/stages when the loop ends.
-    tasks = {}
-    result = None
-    with ExitStack() as stack:
-        while True:
-            if reporter.poll_cancel():
-                # Kill the worker; its ffmpeg child is NOT killed with it (Windows
-                # TerminateProcess doesn't touch grandchildren). ffmpeg sees EOF on
-                # its stdin and exits on its own; the GUI's Job Object is the
-                # backstop if it doesn't.
-                process.terminate()
-                process.join()
-                raise Cancelled
-            try:
-                msg = queue.get(timeout=0.2)
-            except Empty:
-                if not process.is_alive():
-                    break
-                continue
-            kind = msg[0]
-            if kind == "result":
-                result = msg[1]
-                break
-            if kind == "log":
-                reporter.log(msg[1], msg[2])
-            elif kind == "task_start":
-                _, stage, total, unit = msg
-                tasks[stage] = stack.enter_context(reporter.task(stage, total=total, unit=unit))
-            elif kind == "advance":
-                tasks[msg[1]].advance(msg[2])
-            elif kind == "set":
-                tasks[msg[1]].set_completed(msg[2])
+    result = relay_worker(reporter, queue, process)
     process.join()
 
     if process.exitcode != 0:
