@@ -36,7 +36,6 @@ source = { virtual = "." }
 dependencies = [
     { name = "orjson" },
     { name = "pyinstaller" },
-    { name = "pytest" },
     { name = "typer" },
     { name = "urllib3" },
     { name = "vapoursynth" },
@@ -57,6 +56,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "deptry" },
+    { name = "pytest" },
     { name = "ruff" },
 ]
 
@@ -64,7 +64,6 @@ dev = [
 requires-dist = [
     { name = "orjson", specifier = ">=3.11.9" },
     { name = "pyinstaller", specifier = ">=6.21.0" },
-    { name = "pytest", specifier = ">=9.1.1" },
     { name = "typer", specifier = ">=0.26.8" },
     { name = "urllib3", specifier = ">=2.7.0" },
     { name = "vapoursynth", specifier = ">=77" },
@@ -85,6 +84,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "deptry", specifier = ">=0.25.1" },
+    { name = "pytest", specifier = ">=9.1.1" },
     { name = "ruff", specifier = ">=0.15.20" },
 ]
 

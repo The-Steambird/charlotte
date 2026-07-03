@@ -9,7 +9,6 @@ maintainers = [{ name = "Mint" }]
 dependencies = [
     "orjson>=3.11.9",
     "pyinstaller>=6.21.0",
-    "pytest>=9.1.1",
     "typer>=0.26.8",
     "urllib3>=2.7.0",
     "vapoursynth>=77",
@@ -30,6 +29,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "deptry>=0.25.1",
+    "pytest>=9.1.1",
     "ruff>=0.15.20",
 ]
 
@@ -42,6 +42,10 @@ package = false
 default-groups = [
     "dev",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
 
 [tool.ruff]
 line-length = 100
