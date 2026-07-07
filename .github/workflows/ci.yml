@@ -1,5 +1,7 @@
 on:
   push:
+    branches:
+      - master
   pull_request:
   workflow_dispatch:
 
@@ -20,6 +22,9 @@ jobs:
 
       - name: Set up Python
         run: uv python install
+
+      - name: Check lockfile is up to date
+        run: uv lock --check
 
       - name: Install dependencies
         run: uv sync
