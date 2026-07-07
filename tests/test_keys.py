@@ -4,8 +4,8 @@ import pytest
 import resources.keys
 
 from resources.keys import (
+    Keys,
     find_key_from_file,
-    get_key,
     load_local_keys,
 )
 from utils.errors import CharlotteError
@@ -57,61 +57,86 @@ def test_load_local_keys_missing_or_corrupt(tmp_app_root):
     assert load_local_keys() == {}
 
 
-# --- get_key ---
+# --- Keys ---
 
 
-def test_get_key_local_hit_skips_network(tmp_app_root, reporter, monkeypatch):
+def test_local_hit_skips_network(tmp_app_root, reporter, monkeypatch):
     write_keys(tmp_app_root, FLAT_KEYS)
     monkeypatch.setattr(resources.keys, "fetch_upstream_keys", forbid_fetch)
-    assert get_key("Cs_A", reporter) == 111
+    assert Keys(reporter).get("Cs_A") == 111
     assert reporter.prompts == []
 
 
-def test_get_key_missing_file_fetch_fails(reporter, monkeypatch):
+def test_manual_key_skips_disk_and_network(reporter, monkeypatch):
+    # No keys.json exists in tmp_app_root; a manual key must not trigger the bootstrap fetch.
+    monkeypatch.setattr(resources.keys, "fetch_upstream_keys", forbid_fetch)
+    assert Keys(reporter, manual_key=42).get("Cs_Anything") == 42
+    assert reporter.prompts == []
+
+
+def test_missing_file_fetch_fails(reporter, monkeypatch):
     monkeypatch.setattr(resources.keys, "fetch_upstream_keys", lambda: None)
     with pytest.raises(CharlotteError):
-        get_key("Cs_A", reporter)
+        Keys(reporter)
 
 
-def test_get_key_missing_file_fetched_and_saved(tmp_app_root, reporter, monkeypatch):
+def test_missing_file_fetched_and_saved(tmp_app_root, reporter, monkeypatch):
     monkeypatch.setattr(resources.keys, "fetch_upstream_keys", lambda: orjson.dumps(FLAT_KEYS))
-    assert get_key("Cs_A", reporter) == 111
+    assert Keys(reporter).get("Cs_A") == 111
     assert load_local_keys() == FLAT_KEYS
 
 
-def test_get_key_upstream_identical_returns_none(tmp_app_root, reporter, monkeypatch):
+def test_upstream_identical_returns_none(tmp_app_root, reporter, monkeypatch):
     write_keys(tmp_app_root, FLAT_KEYS)
     monkeypatch.setattr(resources.keys, "fetch_upstream_keys", lambda: orjson.dumps(FLAT_KEYS))
-    assert get_key("Cs_X", reporter) is None
+    assert Keys(reporter).get("Cs_X") is None
     assert reporter.prompts == []
 
 
-def test_get_key_new_upstream_key_accepted(tmp_app_root, reporter, monkeypatch):
+def test_new_upstream_key_accepted(tmp_app_root, reporter, monkeypatch):
     write_keys(tmp_app_root, FLAT_KEYS)
     monkeypatch.setattr(
         resources.keys, "fetch_upstream_keys", lambda: orjson.dumps(UPSTREAM_WITH_NEW_KEY)
     )
     reporter.answer = True
 
-    assert get_key("Cs_New", reporter) == 333
+    assert Keys(reporter).get("Cs_New") == 333
     assert len(reporter.prompts) == 1
     # Accepting the prompt overwrites the local keys.json with the upstream copy.
     assert load_local_keys() == UPSTREAM_WITH_NEW_KEY
 
 
-def test_get_key_new_upstream_key_declined(tmp_app_root, reporter, monkeypatch):
+def test_accepted_update_visible_to_later_files(tmp_app_root, reporter, monkeypatch):
+    """After one accepted overwrite, later files in the batch hit the new data
+    without another prompt."""
+    write_keys(tmp_app_root, FLAT_KEYS)
+    upstream = {"list": FLAT_KEYS["list"] + [{"videoKey": 333, "videos": ["Cs_New", "Cs_New2"]}]}
+    monkeypatch.setattr(resources.keys, "fetch_upstream_keys", lambda: orjson.dumps(upstream))
+    reporter.answer = True
+
+    keys = Keys(reporter)
+    assert keys.get("Cs_New") == 333
+    assert keys.get("Cs_New2") == 333
+    assert len(reporter.prompts) == 1
+
+
+def test_new_upstream_key_declined(tmp_app_root, reporter, monkeypatch):
     write_keys(tmp_app_root, FLAT_KEYS)
     monkeypatch.setattr(
         resources.keys, "fetch_upstream_keys", lambda: orjson.dumps(UPSTREAM_WITH_NEW_KEY)
     )
     reporter.answer = False
 
-    assert get_key("Cs_New", reporter) is None
+    keys = Keys(reporter)
+    assert keys.get("Cs_New") is None
     assert load_local_keys() == FLAT_KEYS
+    # Declining is remembered: later missing keys don't re-prompt.
+    assert keys.get("Cs_New") is None
+    assert len(reporter.prompts) == 1
 
 
-def test_get_key_corrupt_local_recovers_from_upstream(tmp_app_root, reporter, monkeypatch):
+def test_corrupt_local_recovers_from_upstream(tmp_app_root, reporter, monkeypatch):
     (tmp_app_root / "keys.json").write_bytes(b"not json")
     monkeypatch.setattr(resources.keys, "fetch_upstream_keys", lambda: orjson.dumps(FLAT_KEYS))
     reporter.answer = True
-    assert get_key("Cs_A", reporter) == 111
+    assert Keys(reporter).get("Cs_A") == 111

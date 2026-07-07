@@ -7,7 +7,7 @@ import typer
 
 from pipeline import Options, probe_usm, process_usm
 from resources.fonts import fetch_font
-from resources.keys import load_local_keys
+from resources.keys import Keys, load_local_keys
 from resources.subtitles import sync_subtitles
 from stages.filter import DEFAULT_CRF, DEFAULT_PRESET
 from utils.errors import Cancelled, CharlotteError
@@ -199,6 +199,13 @@ def demux(
         return
 
     log.info(f"Found {len(usm_files)} USM file(s).")
+    try:
+        keys = Keys(reporter, manual_key=key)
+    except CharlotteError as e:
+        log.error(str(e))
+        reporter.event("error", file="", message=str(e))
+        raise typer.Exit(1) from None
+
     Path(output).mkdir(parents=True, exist_ok=True)
     sync_subtitles(reporter)
     opts = Options(
@@ -209,7 +216,6 @@ def demux(
         preset=preset,
         x265_params=x265_params,
         fonts=fetch_font(),
-        manual_key=key,
         default_audio=default_audio,
         default_subtitle=default_subtitle,
         audio_codec=audio_codec,
@@ -220,7 +226,7 @@ def demux(
     failures = 0
     for usm_file in usm_files:
         try:
-            process_usm(usm_file, opts, reporter)
+            process_usm(usm_file, opts, reporter, keys)
         except Cancelled:
             log.info(f"Cancelled during {usm_file.name}.")
             reporter.event("cancelled", file=usm_file.name)

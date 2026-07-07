@@ -29,11 +29,12 @@ def pipeline_stub(monkeypatch):
     Tests that need a failing pipeline re-patch main.process_usm on top."""
     stub = types.SimpleNamespace(files=[], opts=None)
 
-    def fake_process(usm_file, opts, reporter):
+    def fake_process(usm_file, opts, reporter, keys):
         stub.files.append(usm_file)
         stub.opts = opts
 
     monkeypatch.setattr(main, "process_usm", fake_process)
+    monkeypatch.setattr(main, "Keys", lambda reporter, manual_key=None: None)
     monkeypatch.setattr(main, "sync_subtitles", lambda reporter: None)
     monkeypatch.setattr(main, "fetch_font", lambda: None)
     return stub
@@ -136,14 +137,13 @@ def test_default_options(pipeline_stub, tmp_path):
     # Defaults run through the normalizer too: "en" becomes the canonical "EN" code.
     assert opts.default_subtitle == "EN"
     assert opts.audio_codec == "flac"
-    assert opts.manual_key is None
 
 
 # --- run outcomes ---
 
 
 def test_processing_failure_exits_nonzero(pipeline_stub, monkeypatch, tmp_path):
-    def fail_process(usm_file, opts, reporter):
+    def fail_process(usm_file, opts, reporter, keys):
         raise CharlotteError("boom")
 
     monkeypatch.setattr(main, "process_usm", fail_process)
@@ -153,7 +153,7 @@ def test_processing_failure_exits_nonzero(pipeline_stub, monkeypatch, tmp_path):
 
 
 def test_cancelled_is_clean_exit(pipeline_stub, monkeypatch, tmp_path):
-    def cancel_process(usm_file, opts, reporter):
+    def cancel_process(usm_file, opts, reporter, keys):
         raise Cancelled
 
     monkeypatch.setattr(main, "process_usm", cancel_process)
@@ -166,9 +166,19 @@ def test_probe_skips_sync_and_pipeline(monkeypatch, tmp_path):
     probed = []
     monkeypatch.setattr(main, "probe_usm", lambda usm_file, keys, reporter: probed.append(usm_file))
     monkeypatch.setattr(main, "load_local_keys", dict)
+    monkeypatch.setattr(main, "Keys", forbid_call)
     monkeypatch.setattr(main, "sync_subtitles", forbid_call)
     monkeypatch.setattr(main, "process_usm", forbid_call)
 
     usm = make_usm(tmp_path)
     assert runner.invoke(main.app, [str(usm), "--probe"]).exit_code == 0
     assert probed == [usm]
+
+
+def test_key_bootstrap_failure_exits_nonzero(pipeline_stub, monkeypatch, tmp_path):
+    def fail_keys(reporter, manual_key=None):
+        raise CharlotteError("Failed to fetch keys.json.")
+
+    monkeypatch.setattr(main, "Keys", fail_keys)
+    usm = make_usm(tmp_path)
+    assert runner.invoke(main.app, [str(usm), "-o", str(tmp_path / "out")]).exit_code == 1

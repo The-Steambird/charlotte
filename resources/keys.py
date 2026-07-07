@@ -78,79 +78,96 @@ def load_local_keys() -> dict:
         return {}
 
 
-def get_key(filename: str, reporter: Reporter) -> int | None:
-    keys_path = app_root() / "keys.json"
+class Keys:
+    def __init__(self, reporter: Reporter, manual_key: int | None = None):
+        self.reporter = reporter
+        self.manual_key = manual_key
+        self.path = app_root() / "keys.json"
+        self.data: dict = {}
+        self.raw = b""
+        self.declined = False
+        if manual_key is not None:
+            return
 
-    # Fetch if completely missing.
-    if not keys_path.exists():
-        log.info(f"keys.json not found at {keys_path}.")
-        upstream_data = fetch_upstream_keys()
-        if not upstream_data:
-            log.error("Failed to fetch keys.json.")
-            raise CharlotteError("Failed to fetch keys.json.")
-        keys_path.write_bytes(upstream_data)
+        if not self.path.exists():
+            log.info(f"keys.json not found at {self.path}.")
+            upstream_bytes = fetch_upstream_keys()
+            if not upstream_bytes:
+                raise CharlotteError("Failed to fetch keys.json.")
+            self.path.write_bytes(upstream_bytes)
 
-    local_bytes = keys_path.read_bytes()
-    try:
-        local_data = orjson.loads(local_bytes)
-    except orjson.JSONDecodeError:
-        log.error("Error decoding local keys.json. Attempting to recover from upstream...")
-        local_data = {"list": []}
-        local_bytes = b""
+        self.raw = self.path.read_bytes()
+        try:
+            self.data = orjson.loads(self.raw)
+        except orjson.JSONDecodeError:
+            log.error("Error decoding local keys.json. Attempting to recover from upstream...")
+            self.data = {"list": []}
+            self.raw = b""
 
-    # Check local first.
-    key = find_key_from_file(local_data, filename)
-    if key is not None:
-        return key
+    def get(self, stem: str) -> int | None:
+        if self.manual_key is not None:
+            return self.manual_key
 
-    # Key not found locally, try checking upstream.
-    log.info(f"Key for {filename} not found. Checking upstream...")
-    upstream_bytes = fetch_upstream_keys()
+        key = find_key_from_file(self.data, stem)
+        if key is not None:
+            return key
 
-    if upstream_bytes is None:
-        return None
+        if self.declined:
+            log.info(f"Skipping {stem}: key update declined.")
+            return None
 
-    if not upstream_bytes or upstream_bytes == local_bytes:
-        log.info(
-            "Upstream keys.json is identical to local file. Please check back later "
-            "when new keys are available!"
+        log.info(f"Key for {stem} not found. Checking upstream...")
+        upstream_bytes = fetch_upstream_keys()
+
+        if upstream_bytes is None:
+            return None
+
+        if not upstream_bytes or upstream_bytes == self.raw:
+            log.info(
+                "Upstream keys.json is identical to local file. Please check back later "
+                "when new keys are available!"
+            )
+            return None
+
+        try:
+            upstream_data = orjson.loads(upstream_bytes)
+        except orjson.JSONDecodeError:
+            log.error("Error decoding upstream keys.json.")
+            return None
+
+        new_key = find_key_from_file(upstream_data, stem)
+        if new_key is None:
+            log.info(f"Key for {stem} not found upstream either.")
+            return None
+
+        overwrite_prompt = self.reporter.ask(
+            "New key(s) found. Overwrite local keys.json?", default=False
         )
-        return None
+        if not overwrite_prompt:
+            self.declined = True
+            log.info(f"Skipping {stem}: key update declined.")
+            return None
 
-    try:
-        upstream_data = orjson.loads(upstream_bytes)
-    except orjson.JSONDecodeError:
-        log.error("Error decoding upstream keys.json.")
-        return None
+        try:
+            self.path.write_bytes(upstream_bytes)
+        except OSError as e:
+            log.warning(f"Could not save keys.json: {e}")
 
-    new_key = find_key_from_file(upstream_data, filename)
-    if new_key is not None:
-        if reporter.ask("New key(s) found. Overwrite local keys.json?", default=False):
-            try:
-                keys_path.write_bytes(upstream_bytes)
-            except OSError as e:
-                log.warning(f"Could not save keys.json: {e}")
-            return new_key
-        log.info(f"Skipping {filename}: key update declined.")
-        return None
+        self.data = upstream_data
+        self.raw = upstream_bytes
+        return new_key
 
-    log.info(f"Key for {filename} not found upstream either.")
-    return None
+    def decryption_key(self, filename: str) -> tuple[bytes, bytes] | None:
+        basename = Path(filename).stem
+        key1 = calculate_key_from_filename(basename)
+        key2 = self.get(basename)
 
+        if key2 is None:
+            return None
 
-def get_decryption_key(
-    filename: str, reporter: Reporter, manual_key: int | None = None
-) -> tuple[bytes, bytes] | None:
-    basename = Path(filename).stem
-    key1 = calculate_key_from_filename(basename)
-    key2 = manual_key if manual_key is not None else get_key(basename, reporter)
+        final_key = (key1 + key2) & 0xFFFFFFFFFFFFFF
+        if final_key == 0:
+            final_key = 0x100000000000000
 
-    if key2 is None:
-        return None
-
-    final_key = (key1 + key2) & 0xFFFFFFFFFFFFFF
-    if final_key == 0:
-        final_key = 0x100000000000000
-
-    key_bytes = final_key.to_bytes(8, byteorder="little")
-    return key_bytes[:4], key_bytes[4:]
+        key_bytes = final_key.to_bytes(8, byteorder="little")
+        return key_bytes[:4], key_bytes[4:]

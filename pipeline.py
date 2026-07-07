@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from resources.keys import find_key_from_file, get_decryption_key
+from resources.keys import find_key_from_file
 from resources.subtitles import local_subtitle_path
 from stages.ass import ASS
 from stages.filter import find_vs_script, vapoursynth_filter
@@ -19,6 +19,7 @@ from utils.logger import log
 
 
 if TYPE_CHECKING:
+    from resources.keys import Keys
     from utils.reporter import Reporter
 
 
@@ -38,7 +39,6 @@ class Options:
     preset: str
     x265_params: str
     fonts: tuple[Path, Path] | None = None
-    manual_key: int | None = None
     default_audio: str = "ja"
     default_subtitle: str = "EN"
     audio_codec: str = "flac"
@@ -108,7 +108,7 @@ def cleanup_files(file_paths: dict[str, list[Path]], output_path: Path) -> None:
         log.error(f"Failed to remove directory {subs_dir.name}: {e}")
 
 
-def process_usm(usm_file: Path, opts: Options, reporter: Reporter) -> None:
+def process_usm(usm_file: Path, opts: Options, reporter: Reporter, keys: Keys) -> None:
     reporter.checkpoint()
 
     stem = usm_file.stem
@@ -121,14 +121,14 @@ def process_usm(usm_file: Path, opts: Options, reporter: Reporter) -> None:
         reporter.event("job_skipped", file=usm_file.name, reason="exists")
         return
 
-    keys = get_decryption_key(usm_file.name, reporter, manual_key=opts.manual_key)
-    if keys is None:
+    key_pair = keys.decryption_key(usm_file.name)
+    if key_pair is None:
         log.warning(f"Could not find decryption keys for {usm_file.name}, skipping...")
         reporter.event("job_skipped", file=usm_file.name, reason="no_key")
         return
     reporter.checkpoint()  # also catches a cancel that arrived during ask()
 
-    key1, key2 = keys
+    key1, key2 = key_pair
     usm = USM(usm_file, key1, key2)
     output_path = Path(opts.output) / f"{stem}"
     output_path.mkdir(exist_ok=True)
