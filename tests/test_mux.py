@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-import stages.mux
+import utils.ffmpeg
 
 from stages.mux import mux
 from utils.errors import CharlotteError
@@ -46,7 +46,7 @@ def ffmpeg(monkeypatch):
         capture.cmd = cmd
         return subprocess.CompletedProcess(cmd, capture.returncode, stdout="", stderr="")
 
-    monkeypatch.setattr(stages.mux.subprocess, "run", fake_run)
+    monkeypatch.setattr(utils.ffmpeg.subprocess, "run", fake_run)
     return capture
 
 

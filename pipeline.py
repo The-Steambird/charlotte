@@ -9,10 +9,11 @@ from resources.keys import find_key_from_file, get_decryption_key
 from resources.subtitles import local_subtitle_path
 from stages.ass import ASS
 from stages.filter import find_vs_script, vapoursynth_filter
-from stages.hca import AUDIO_CODECS, HCA
+from stages.hca import HCA
 from stages.mux import mux
 from stages.usm import USM
 from utils.errors import Cancelled
+from utils.ffmpeg import AUDIO_CODECS
 from utils.languages import SUBTITLES_LANGUAGES
 from utils.logger import log
 

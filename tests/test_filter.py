@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 import stages.filter
@@ -52,7 +50,7 @@ def flag_value(cmd, flag):
 
 
 def test_defaults_inject_builtin_x265_params(tmp_path):
-    cmd = ffmpeg_params(Path("ffmpeg.exe"), tmp_path / "out.mkv", DEFAULT_CRF, DEFAULT_PRESET)
+    cmd = ffmpeg_params(tmp_path / "out.mkv", DEFAULT_CRF, DEFAULT_PRESET)
     assert "aq-mode=3" in flag_value(cmd, "-x265-params")
     assert flag_value(cmd, "-crf") == str(DEFAULT_CRF)
     assert flag_value(cmd, "-preset") == DEFAULT_PRESET
@@ -60,17 +58,15 @@ def test_defaults_inject_builtin_x265_params(tmp_path):
 
 
 def test_custom_crf_suppresses_builtin_params(tmp_path):
-    cmd = ffmpeg_params(Path("ffmpeg.exe"), tmp_path / "out.mkv", 14.0, DEFAULT_PRESET)
+    cmd = ffmpeg_params(tmp_path / "out.mkv", 14.0, DEFAULT_PRESET)
     assert "-x265-params" not in cmd
 
 
 def test_custom_preset_suppresses_builtin_params(tmp_path):
-    cmd = ffmpeg_params(Path("ffmpeg.exe"), tmp_path / "out.mkv", DEFAULT_CRF, "medium")
+    cmd = ffmpeg_params(tmp_path / "out.mkv", DEFAULT_CRF, "medium")
     assert "-x265-params" not in cmd
 
 
 def test_explicit_params_used_verbatim(tmp_path):
-    cmd = ffmpeg_params(
-        Path("ffmpeg.exe"), tmp_path / "out.mkv", DEFAULT_CRF, DEFAULT_PRESET, "rd=6"
-    )
+    cmd = ffmpeg_params(tmp_path / "out.mkv", DEFAULT_CRF, DEFAULT_PRESET, "rd=6")
     assert flag_value(cmd, "-x265-params") == "rd=6"

@@ -10,8 +10,8 @@ from resources.fonts import fetch_font
 from resources.keys import load_local_keys
 from resources.subtitles import sync_subtitles
 from stages.filter import DEFAULT_CRF, DEFAULT_PRESET
-from stages.hca import AUDIO_CODECS
 from utils.errors import Cancelled, CharlotteError
+from utils.ffmpeg import AUDIO_CODECS
 from utils.languages import AUDIO_LANGUAGES, SUBTITLES_LANGUAGES
 from utils.logger import log
 from utils.reporter import ConsoleReporter, JsonReporter, Reporter

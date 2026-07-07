@@ -1,11 +1,9 @@
 import struct
-import subprocess
 
 from pathlib import Path
 
 from utils.errors import CharlotteError
-from utils.logger import log
-from utils.paths import bundle_root
+from utils.ffmpeg import AUDIO_CODECS, run_ffmpeg
 
 
 CRC16_TABLE = (
@@ -132,12 +130,6 @@ def build_cipher_table(ciph_type: int, key1: bytes, key2: bytes) -> bytearray:
     return table
 
 
-AUDIO_CODECS = {
-    "flac": (".flac", ["-compression_level", "8"]),
-    "opus": (".mka", ["-c:a", "libopus", "-b:a", "256k", "-vbr", "on"]),
-}
-
-
 class HCA:
     def __init__(self, file_path: Path, key1: bytes | None = None, key2: bytes | None = None):
         self.file_path = Path(file_path)
@@ -239,26 +231,7 @@ class HCA:
     def convert(self, output_path: Path, codec: str = "flac") -> Path:
         extension, codec_args = AUDIO_CODECS.get(codec, AUDIO_CODECS["flac"])
         output_file = output_path / f"{self.file_path.stem}{extension}"
-        cmd = [
-            str(bundle_root() / "ffmpeg.exe"),
-            "-y",  # Overwrite output file
-            "-loglevel", "error",
-            "-f", "hca",
-            "-i", "pipe:0",
-            *codec_args,
-            str(output_file),
-        ]  # fmt: skip
-
-        try:
-            # Read from memory so the decrypted stream don't need to write to disk first to read.
-            payload = b"".join((self.header, self.data))
-            subprocess.run(cmd, input=payload, capture_output=True, check=True)
-            return output_file
-        except subprocess.CalledProcessError as e:
-            log.error(f"Error converting audio: {e}")
-            if e.stderr:
-                log.error(e.stderr.decode("utf-8", errors="replace"))
-            raise CharlotteError("Audio conversion failed.") from e
-        except FileNotFoundError:
-            log.error("FFmpeg not found. Place FFmpeg in the root directory and try again.")
-            raise CharlotteError("FFmpeg not found.") from None
+        args = ["-f", "hca", "-i", "pipe:0", *codec_args, str(output_file)]
+        # Feed from memory so the decrypted stream doesn't need a round trip to disk.
+        run_ffmpeg(args, "Audio conversion failed", input=b"".join((self.header, self.data)))
+        return output_file

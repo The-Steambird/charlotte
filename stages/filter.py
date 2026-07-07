@@ -7,6 +7,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
 
+from utils.ffmpeg import FFMPEG_MISSING, ffmpeg_path
 from utils.paths import bundle_root
 from utils.reporter import QueueReporter, Reporter, relay_worker
 
@@ -33,7 +34,6 @@ LEVEL_TAG = re.compile(r"\[(panic|fatal|error|warning|info|verbose|debug|trace)]
 
 
 def ffmpeg_params(
-    ffmpeg_path: Path,
     output: Path,
     crf: float,
     preset: str,
@@ -68,7 +68,7 @@ def ffmpeg_params(
         )
 
     cmd = [
-        str(ffmpeg_path),
+        str(ffmpeg_path()),
         "-y",
         "-hide_banner",
         "-v", "info",
@@ -170,7 +170,6 @@ def worker(
         return
 
     cmd = ffmpeg_params(
-        ffmpeg_path=root / "ffmpeg.exe",
         output=output_path / f"{file_stem}_filtered.mkv",
         crf=crf,
         preset=preset,
@@ -185,9 +184,7 @@ def worker(
             stderr=subprocess.PIPE,
         )
     except FileNotFoundError:
-        reporter.log(
-            "error", "FFmpeg not found. Place ffmpeg.exe in the root directory and try again."
-        )
+        reporter.log("error", FFMPEG_MISSING)
         queue.put(("result", False))
         return
 
