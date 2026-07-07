@@ -7,6 +7,7 @@
 
 ---
 <p style="text-align: center;">
+  <a href="https://github.com/The-Steambird/charlotte/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/The-Steambird/charlotte/ci.yml?branch=master&label=ci&logo=githubactions&logoColor=white" alt="CI" /></a>
   <a href="https://github.com/lunarmint/charlotte/releases/latest"><img src="https://img.shields.io/github/v/release/lunarmint/charlotte?label=release" alt="Release" /></a>
   <a href="https://github.com/lunarmint/charlotte/releases"><img src="https://img.shields.io/github/downloads/lunarmint/charlotte/total" alt="Downloads" /></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.14%2B-3776AB?logo=python&logoColor=white" alt="Python 3.14+" /></a>
