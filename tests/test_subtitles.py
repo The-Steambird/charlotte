@@ -10,7 +10,7 @@ from utils.errors import CharlotteError
 
 
 # Top-level directory GitLab puts in the subpath archive; sync_subtitles strips it.
-ARCHIVE_ROOT = "AnimeGameData-master-Subtitle"
+ARCHIVE_ROOT = "animegamedata2-main-Subtitle"
 
 
 def make_archive(entries):

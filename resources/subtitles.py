@@ -21,13 +21,13 @@ http = urllib3.PoolManager()
 
 
 SUBTITLE_ARCHIVE_URL = (
-    "https://gitlab.com/Dimbreath/AnimeGameData/-/archive/master/"
-    "AnimeGameData-master.zip?path=Subtitle"
+    "https://gitlab.com/Dimbreath/animegamedata2/-/archive/main/"
+    "animegamedata2-main.zip?path=Subtitle"
 )
 
 SUBTITLE_COMMITS_URL = (
-    "https://gitlab.com/api/v4/projects/Dimbreath%2FAnimeGameData/repository/commits"
-    "?path=Subtitle&ref_name=master&per_page=1"
+    "https://gitlab.com/api/v4/projects/Dimbreath%2Fanimegamedata2/repository/commits"
+    "?path=Subtitle&ref_name=main&per_page=1"
 )
 
 
@@ -116,7 +116,7 @@ def sync_subtitles(reporter: Reporter) -> None:
         return
 
     with archive:
-        # AnimeGameData-master-Subtitle/Subtitle/<LANG>/<file>.srt -> drop the top-level prefix
+        # animegamedata2-main-Subtitle/Subtitle/<LANG>/<file>.srt -> drop the top-level prefix
         # dir so files land in <root>/Subtitle/<LANG>/...
         root = app_root()
         targets = []
