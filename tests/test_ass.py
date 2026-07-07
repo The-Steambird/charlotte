@@ -1,4 +1,4 @@
-from decoders.ass import ASS
+from stages.ass import ASS
 
 
 # Mirrors ASS.shadow to test failure if shadow was changed.

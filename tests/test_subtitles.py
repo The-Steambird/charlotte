@@ -3,10 +3,10 @@ import zipfile
 
 import pytest
 
-import utils.subtitles
+import resources.subtitles
 
+from resources.subtitles import local_subtitle_path, stored_commit, sync_subtitles, write_commit
 from utils.errors import CharlotteError
-from utils.subtitles import local_subtitle_path, stored_commit, sync_subtitles, write_commit
 
 
 # Top-level directory GitLab puts in the subpath archive; sync_subtitles strips it.
@@ -23,8 +23,8 @@ def make_archive(entries):
 
 
 def stub_upstream(monkeypatch, entries, commit="abc123"):
-    monkeypatch.setattr(utils.subtitles, "latest_commit", lambda: commit)
-    monkeypatch.setattr(utils.subtitles, "fetch_archive", lambda: make_archive(entries))
+    monkeypatch.setattr(resources.subtitles, "latest_commit", lambda: commit)
+    monkeypatch.setattr(resources.subtitles, "fetch_archive", lambda: make_archive(entries))
 
 
 def forbid_fetch():
@@ -86,8 +86,8 @@ def test_sync_overwrites_stale_local_file(tmp_app_root, reporter, monkeypatch):
 def test_sync_skips_when_up_to_date(tmp_app_root, reporter, monkeypatch):
     (tmp_app_root / "Subtitle").mkdir()
     write_commit("abc123")
-    monkeypatch.setattr(utils.subtitles, "latest_commit", lambda: "abc123")
-    monkeypatch.setattr(utils.subtitles, "fetch_archive", forbid_fetch)
+    monkeypatch.setattr(resources.subtitles, "latest_commit", lambda: "abc123")
+    monkeypatch.setattr(resources.subtitles, "fetch_archive", forbid_fetch)
 
     sync_subtitles(reporter)
 
@@ -123,8 +123,8 @@ def test_sync_network_failure_falls_back(reporter, monkeypatch):
     def down():
         raise CharlotteError("net down")
 
-    monkeypatch.setattr(utils.subtitles, "latest_commit", down)
-    monkeypatch.setattr(utils.subtitles, "fetch_archive", forbid_fetch)
+    monkeypatch.setattr(resources.subtitles, "latest_commit", down)
+    monkeypatch.setattr(resources.subtitles, "fetch_archive", forbid_fetch)
     # The contract is falling back silently: no exception, no download attempt.
     sync_subtitles(reporter)
 
@@ -133,8 +133,8 @@ def test_sync_download_failure_falls_back(tmp_app_root, reporter, monkeypatch):
     def down():
         raise CharlotteError("download failed")
 
-    monkeypatch.setattr(utils.subtitles, "latest_commit", lambda: "abc123")
-    monkeypatch.setattr(utils.subtitles, "fetch_archive", down)
+    monkeypatch.setattr(resources.subtitles, "latest_commit", lambda: "abc123")
+    monkeypatch.setattr(resources.subtitles, "fetch_archive", down)
 
     sync_subtitles(reporter)
 
@@ -147,14 +147,14 @@ def test_sync_partial_write_skips_marker(tmp_app_root, reporter, monkeypatch):
         f"{ARCHIVE_ROOT}/Subtitle/EN/Cs_B_EN.srt": b"fails to write",
     }
     stub_upstream(monkeypatch, entries)
-    real_extract = utils.subtitles.extract_member
+    real_extract = resources.subtitles.extract_member
 
     def flaky_extract(archive, name, target):
         if name.endswith("Cs_B_EN.srt"):
             return False
         return real_extract(archive, name, target)
 
-    monkeypatch.setattr(utils.subtitles, "extract_member", flaky_extract)
+    monkeypatch.setattr(resources.subtitles, "extract_member", flaky_extract)
 
     sync_subtitles(reporter)
 

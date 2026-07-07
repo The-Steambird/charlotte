@@ -1,7 +1,7 @@
 import pipeline
 
 from pipeline import probe_usm
-from utils.subtitles import local_subtitle_path
+from resources.subtitles import local_subtitle_path
 
 
 KEYS_DATA = {"list": [{"videoKey": 111, "videos": ["Cs_A"]}]}

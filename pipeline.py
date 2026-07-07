@@ -5,16 +5,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from decoders.ass import ASS
-from decoders.hca import AUDIO_CODECS, HCA
-from decoders.usm import USM
+from resources.keys import find_key_from_file, get_decryption_key
+from resources.subtitles import local_subtitle_path
+from stages.ass import ASS
+from stages.filter import find_vs_script, vapoursynth_filter
+from stages.hca import AUDIO_CODECS, HCA
+from stages.mux import mux
+from stages.usm import USM
 from utils.errors import Cancelled
-from utils.filter import find_vs_script, vapoursynth_filter
-from utils.keys import find_key_from_file, get_decryption_key
 from utils.languages import SUBTITLES_LANGUAGES
 from utils.logger import log
-from utils.mux import mux
-from utils.subtitles import local_subtitle_path
 
 
 if TYPE_CHECKING:

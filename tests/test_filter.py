@@ -2,9 +2,9 @@ from pathlib import Path
 
 import pytest
 
-import utils.filter
+import stages.filter
 
-from utils.filter import DEFAULT_CRF, DEFAULT_PRESET, ffmpeg_params, find_vs_script
+from stages.filter import DEFAULT_CRF, DEFAULT_PRESET, ffmpeg_params, find_vs_script
 
 
 # --- find_vs_script ---
@@ -13,7 +13,7 @@ from utils.filter import DEFAULT_CRF, DEFAULT_PRESET, ffmpeg_params, find_vs_scr
 @pytest.fixture
 def vs_dir(tmp_path, monkeypatch):
     """Point the bundled vs/ script directory at a scratch dir."""
-    monkeypatch.setattr(utils.filter, "bundle_root", lambda: tmp_path)
+    monkeypatch.setattr(stages.filter, "bundle_root", lambda: tmp_path)
     scripts = tmp_path / "vs"
     scripts.mkdir()
     return scripts

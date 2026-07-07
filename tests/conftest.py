@@ -2,9 +2,9 @@ import contextlib
 
 import pytest
 
-import utils.fonts
-import utils.keys
-import utils.subtitles
+import resources.fonts
+import resources.keys
+import resources.subtitles
 
 from utils.reporter import Reporter, Task
 
@@ -45,7 +45,7 @@ def reporter():
 def tmp_app_root(tmp_path, monkeypatch):
     """Redirect every module that persists files next to the executable (keys.json,
     Subtitle/, font/) into a scratch dir so tests don't affect the real ones."""
-    for module in (utils.keys, utils.subtitles, utils.fonts):
+    for module in (resources.keys, resources.subtitles, resources.fonts):
         monkeypatch.setattr(module, "app_root", lambda: tmp_path)
     return tmp_path
 
@@ -53,4 +53,4 @@ def tmp_app_root(tmp_path, monkeypatch):
 @pytest.fixture(autouse=True)
 def clear_upstream_cache():
     """fetch_upstream_keys is from functools.cache and keep results from leaking across tests."""
-    utils.keys.fetch_upstream_keys.cache_clear()
+    resources.keys.fetch_upstream_keys.cache_clear()
