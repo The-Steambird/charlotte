@@ -18,9 +18,9 @@ dependencies = [
     "vapoursynth-dctfilter>=3.2",
     "vapoursynth-deblock>=9.0",
     "vapoursynth-resize2>=0.4.3",
-    "vapoursynth-vszip>=20.0.0",
+    "vapoursynth-vszip>=22.1.0",
     "vapoursynth-zsmooth>=0.19.0",
-    "vs-placebo>=2.0.2",
+    "vs-placebo>=2.0.4",
     "vsjetpack>=2.1.1",
     "vsnoise>=1.2.1",
     "vspreview>=0.20.1",
@@ -30,7 +30,7 @@ dependencies = [
 dev = [
     "deptry>=0.25.1",
     "pytest>=9.1.1",
-    "ruff>=0.15.20",
+    "ruff>=0.15.22",
 ]
 
 [[tool.uv.index]]
