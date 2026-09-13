@@ -19,45 +19,57 @@
 
 # Charlotte
 
-Charlotte is a Genshin Impact utility that losslessly decrypts `.usm` cutscene files into playable `.mkv` videos, covering all known cutscenes from versions 1.0 through 7.0. Charlotte is also able to retrieve keys directly from USM file itself, although an explicitly defined key is still preferred for processing speed.
+Charlotte is a Genshin Impact utility that losslessly decrypts `.usm` cutscene files into playable
+`.mkv` videos, covering all known cutscenes from versions 1.0 through 7.0. Charlotte is also able to
+retrieve keys directly from USM file itself, although an explicitly defined key is still preferred
+for processing speed.
 
-This project is heavily inspired by [GI-cutscenes](https://github.com/ToaHartor/GI-cutscenes). Charlotte not only rebuilds the workflow at a higher level, it also has various optimizations to the decryption algorithm to be significantly more efficient (and even faster than the original implementation despite being on Python). Charlotte also add extras with tons of QoLs (see below), VapourSynth processing, and a GUI. Also credits to [UsmDiviner](https://github.com/Senkin219/UsmDiviner) for inspiring me with the key guessing algorithm.
+This project is heavily inspired by [GI-cutscenes](https://github.com/ToaHartor/GI-cutscenes).
+Charlotte not only rebuilds the workflow at a higher level, it also has various optimizations to the
+decryption algorithm to be significantly more efficient (and even faster than the original
+implementation despite being on Python). Charlotte also add extras with tons of QoLs (see below),
+VapourSynth processing, and a GUI. Also credits
+to [UsmDiviner](https://github.com/Senkin219/UsmDiviner) for inspiring me with the key guessing
+algorithm.
 
 If you have missing keys, pull requests are welcome.
 
-Disclaimer: This tool is purely for educational purpose and aims to archive already released game content.
+Disclaimer: This tool is purely for educational purpose and aims to archive already released game
+content.
 
 ## Features
 
-- Losslessly decrypt `.usm` into `.ivf` video and `.hca` EN, CN, JP, KR audio tracks
+- Losslessly decrypt `.usm` into `.mkv` video with EN, CN, JP, KR audio tracks
 - Significantly improved decryption algorithm compared to GI-cutscenes implementation
-- Key recovery for USM files without a key
-- Convert `.hca` audio to lossless `.flac`, or `.opus` (VBR 256kbps) for smaller files
-- Convert `.srt` subtitles into styled `.ass` in 15 languages with matching official cutscene subtitle style and fonts
-- Mux all tracks into `.mkv`, with selectable default audio and subtitle tracks
-- Automatically syncs the full subtitle collection (all 15 languages) from DimBreath
-- Automatically fetches new keys from upstream
-- Automatically get fonts from the game directory if possible
+- Key recovery algorithm for USM files without a key
+- Softsub in 15 languages styled to match official cutscene subtitle style and font
+- Automatically syncs subtitle cache (15 languages) from DimBreath
+- Automatically fetches new video keys from upstream and get fonts from the game directory
 - VapourSynth pipeline for post-processing quality improvements
 - Bundled lightweight custom FFmpeg build at only ~15MB
-- Built-in updater that checks for a newer release and installs it in place
+- Built-in self updater
 - Graphical User Interface (coming soon)
 
-VapourSynth filter scripts take a lot of time to write to ensure quality, hence they will be slowly added over time. If you have encoding knowledge, contributions are welcome!
+VapourSynth filter scripts take a lot of time to write to ensure quality, hence they will be slowly
+added over time. If you have encoding knowledge, contributions are welcome!
 
-I should also mention that the VapourSynth filters are extremely heavy on CPU and GPU (to a lesser degree), so it's recommended to have a powerful machine for optimal performance.
+I should also mention that the VapourSynth filters are extremely heavy on CPU and GPU (to a lesser
+degree), so it's recommended to have a powerful machine for optimal performance.
 
 ## Quick Start (Windows Binary)
 
 ### Prerequisites
 
-1. Download `charlotte.exe` from the [latest release](https://github.com/The-Steambird/charlotte/releases/latest).
+1. Download `charlotte.exe` from
+   the [latest release](https://github.com/The-Steambird/charlotte/releases/latest).
 2. Locate `.usm` files at:
+
 ```
 [Game Directory]\Genshin Impact game\GenshinImpact_Data\StreamingAssets\VideoAssets\StandaloneWindows64
 ```
 
-Note: the availability of older cutscenes depends on your local game files and resource cleanup history.
+Note: the availability of older cutscenes depends on your local game files and resource cleanup
+history.
 
 ### Usage
 
@@ -73,7 +85,9 @@ Example:
 charlotte "USM\Cs_Cutscene_Something_Girl.usm" -vs -nc
 ```
 
-This decrypts the cutscene, applies the VapourSynth filter script, and writes to `output/Cs_EQHDJ005_HaiDengJie_Girl/Cs_EQHDJ005_HaiDengJie_Girl.mkv` without deleting intermediate files.
+This decrypts the cutscene, applies the VapourSynth filter script, and writes to
+`output/Cs_EQHDJ005_HaiDengJie_Girl/Cs_EQHDJ005_HaiDengJie_Girl.mkv` without deleting intermediate
+files.
 
 Process several files and/or directories at once:
 
@@ -81,7 +95,8 @@ Process several files and/or directories at once:
 charlotte "USM\Cs_A.usm" "USM\Cs_B.usm" "USM\Cs_More_Cutscenes.usm" -o output
 ```
 
-To check what is available for your files (decryption key, local subtitles, VapourSynth script) without processing anything:
+To check what is available for your files (decryption key, local subtitles, VapourSynth script)
+without processing anything:
 
 ```sh
 charlotte "USM\Cs_Cutscene_Something_Girl.usm" --probe
@@ -105,7 +120,9 @@ For help:
 charlotte --help
 ```
 
-**Tip**: If you're running with `-vs` flag, for higher encoding speed, setting Python and FFmpeg in Task Manager to high priority can help. Alternatively, you can leave the terminal on the front so that Windows' Process Scheduling Priority will prioritize Charlotte.
+**Tip**: If you're running with `-vs` flag, for higher encoding speed, setting Python and FFmpeg in
+Task Manager to high priority can help. Alternatively, you can leave the terminal on the front so
+that Windows' Process Scheduling Priority will prioritize Charlotte.
 
 ### Parameters
 
@@ -116,9 +133,9 @@ charlotte --help
 | Option   | `--flat`                 | `-f`      | Write `{name}.mkv` directly into the output directory instead of a per-cutscene subfolder.                                                     |
 | Option   | `--skip-existing`        | `-se`     | Skip any file whose output `.mkv` already exists.                                                                                              |
 | Option   | `--no-cleanup`           | `-nc`     | Keep intermediate files (`.ivf`, `.hca`, `.ass`, etc.).                                                                                        |
-| Option   | `--audio-codec [CODEC]`  | `-ac`     | Audio codec for muxed tracks: `flac` (default, lossless) or `opus` (smaller; requires an FFmpeg build with libopus).                           |
-| Option   | `--default-audio [LANG]` | `-da`     | Audio language flagged as default in the `.mkv`: `zh`, `en`, `ja` (default), `ko`.                                                             |
-| Option   | `--default-sub [CODE]`   | `-ds`     | Subtitle language flagged as default: `chs`, `cht`, `de`, `en` (default), `es`, `fr`, `id`, `it`, `jp`, `kr`, `pt`, `ru`, `th`, `tr`, `vi`.    |
+| Option   | `--audio-codec [CODEC]`  | `-ac`     | Audio codec for muxed tracks: `flac` (default, lossless) or `opus` for smaller size.                                                           |
+| Option   | `--default-audio [LANG]` | `-da`     | Select default audio language: `zh`, `en`, `ja` (default), `ko`.                                                                               |
+| Option   | `--default-sub [CODE]`   | `-ds`     | Select default subtitle: `chs`, `cht`, `de`, `en` (default), `es`, `fr`, `id`, `it`, `jp`, `kr`, `pt`, `ru`, `th`, `tr`, `vi`.                 |
 | Option   | `--key [KEY]`            | `-k`      | Manually input a key for a single file                                                                                                         |
 | Option   | `--vapoursynth`          | `-vs`     | Apply a matching VapourSynth filter script from `vs/`.                                                                                         |
 | Option   | `--crf [VALUE]`          | `-crf`    | x265 CRF value for VapourSynth output (default: `13.5`).                                                                                       |
@@ -130,13 +147,20 @@ charlotte --help
 | Option   | `--update`               | `-u`      | Check GitHub for a newer release and update.                                                                                                   |
 | Option   | `--version`              | `-v`      | Print the Charlotte version and exit.                                                                                                          |
 
-When neither `--crf`, `--preset`, nor `--x265-params` is set, the following x265 params are applied automatically:
+When `-vs` option is used, if neither `--crf`, `--preset`, nor `--x265-params` is set, the following
+x265 params are applied
+automatically:
 
 ```
 keyint=300:min-keyint=30:no-open-gop=1:ref=6:bframes=8:lookahead-slices=0:rc-lookahead=60:aq-mode=3:aq-strength=0.75:qcomp=0.72:cbqpoffs=-2:crqpoffs=-2:no-cutree=1:rd=4:psy-rd=2.0:psy-rdoq=1.7:max-merge=5:no-strong-intra-smoothing=1:tskip=1:deblock=-2,-2:no-sao=1:no-sao-non-deblock=1
 ```
 
-Setting `--crf` or `--preset` suppresses these params, letting x265 use its own defaults for everything else. To combine custom crf/preset with custom x265 params, use `--x265-params` explicitly (it always takes full precedence).
+These options are highly optimized for video quality, I do not recommend changing it unless you have
+strong video encoding knowledge.
+
+Setting `--crf` or `--preset` suppresses these params, letting x265 use its own defaults for
+everything else. To combine custom crf/preset with custom x265 params, use `--x265-params`
+explicitly (it always takes full precedence).
 
 ## Build From Source
 
@@ -147,11 +171,13 @@ Setting `--crf` or `--preset` suppresses these params, letting x265 use its own 
 - FFmpeg (see below)
 
 Install dependencies:
+
 ```sh
 uv sync
 ```
 
 Run the project:
+
 ```
 uv run main.py USM/Cs_EQHDJ005_HaiDengJie_Boy.usm -vs -nc
 ```
@@ -164,10 +190,13 @@ The bundled `ffmpeg.exe` is a lightweight custom build. To rebuild it:
 
 1. Set up [media-autobuild_suite](https://github.com/m-ab-s/media-autobuild_suite).
 2. Copy `ffmpeg_options.txt` from the repo root to `<suite>/build/ffmpeg_options.txt`.
-3. To force a rebuild after changing options, delete `<suite>/local64/bin-video/ffmpeg.exe` before running `media-autobuild_suite.bat`.
+3. To force a rebuild after changing options, delete `<suite>/local64/bin-video/ffmpeg.exe` before
+   running `media-autobuild_suite.bat`.
 4. Copy the resulting `<suite>/local64/bin-video/ffmpeg.exe` to the repo root.
 
-If you don't want to do any of that, you can just get my prebuilt from [here](https://github.com/The-Steambird/charlotte/releases/tag/tools).
+Setting this up takes time (a few hours), especially on the very first run. If you wish to avoid
+that, you can get my prebuilt
+from [here](https://github.com/The-Steambird/charlotte/releases/tag/tools).
 
 ### Build Command
 
@@ -177,6 +206,7 @@ uv run pyinstaller charlotte.spec
 
 ## ❤️ Support
 
-If you enjoyed using Charlotte, your support would mean so much to me. It keeps me motivated to invest more time into the project and keep it alive for as long as I can.
+If you enjoyed using Charlotte, your support would mean so much to me. It keeps me motivated to
+invest more time into the project and keep it alive for as long as I can.
 
 **[GitHub Sponsors](https://github.com/sponsors/lunarmint)**
