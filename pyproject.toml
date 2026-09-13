@@ -9,7 +9,7 @@ maintainers = [{ name = "Mint" }]
 dependencies = [
     "numpy>=2.5.3",
     "orjson>=3.12.0",
-    "pyinstaller>=6.22.2",
+    "pyinstaller>=6.22.3",
     "typer>=0.27.2",
     "urllib3>=2.7.0",
     "vapoursynth>=79",
