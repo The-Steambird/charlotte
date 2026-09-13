@@ -18,13 +18,14 @@ dependencies = [
     "vapoursynth-bestsource>=21.0",
     "vapoursynth-dctfilter>=3.2",
     "vapoursynth-deblock>=9.0",
+    "vapoursynth-edgemasks>=4.0",
     "vapoursynth-resize2>=0.5.1",
     "vapoursynth-vszip>=22.1.0",
     "vapoursynth-zsmooth>=0.20.0",
     "vs-placebo>=2.0.4",
     "vsjetpack>=2.2.4",
     "vsnoise>=1.3",
-    "vspreview>=0.20.1",
+    "vsview>=0.11.0",
 ]
 
 [dependency-groups]

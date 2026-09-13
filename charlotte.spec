@@ -33,7 +33,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=["runtime_hook.py"],
-    excludes=["vspreview", "PIL"],
+    excludes=["vsview", "PIL"],
     noarchive=False,
     optimize=2,
 )

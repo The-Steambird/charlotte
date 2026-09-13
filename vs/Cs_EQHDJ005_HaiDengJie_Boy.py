@@ -5,14 +5,7 @@ from vsdeband import Grainer, deband_detail_mask, placebo_deband
 from vsdenoise import deblock_qed
 from vsjetpack import setup_logging
 from vssource import BestSource
-from vstools import (
-    DitherType,
-    core,
-    depth,
-    finalize_clip,
-    initialize_clip,
-    set_output,
-)
+from vstools import DitherType, core, depth, finalize_clip, initialize_clip
 
 
 if TYPE_CHECKING:
@@ -55,15 +48,15 @@ def filter_chain(input_path: Path, preview: bool = False) -> tuple[VideoNode, ..
     return final
 
 
-if __name__ in {"__main__", "__vapoursynth__", "__vspreview__"}:
-    from vspreview import is_preview
-
+if __name__ in {"__main__", "__vapoursynth__", "__vsview__"}:
     file_name = Path(__file__).stem
     file_path = Path(__file__).parent.parent / "output" / file_name / f"{file_name}.ivf"
 
     clip, deblock, detail_mask, deband, merge, grain, final = filter_chain(file_path, preview=True)
 
-    if is_preview():
+    if __name__ == "__vsview__":
+        from vsview.api import set_output
+
         set_output(depth(clip, 8, dither_type=DitherType.NONE), "Source")
         set_output(deblock, "Deblock")
         set_output(detail_mask, "Detail Mask")
@@ -72,4 +65,4 @@ if __name__ in {"__main__", "__vapoursynth__", "__vspreview__"}:
         set_output(grain, "Grained")
         set_output(final, "Filtered")
     else:
-        set_output(final)
+        final.set_output()
