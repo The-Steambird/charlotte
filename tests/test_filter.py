@@ -3,7 +3,7 @@ import pytest
 import stages.filter
 
 from conftest import flag_value
-from stages.filter import DEFAULT_CRF, DEFAULT_PRESET, ffmpeg_params, find_vs_script
+from stages.filter import DEFAULT_CRF, DEFAULT_PRESET, X265_COLOUR_TAGS, ffmpeg_params, find_vs_script
 
 
 # --- find_vs_script ---
@@ -54,14 +54,21 @@ def test_defaults_inject_builtin_x265_params(tmp_path):
 
 def test_custom_crf_suppresses_builtin_params(tmp_path):
     cmd = ffmpeg_params(tmp_path / "out.mkv", 14.0, DEFAULT_PRESET)
-    assert "-x265-params" not in cmd
+    assert flag_value(cmd, "-x265-params") == X265_COLOUR_TAGS
 
 
 def test_custom_preset_suppresses_builtin_params(tmp_path):
     cmd = ffmpeg_params(tmp_path / "out.mkv", DEFAULT_CRF, "medium")
-    assert "-x265-params" not in cmd
+    assert flag_value(cmd, "-x265-params") == X265_COLOUR_TAGS
 
 
-def test_explicit_params_used_verbatim(tmp_path):
+def test_explicit_params_kept_ahead_of_vui(tmp_path):
     cmd = ffmpeg_params(tmp_path / "out.mkv", DEFAULT_CRF, DEFAULT_PRESET, "rd=6")
-    assert flag_value(cmd, "-x265-params") == "rd=6"
+    assert flag_value(cmd, "-x265-params") == f"rd=6:{X265_COLOUR_TAGS}"
+
+
+def test_colour_tags_go_through_x265_only(tmp_path):
+    cmd = ffmpeg_params(tmp_path / "out.mkv", DEFAULT_CRF, DEFAULT_PRESET)
+    assert flag_value(cmd, "-x265-params").endswith(X265_COLOUR_TAGS)
+    # -colorspace on an untagged Y4M input triggers a matrix conversion, so none of these may return
+    assert not {"-colorspace", "-color_primaries", "-color_trc"} & set(cmd)

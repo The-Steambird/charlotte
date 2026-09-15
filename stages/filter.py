@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 DEFAULT_CRF = 13.5
 DEFAULT_PRESET = "slower"
+X265_COLOUR_TAGS = "colorprim=bt709:transfer=bt709:colormatrix=smpte170m"
 
 # Map ffmpeg log level to internal levels (error/warning/info/debug).
 FFMPEG_LEVELS = {
@@ -67,7 +68,7 @@ def ffmpeg_params(
             ]
         )
 
-    cmd = [
+    return [
         str(ffmpeg_path()),
         "-y",
         "-hide_banner",
@@ -81,15 +82,10 @@ def ffmpeg_params(
         "-profile:v", "main10",
         "-preset", preset,
         "-crf", str(crf),
-        "-color_primaries", "bt709",
-        "-color_trc", "bt709",
-        "-colorspace", "bt709",
         "-color_range", "tv",
+        "-x265-params", f"{x265_params}:{X265_COLOUR_TAGS}" if x265_params else X265_COLOUR_TAGS,
+        str(output),
     ]  # fmt: skip
-    if x265_params:
-        cmd += ["-x265-params", x265_params]
-    cmd.append(str(output))
-    return cmd
 
 
 def parse_ffmpeg_stderr(process: subprocess.Popen, ffmpeg_task, reporter: Reporter) -> None:
@@ -150,8 +146,9 @@ def worker(
     reporter.log("info", f"Applying VapourSynth filter: {file_stem}")
 
     root = bundle_root()
-    if str(root) not in sys.path:
-        sys.path.insert(0, str(root))
+    for path in (root / "vs", root):
+        if str(path) not in sys.path:
+            sys.path.insert(0, str(path))
 
     try:
         module_name = find_vs_script(file_stem) or file_stem
