@@ -41,6 +41,14 @@ def test_find_vs_script_missing(vs_dir):
     assert find_vs_script("Cs_NoGender") is None
 
 
+def test_find_vs_script_default_is_last_resort(vs_dir):
+    (vs_dir / "default.py").touch()
+    (vs_dir / "Cs_A_Boy.py").touch()
+    assert find_vs_script("Cs_A_Boy") == "Cs_A_Boy"
+    assert find_vs_script("Cs_A_Girl") == "Cs_A_Boy"
+    assert find_vs_script("Cs_NoGender") == "default"
+
+
 # --- ffmpeg_params ---
 
 
@@ -52,14 +60,17 @@ def test_defaults_inject_builtin_x265_params(tmp_path):
     assert cmd[-1] == str(tmp_path / "out.mkv")
 
 
-def test_custom_crf_suppresses_builtin_params(tmp_path):
-    cmd = ffmpeg_params(tmp_path / "out.mkv", 14.0, DEFAULT_PRESET)
-    assert flag_value(cmd, "-x265-params") == X265_COLOUR_TAGS
+def test_custom_crf_and_preset_keep_builtin_params(tmp_path):
+    cmd = ffmpeg_params(tmp_path / "out.mkv", 20.0, "medium")
+    params = flag_value(cmd, "-x265-params")
+    assert "psy-rd=2.0" in params and params.endswith(X265_COLOUR_TAGS)
+    assert flag_value(cmd, "-crf") == "20.0"
+    assert flag_value(cmd, "-preset") == "medium"
 
 
-def test_custom_preset_suppresses_builtin_params(tmp_path):
-    cmd = ffmpeg_params(tmp_path / "out.mkv", DEFAULT_CRF, "medium")
-    assert flag_value(cmd, "-x265-params") == X265_COLOUR_TAGS
+def test_explicit_params_replace_builtin(tmp_path):
+    cmd = ffmpeg_params(tmp_path / "out.mkv", DEFAULT_CRF, DEFAULT_PRESET, "rd=6")
+    assert "psy-rd" not in flag_value(cmd, "-x265-params")
 
 
 def test_explicit_params_kept_ahead_of_vui(tmp_path):

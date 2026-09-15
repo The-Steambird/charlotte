@@ -1,11 +1,12 @@
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from preview import compare, show
 from vsdeband import Grainer, deband_detail_mask, placebo_deband
 from vsdenoise import deblock_qed
 from vsjetpack import setup_logging
 from vssource import BestSource
-from vstools import DitherType, core, depth, finalize_clip, initialize_clip
+from vstools import core, finalize_clip, initialize_clip
 
 
 if TYPE_CHECKING:
@@ -14,7 +15,7 @@ if TYPE_CHECKING:
 setup_logging()
 
 
-def filter_chain(input_path: Path, preview: bool = False) -> tuple[VideoNode, ...] | VideoNode:
+def filter_chain(input_path: Path) -> VideoNode:
     clip = initialize_clip(clip=BestSource(show_pretty_progress=False).source(input_path), bits=16)
 
     # Deblock
@@ -27,7 +28,7 @@ def filter_chain(input_path: Path, preview: bool = False) -> tuple[VideoNode, ..
         .std.BoxBlur(hradius=1, vradius=1)
     )
     deband = placebo_deband(clip=deblock, radius=16, thr=2, grain=0, iterations=4)
-    merge = core.std.MaskedMerge(clipa=deband, clipb=clip, mask=detail_mask)
+    merge = core.std.MaskedMerge(clipa=deband, clipb=deblock, mask=detail_mask)
 
     # Grain
     grain = Grainer.FBM_SIMPLEX(
@@ -43,26 +44,21 @@ def filter_chain(input_path: Path, preview: bool = False) -> tuple[VideoNode, ..
     # Output
     final = finalize_clip(clip=grain, bits=10)
 
-    if preview:
-        return clip, deblock, detail_mask, deband, merge, grain, final
+    # Preview (vsview only)
+    show(clip, "Source")
+    compare("Deblock", clip, deblock)
+    show(detail_mask, "Detail Mask")
+    compare("Deband", deblock, deband)
+    show(merge, "Merge")
+    show(grain, "Grained")
+    show(final, "Filtered")
+
     return final
 
 
 if __name__ in {"__main__", "__vapoursynth__", "__vsview__"}:
-    file_name = Path(__file__).stem
-    file_path = Path(__file__).parent.parent / "output" / file_name / f"{file_name}.ivf"
+    stem = globals().get("stem") or Path(__file__).stem
+    final = filter_chain(Path(__file__).parent.parent / "output" / stem / f"{stem}.ivf")
 
-    clip, deblock, detail_mask, deband, merge, grain, final = filter_chain(file_path, preview=True)
-
-    if __name__ == "__vsview__":
-        from vsview.api import set_output
-
-        set_output(depth(clip, 8, dither_type=DitherType.NONE), "Source")
-        set_output(deblock, "Deblock")
-        set_output(detail_mask, "Detail Mask")
-        set_output(deband, "Deband")
-        set_output(merge, "Merge")
-        set_output(grain, "Grained")
-        set_output(final, "Filtered")
-    else:
+    if __name__ != "__vsview__":
         final.set_output()

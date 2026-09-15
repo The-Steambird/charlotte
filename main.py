@@ -120,8 +120,7 @@ def demux(
         typer.Option(
             "--crf",
             "-crf",
-            help="x265 CRF value for VapourSynth output. A non-default value suppresses the "
-            "built-in x265 params (see README).",
+            help="x265 CRF value for VapourSynth output.",
         ),
     ] = DEFAULT_CRF,
     preset: Annotated[
@@ -129,8 +128,7 @@ def demux(
         typer.Option(
             "--preset",
             "-preset",
-            help="x265 preset for VapourSynth output. A non-default value suppresses the "
-            "built-in x265 params (see README).",
+            help="x265 preset for VapourSynth output.",
         ),
     ] = DEFAULT_PRESET,
     x265_params: Annotated[
@@ -138,7 +136,8 @@ def demux(
         typer.Option(
             "--x265-params",
             "-x265",
-            help="Custom x265 parameters (colon-separated). See README.md for default values used.",
+            help="Custom x265 parameters (colon-separated). Replaces the built-in tuning "
+            "(see README).",
         ),
     ] = "",
     json_output: Annotated[

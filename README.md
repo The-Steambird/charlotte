@@ -147,9 +147,8 @@ that Windows' Process Scheduling Priority will prioritize Charlotte.
 | Option   | `--update`               | `-u`      | Check GitHub for a newer release and update.                                                                                                   |
 | Option   | `--version`              | `-v`      | Print the Charlotte version and exit.                                                                                                          |
 
-When `-vs` option is used, if neither `--crf`, `--preset`, nor `--x265-params` is set, the following
-x265 params are applied
-automatically:
+When `-vs` option is used, the following x265 params are applied automatically unless
+`--x265-params` is set:
 
 ```
 keyint=300:min-keyint=30:no-open-gop=1:ref=6:bframes=8:lookahead-slices=0:rc-lookahead=60:aq-mode=3:aq-strength=0.75:qcomp=0.72:cbqpoffs=-2:crqpoffs=-2:no-cutree=1:rd=4:psy-rd=2.0:psy-rdoq=1.7:max-merge=5:no-strong-intra-smoothing=1:tskip=1:deblock=-2,-2:no-sao=1:no-sao-non-deblock=1
@@ -158,9 +157,9 @@ keyint=300:min-keyint=30:no-open-gop=1:ref=6:bframes=8:lookahead-slices=0:rc-loo
 These options are highly optimized for video quality, I do not recommend changing it unless you have
 strong video encoding knowledge.
 
-Setting `--crf` or `--preset` suppresses these params, letting x265 use its own defaults for
-everything else. To combine custom crf/preset with custom x265 params, use `--x265-params`
-explicitly (it always takes full precedence).
+`--crf` and `--preset` change only the rate and speed; the params above stay in effect, so a
+higher CRF trades size for quality without also losing gradient and detail retention. Passing
+`--x265-params` replaces the list entirely (colour tags are always appended).
 
 ## Build From Source
 

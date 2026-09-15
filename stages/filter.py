@@ -40,7 +40,7 @@ def ffmpeg_params(
     preset: str,
     x265_params: str = "",
 ) -> list[str]:
-    if not x265_params and crf == DEFAULT_CRF and preset == DEFAULT_PRESET:
+    if not x265_params:
         x265_params = ":".join(
             [
                 "keyint=300",
@@ -124,6 +124,7 @@ def find_vs_script(stem: str) -> str | None:
         candidates.append(stem.removesuffix("_Girl") + "_Boy")
     elif stem.endswith("_Boy"):
         candidates.append(stem.removesuffix("_Boy") + "_Girl")
+    candidates.append("default")
     for name in candidates:
         if (bundle_root() / "vs" / f"{name}.py").exists():
             return name
