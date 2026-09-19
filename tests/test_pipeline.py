@@ -20,7 +20,7 @@ from stages.crack import Recovery
 from utils.errors import Cancelled, CharlotteError
 
 
-KEYS_DATA = {"list": [{"videoKey": 111, "videos": ["Cs_A"]}]}
+KEYS_DATA = {"list": [{"version": "5.3", "videoKey": 111, "videos": ["Cs_A"]}]}
 SRT = "1\n00:00:01,000 --> 00:00:02,000\nHi\n"
 
 
@@ -72,6 +72,7 @@ def test_probe_reports_available(tmp_app_root, reporter, monkeypatch):
         "file": "Cs_A.usm",
         "stem": "Cs_A",
         "key": True,
+        "version": "5.3",
         "subtitles": ["EN", "JP"],
         "vs_script": "Cs_A",
     }
@@ -84,6 +85,7 @@ def test_probe_reports_missing_and_never_prompts(tmp_app_root, reporter, monkeyp
 
     data = last_event(reporter, "probe")
     assert data["key"] is False
+    assert data["version"] is None
     assert data["subtitles"] == []
     assert data["vs_script"] is None
     assert reporter.prompts == []

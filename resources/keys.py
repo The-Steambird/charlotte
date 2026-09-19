@@ -50,12 +50,22 @@ def fetch_upstream_keys() -> bytes | None:
     return None
 
 
-def find_video_key(data: dict, filename: str) -> int | None:
+def find_video(data: dict, filename: str) -> tuple[dict, dict] | None:
     for version in data.get("list", []):
         for group in [version, *version.get("videoGroups", [])]:
             if filename in group.get("videos", []):
-                return group.get("videoKey")
+                return version, group
     return None
+
+
+def find_video_key(data: dict, filename: str) -> int | None:
+    found = find_video(data, filename)
+    return found[1].get("videoKey") if found else None
+
+
+def find_video_version(data: dict, filename: str) -> str | None:
+    found = find_video(data, filename)
+    return found[0].get("version") if found else None
 
 
 def load_local_keys() -> dict:

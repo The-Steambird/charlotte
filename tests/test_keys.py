@@ -7,12 +7,15 @@ from resources.keys import (
     Keys,
     calculate_key_from_filename,
     find_video_key,
+    find_video_version,
     load_local_keys,
 )
 
 
-FLAT_KEYS = {"list": [{"videoKey": 111, "videos": ["Cs_A", "Cs_B"]}]}
-GROUPED_KEYS = {"list": [{"videoGroups": [{"videoKey": 222, "videos": ["Cs_C"]}]}]}
+FLAT_KEYS = {"list": [{"version": "2.0", "videoKey": 111, "videos": ["Cs_A", "Cs_B"]}]}
+GROUPED_KEYS = {
+    "list": [{"version": "5.3", "videoGroups": [{"videoKey": 222, "videos": ["Cs_C"]}]}]
+}
 UPSTREAM_WITH_NEW_KEY = {
     "list": FLAT_KEYS["list"] + [{"videoKey": 333, "videos": ["Cs_New", "Cs_New2"]}]
 }
@@ -41,6 +44,13 @@ def test_find_key_missing():
     assert find_video_key({}, "Cs_A") is None
     # A group carrying no video list at all is a miss, not a KeyError.
     assert find_video_key({"list": [{"videoKey": 1}]}, "Cs_A") is None
+
+
+def test_find_version_comes_from_the_entry_not_the_group():
+    assert find_video_version(FLAT_KEYS, "Cs_B") == "2.0"
+    assert find_video_version(GROUPED_KEYS, "Cs_C") == "5.3"
+    assert find_video_version(FLAT_KEYS, "Cs_X") is None
+    assert find_video_version({"list": [{"videoKey": 1, "videos": ["Cs_A"]}]}, "Cs_A") is None
 
 
 # --- load_local_keys ---
