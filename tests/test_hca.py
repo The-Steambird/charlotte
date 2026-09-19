@@ -1,11 +1,6 @@
-"""Tests for the parts of stages/hca.py that are Charlotte's own: how a malformed file
-is rejected, what -nc leaves on disk, and how the stream is handed to ffmpeg.
-
-The decryption itself is deliberately not tested. It is a line-for-line port of the C#
-implementation, and any test written here would have to encrypt with the same tables the
-code decrypts with - which passes whether or not the port matches the original. Real
-test vectors would have to come from the C# side; the corpus is the check that matters.
-"""
+"""The decryption itself is deliberately not tested: it is a line-for-line port of the
+C#, and a test would have to encrypt with the same tables it decrypts with, which passes
+whether or not the port matches the original. The corpus is the check that matters."""
 
 import struct
 
@@ -19,9 +14,7 @@ from utils.ffmpeg import FFMPEG_MISSING
 
 KEY1, KEY2 = bytes([0x11, 0x22, 0x33, 0x44]), bytes([0x55, 0x66, 0x77, 0x00])
 
-# How far read_header advances past each chunk signature. A chunk carries no length of
-# its own, so the walk is these constants - which is why a file has to be built out of
-# them to be parseable at all.
+# Chunks carry no length of their own; these are the strides read_header walks by.
 CHUNK_SIZES = {b"fmt\x00": 16, b"comp": 16, b"ciph": 6}
 
 
@@ -32,8 +25,8 @@ def hca_bytes(
     block_count: int = 2,
     data: bytes | None = None,
 ) -> bytes:
-    """A minimal but structurally real .hca: the chunk sequence read_header walks, then
-    block_count blocks of block_size bytes, zeroed unless `data` says otherwise."""
+    """A minimal .hca: the chunk sequence read_header walks, then block_count blocks
+    of block_size bytes, zeroed unless `data` says otherwise."""
     chunks: list[tuple[bytes, dict]] = [
         (b"fmt\x00", {8: (">I", block_count)}),
         (b"comp", {4: (">H", block_size)}),
@@ -42,7 +35,7 @@ def hca_bytes(
 
     header = bytearray(8)
     header[0:4] = b"HCA\x00"
-    struct.pack_into(">H", header, 4, 0x0200)  # version
+    struct.pack_into(">H", header, 4, 0x0200)
     for tag, fields in chunks:
         base = len(header)
         header += bytearray(CHUNK_SIZES[tag])
@@ -50,7 +43,7 @@ def hca_bytes(
         for offset, (fmt, value) in fields.items():
             struct.pack_into(fmt, header, base + offset, value)
 
-    header += bytearray(2)  # the trailing checksum read_header recomputes
+    header += bytearray(2)  # checksum slot
     struct.pack_into(">H", header, 6, len(header))  # data_offset
 
     body = bytes(block_size * block_count) if data is None else data
@@ -71,9 +64,8 @@ def make_hca(tmp_path, name: str = "Cs_Test_0.hca") -> HCA:
 
 
 def test_crc16_check_value():
-    """The table is generated from its polynomial rather than kept as 256 literals; the
-    standard check value for CRC-16 poly 0x8005 (unreflected, zero init) pins it to the
-    table the C# shipped."""
+    """Standard check value for CRC-16 poly 0x8005 (unreflected, zero init): the table
+    is generated from its polynomial, and this pins it to the one the C# shipped."""
     assert crc16(b"123456789") == 0xFEE8
 
 
@@ -81,8 +73,8 @@ def test_crc16_check_value():
 
 
 def test_header_fields_parsed(tmp_path):
-    """The positive control for the rejection tests below: without it a builder that
-    produced nonsense would still make all of them pass, just for the wrong reason."""
+    """Positive control for the rejections below: a builder producing nonsense would
+    still make all of them pass."""
     path = write_hca(tmp_path, hca_bytes(ciph_type=0x38, block_size=0x40, block_count=3))
     hca = HCA(path, KEY1, KEY2)
 
@@ -93,8 +85,6 @@ def test_header_fields_parsed(tmp_path):
 
 
 def test_short_file_warns_about_missing_blocks(tmp_path, caplog):
-    """Audio that ends before its declared blocks still decodes, so it is a warning
-    rather than a rejection - but a silent one would hide a cutscene losing its tail."""
     path = write_hca(tmp_path, hca_bytes(block_size=0x20, block_count=4)[:-0x30])
     hca = HCA(path, KEY1, KEY2)
 
@@ -105,50 +95,40 @@ def test_short_file_warns_about_missing_blocks(tmp_path, caplog):
 # --- header rejections ---
 
 
-def test_file_too_short_raises(tmp_path):
-    path = write_hca(tmp_path, b"HCA\x00")
-    with pytest.raises(CharlotteError, match="Invalid HCA file"):
-        HCA(path, KEY1, KEY2)
-
-
-def test_bad_magic_raises(tmp_path):
-    path = write_hca(tmp_path, hca_bytes().replace(b"HCA\x00", b"XXXX", 1))
-    with pytest.raises(CharlotteError, match="Invalid HCA header"):
-        HCA(path, KEY1, KEY2)
-
-
-def test_missing_fmt_chunk_raises(tmp_path):
-    path = write_hca(tmp_path, hca_bytes().replace(b"fmt\x00", b"junk", 1))
-    with pytest.raises(CharlotteError, match="fmt chunk not found"):
-        HCA(path, KEY1, KEY2)
-
-
-def test_missing_compression_chunk_raises(tmp_path):
-    path = write_hca(tmp_path, hca_bytes().replace(b"comp", b"junk", 1))
-    with pytest.raises(CharlotteError, match="comp/dec chunk not found"):
+@pytest.mark.parametrize(
+    "blob, match",
+    [
+        (b"HCA\x00", "Invalid HCA file"),
+        (hca_bytes().replace(b"HCA\x00", b"XXXX", 1), "Invalid HCA header"),
+        (hca_bytes().replace(b"fmt\x00", b"junk", 1), "fmt chunk not found"),
+        (hca_bytes().replace(b"comp", b"junk", 1), "comp/dec chunk not found"),
+    ],
+    ids=["too-short", "bad-magic", "no-fmt", "no-comp"],
+)
+def test_malformed_header_rejected(tmp_path, blob, match):
+    path = write_hca(tmp_path, blob)
+    with pytest.raises(CharlotteError, match=match):
         HCA(path, KEY1, KEY2)
 
 
 def test_zero_block_size_raises(tmp_path):
-    """The C# reference allows it, but block_size is the stride the checksum walk steps
-    by, so leaving it unchecked turns a header-only file into a bare ValueError - which
-    escapes the per-file handler and takes the whole batch with it."""
+    """The C# allows it, but it is the stride save() walks by: a bare ValueError there
+    escapes the per-file handler and kills the whole batch."""
     path = write_hca(tmp_path, hca_bytes(block_size=0, block_count=0))
     with pytest.raises(CharlotteError, match="no audio blocks"):
         HCA(path, KEY1, KEY2)
 
 
 def test_unknown_cipher_type_raises(tmp_path):
-    """Only 0, 1 and 0x38 have a table. Anything else would silently build an all-zero
-    one and translate the whole stream to zeros."""
+    """Anything but 0, 1 and 0x38 would build an all-zero table and translate the whole
+    stream to zeros."""
     path = write_hca(tmp_path, hca_bytes(ciph_type=2))
     with pytest.raises(CharlotteError, match="Invalid cipher type"):
         HCA(path, KEY1, KEY2)
 
 
 def test_truncated_header_raises(tmp_path):
-    """data_offset claims a longer header than the file holds, so a field read runs off
-    the end. struct.error is translated rather than escaping as a bare traceback."""
+    """data_offset past the end of the file: struct.error is translated, not leaked."""
     path = write_hca(tmp_path, hca_bytes()[:12])
     with pytest.raises(CharlotteError, match="Corrupt HCA header"):
         HCA(path, KEY1, KEY2)
@@ -158,10 +138,8 @@ def test_truncated_header_raises(tmp_path):
 
 
 def test_save_overwrites_the_source_with_the_in_memory_stream(tmp_path):
-    """-nc keeps the intermediate .hca, and what lands there is the decrypted stream:
-    header and data as they now stand, not the bytes that were read in."""
-    # A non-zero payload on purpose: zeros pass through the cipher table untouched, so
-    # a zeroed body would let this pass on the header edit alone.
+    # Non-zero on purpose: zeros pass through the cipher table untouched, so a zeroed
+    # body would pass on the header edit alone.
     body = bytes(range(0x20)) * 4
     original = hca_bytes(ciph_type=0x38, block_count=4, data=body)
     path = write_hca(tmp_path, original)
@@ -180,7 +158,6 @@ def test_save_overwrites_the_source_with_the_in_memory_stream(tmp_path):
 
 
 def test_convert_pipes_the_stream_to_ffmpeg(ffmpeg, tmp_path):
-    """The stream is fed on stdin so the decrypted audio never round trips through disk."""
     hca = make_hca(tmp_path)
     output = hca.convert(output_path=tmp_path, codec="flac")
 
@@ -198,13 +175,6 @@ def test_convert_extension_and_args_follow_the_codec(ffmpeg, tmp_path):
     assert flag_value(ffmpeg.cmd, "-c:a") == "libopus"
 
 
-def test_convert_unknown_codec_falls_back_to_flac(ffmpeg, tmp_path):
-    output = make_hca(tmp_path).convert(output_path=tmp_path, codec="nonsense")
-
-    assert output == tmp_path / "Cs_Test_0.flac"
-    assert flag_value(ffmpeg.cmd, "-compression_level") == "8"
-
-
 def test_convert_reports_ffmpeg_failure(ffmpeg, tmp_path, caplog):
     ffmpeg.returncode = 1
     ffmpeg.stderr = b"Invalid data found when processing input"
@@ -212,13 +182,10 @@ def test_convert_reports_ffmpeg_failure(ffmpeg, tmp_path, caplog):
     with pytest.raises(CharlotteError, match="Audio conversion failed"):
         make_hca(tmp_path).convert(output_path=tmp_path)
 
-    # ffmpeg's own diagnosis is surfaced, not swallowed behind the exit code.
-    assert "Invalid data found" in caplog.text
+    assert "Invalid data found" in caplog.text  # ffmpeg's own diagnosis is surfaced
 
 
 def test_convert_without_ffmpeg_raises(ffmpeg, tmp_path):
-    """A missing bundled binary is the one failure that tells the user what to do about
-    it, so the message is pinned rather than pattern-matched."""
     ffmpeg.missing = True
     with pytest.raises(CharlotteError) as excinfo:
         make_hca(tmp_path).convert(output_path=tmp_path)

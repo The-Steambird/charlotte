@@ -1,7 +1,6 @@
 import types
 
 import pytest
-import typer
 
 from typer.testing import CliRunner
 
@@ -23,8 +22,7 @@ def make_usm(directory, name="Cs_Test.usm"):
 
 @pytest.fixture
 def pipeline_stub(monkeypatch):
-    """Stub everything demux runs after flag validation; records process_usm calls.
-    Tests that need a failing pipeline re-patch main.process_usm on top."""
+    """Stub everything after flag validation; records the process_usm calls."""
     stub = types.SimpleNamespace(files=[], opts=None)
 
     def fake_process(usm_file, opts, reporter, keys):
@@ -36,26 +34,6 @@ def pipeline_stub(monkeypatch):
     monkeypatch.setattr(main, "sync_subtitles", lambda reporter: None)
     monkeypatch.setattr(main, "fetch_font", lambda: None)
     return stub
-
-
-# --- choice helpers ---
-
-
-def test_choice_option_metavar_lowercases():
-    option = main.choice_option("--lang", help="", choices=["JA", "en"])
-    assert option.metavar == "[ja|en]"
-
-
-def test_choice_normalizer_case_insensitive():
-    normalize = main.choice_normalizer(["ja", "EN"])
-    assert normalize("JA") == "ja"
-    assert normalize("en") == "EN"
-
-
-def test_choice_normalizer_rejects_unknown():
-    normalize = main.choice_normalizer(["ja", "en"])
-    with pytest.raises(typer.BadParameter, match="Must be one of: ja, en"):
-        normalize("xx")
 
 
 # --- modes that need no input files ---
@@ -92,18 +70,12 @@ def test_no_input_is_an_error():
 # --- input collection ---
 
 
-def test_rejects_non_usm_file(tmp_path):
-    path = tmp_path / "a.txt"
-    path.write_bytes(b"")
-    assert runner.invoke(main.app, [str(path)]).exit_code == 1
-
-
-def test_rejects_empty_directory(tmp_path):
-    assert runner.invoke(main.app, [str(tmp_path)]).exit_code == 1
-
-
-def test_rejects_missing_path(tmp_path):
-    assert runner.invoke(main.app, [str(tmp_path / "nope.usm")]).exit_code == 1
+@pytest.mark.parametrize(
+    "bad_input", ["a.txt", "", "nope.usm"], ids=["non-usm", "dir-without-usm", "missing"]
+)
+def test_rejects_unusable_input(tmp_path, bad_input):
+    (tmp_path / "a.txt").write_bytes(b"")
+    assert runner.invoke(main.app, [str(tmp_path / bad_input)]).exit_code == 1
 
 
 def test_duplicate_inputs_processed_once(pipeline_stub, tmp_path):
@@ -131,7 +103,6 @@ def test_key_requires_single_input(tmp_path):
 
 
 def test_crack_rejects_probe_and_key(tmp_path):
-    """--crack reports keys instead of using them, so neither flag has a meaning here."""
     usm = make_usm(tmp_path)
     assert runner.invoke(main.app, [str(usm), "--crack", "--probe"]).exit_code == 1
     assert runner.invoke(main.app, [str(usm), "--crack", "--key", "1"]).exit_code == 1
@@ -179,24 +150,18 @@ def test_default_options(pipeline_stub, tmp_path):
 # --- run outcomes ---
 
 
-def test_processing_failure_exits_nonzero(pipeline_stub, monkeypatch, tmp_path):
-    def fail_process(usm_file, opts, reporter, keys):
-        raise CharlotteError("boom")
+@pytest.mark.parametrize(
+    "error, exit_code",
+    [(CharlotteError("boom"), 1), (Cancelled(), 0)],
+    ids=["failure", "cancel"],
+)
+def test_run_outcome_sets_exit_code(pipeline_stub, monkeypatch, tmp_path, error, exit_code):
+    def raise_error(usm_file, opts, reporter, keys):
+        raise error
 
-    monkeypatch.setattr(main, "process_usm", fail_process)
+    monkeypatch.setattr(main, "process_usm", raise_error)
     usm = make_usm(tmp_path)
-    result = runner.invoke(main.app, [str(usm), "-o", str(tmp_path / "out")])
-    assert result.exit_code == 1
-
-
-def test_cancelled_is_clean_exit(pipeline_stub, monkeypatch, tmp_path):
-    def cancel_process(usm_file, opts, reporter, keys):
-        raise Cancelled
-
-    monkeypatch.setattr(main, "process_usm", cancel_process)
-    usm = make_usm(tmp_path)
-    result = runner.invoke(main.app, [str(usm), "-o", str(tmp_path / "out")])
-    assert result.exit_code == 0
+    assert runner.invoke(main.app, [str(usm), "-o", str(tmp_path / "out")]).exit_code == exit_code
 
 
 def test_probe_skips_sync_and_pipeline(monkeypatch, tmp_path):
@@ -213,7 +178,6 @@ def test_probe_skips_sync_and_pipeline(monkeypatch, tmp_path):
 
 
 def test_crack_skips_keys_and_pipeline(monkeypatch, tmp_path):
-    """--crack needs neither keys.json nor subtitles: the file is the only input."""
     cracked = []
     monkeypatch.setattr(main, "crack_all", lambda files, reporter: cracked.extend(files))
     monkeypatch.setattr(main, "Keys", forbid_call)

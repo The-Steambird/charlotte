@@ -54,10 +54,8 @@ def ffmpeg(monkeypatch):
 
 
 class FakeReporter(Reporter):
-    """Test double: records logs/events/prompts/progress, answers ask() with a scripted
-    response. `tasks` records every task() as (stage, total, unit), `progress` every
-    update_task() as (stage, current), and `open_tasks` counts the ones still unclosed -
-    all three matter for the worker-queue relay."""
+    """Records everything and answers ask() with `answer`. `open_tasks` counts the
+    task() contexts still unclosed, which the worker-queue relay tests check."""
 
     def __init__(self, answer: bool = False):
         self.answer = answer
@@ -103,10 +101,17 @@ def reporter():
     return FakeReporter()
 
 
+@pytest.fixture
+def out_dir(tmp_path):
+    out = tmp_path / "out"
+    out.mkdir()
+    return out
+
+
 @pytest.fixture(autouse=True)
 def tmp_app_root(tmp_path, monkeypatch):
     """Redirect every module that persists files next to the executable (keys.json,
-    Subtitle/, font/) into a scratch dir so tests don't affect the real ones."""
+    Subtitle/, font/) into a scratch dir."""
     for module in (resources.keys, resources.subtitles, resources.fonts):
         monkeypatch.setattr(module, "app_root", lambda: tmp_path)
     return tmp_path
@@ -114,6 +119,5 @@ def tmp_app_root(tmp_path, monkeypatch):
 
 @pytest.fixture(autouse=True)
 def clear_upstream_cache():
-    """fetch_upstream_keys is functools.cache'd, so clear it between tests to keep one
-    test's stubbed result from leaking into the next."""
+    """fetch_upstream_keys is functools.cache'd; keep one test's stub out of the next."""
     resources.keys.fetch_upstream_keys.cache_clear()

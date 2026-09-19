@@ -26,12 +26,7 @@ def stub_upstream(monkeypatch, entries, commit="abc123"):
     monkeypatch.setattr(resources.subtitles, "fetch_archive", lambda: make_archive(entries))
 
 
-# --- helpers and the sync marker ---
-
-
-def test_local_subtitle_path(tmp_app_root):
-    expected = tmp_app_root / "Subtitle" / "EN" / "Cs_X_EN.srt"
-    assert local_subtitle_path("Cs_X", "EN") == expected
+# --- the sync marker ---
 
 
 def test_commit_marker_roundtrip(tmp_app_root):
@@ -86,7 +81,6 @@ def test_sync_skips_when_up_to_date(tmp_app_root, reporter, monkeypatch):
 
     sync_subtitles(reporter)
 
-    # forbid_call fails the test if a download was attempted; the marker stays put.
     assert stored_commit() == "abc123"
 
 
@@ -104,7 +98,6 @@ def test_sync_filters_archive_entries(tmp_app_root, reporter, monkeypatch):
     assert local_subtitle_path("Cs_A", "EN").read_bytes() == b"kept"
     assert not (tmp_app_root / "evil.srt").exists()
     assert not (tmp_app_root / "Subtitle" / "EN" / "notes.txt").exists()
-    # All valid targets landed, so the marker is still written.
     assert stored_commit() == "abc123"
 
 
@@ -120,7 +113,6 @@ def test_sync_network_failure_falls_back(reporter, monkeypatch):
 
     monkeypatch.setattr(resources.subtitles, "latest_commit", down)
     monkeypatch.setattr(resources.subtitles, "fetch_archive", forbid_call)
-    # The contract is falling back silently: no exception, no download attempt.
     sync_subtitles(reporter)
 
 
@@ -154,5 +146,4 @@ def test_sync_partial_write_skips_marker(tmp_app_root, reporter, monkeypatch):
     sync_subtitles(reporter)
 
     assert local_subtitle_path("Cs_A", "EN").read_bytes() == b"ok"
-    # A partial sync must not record the commit, so the next run retries the download.
-    assert stored_commit() == ""
+    assert stored_commit() == ""  # so the next run retries

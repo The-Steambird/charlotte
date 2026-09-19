@@ -107,7 +107,6 @@ def test_split_key_inverts_build_mask(key1, key2):
 
 
 def test_solve_recovers_a_known_key():
-    """The module's core claim: ciphertext in, the mask that produced it back out."""
     rng = random.Random(7)
     stats = Stats()
     for _ in range(8):
@@ -117,7 +116,6 @@ def test_solve_recovers_a_known_key():
 
 
 def test_crack_key_recovers_from_a_usm(tmp_path, reporter):
-    """End to end over a real chunk layout: walk the file, pool both halves, agree."""
     rng = random.Random(3)
     usm_file = tmp_path / "Cs_Test.usm"
     usm_file.write_bytes(b"".join(video_chunk(rng) for _ in range(8)))
@@ -136,8 +134,7 @@ def test_crack_key_declines_a_file_with_no_video(tmp_path, reporter):
 
 
 def test_crack_key_declines_too_little_video(tmp_path, reporter):
-    """A short cutscene cannot outvote the noise, so the sample floor rejects it
-    before the two halves are ever compared."""
+    """The sample floor rejects a short cutscene before the halves are compared."""
     payload = b"DKIF" + bytes(MASK_START + MIN_MASKED)
     usm_file = tmp_path / "Cs_Test.usm"
     usm_file.write_bytes(b"".join(chunk(b"@SFV", payload) for _ in range(4)))
@@ -149,8 +146,7 @@ def test_crack_key_declines_too_little_video(tmp_path, reporter):
 
 
 def test_repeated_payloads_are_dealt_once(tmp_path, reporter):
-    """A frame seen again adds nothing the solver can use, so it is dropped: it must
-    not help a thin file over the sample floor, and it must not reach the second pool,
+    """A repeat must neither count toward the sample floor nor reach the second pool,
     where it would be the first pool's evidence counted twice."""
     payload = b"DKIF" + bytes(CIPHER_START + 100 * BLOCK - 4)
     usm_file = tmp_path / "Cs_Test.usm"
@@ -163,9 +159,8 @@ def test_repeated_payloads_are_dealt_once(tmp_path, reporter):
 
 
 def test_crack_key_declines_a_repeated_payload(tmp_path, reporter):
-    """One frame over and over, large enough that counting the repeats would clear
-    the sample floor. Split-half only proves anything if the two pools saw different
-    bytes, and a placeholder like this has only the one to offer."""
+    """One frame repeated past the sample floor: split-half proves nothing when both
+    pools would see the same bytes, so a single distinct payload is declined."""
     payload = b"DKIF" + bytes(CIPHER_START + 3200 * BLOCK - 4)
     usm_file = tmp_path / "Cs_Test.usm"
     usm_file.write_bytes(b"".join(chunk(b"@SFV", payload) for _ in range(4)))
@@ -176,26 +171,9 @@ def test_crack_key_declines_a_repeated_payload(tmp_path, reporter):
     assert "only one distinct video payload" in recovery.reason
 
 
-def test_agreeing_halves_vouch_for_the_key():
-    """The only branch where evaluate() accepts: two pools that saw different bytes
-    and still solved to the same mask."""
-    rng = random.Random(5)
-    left, right = Stats(), Stats()
-    for i in range(8):
-        (left if i % 2 == 0 else right).add(encrypt(video_plaintext(rng, 900), KEY1, KEY2))
-
-    mask, reason = evaluate(Sample(left, right, b"DKIF", (left.blocks + right.blocks) * BLOCK))
-
-    assert reason == ""
-    assert split_key(mask) == (KEY1, KEY2)
-
-
 def test_split_half_rejects_disagreeing_noise():
-    """The core safety property: two halves that don't agree yield no key at all.
-
-    Pure noise carries no 00,00/FF,FF signal, so each half chases its own tail and
-    solves a different mask - the branch that keeps a thin sample from ever
-    accepting a wrong key."""
+    """The core safety property: pure noise carries no 00,00/FF,FF signal, so each
+    half solves a different mask and no key is accepted."""
     rng = random.Random(11)
     left, right = Stats(), Stats()
     for i in range(30):

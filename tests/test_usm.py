@@ -15,12 +15,9 @@ def make_usm(tmp_path, chunks: bytes) -> USM:
 
 
 def mask_video_reference(usm: USM, data: bytearray) -> None:
-    """GICutscenes USM.cs::MaskVideo, transcribed byte for byte.
-
-    The C# walks one byte at a time against `mask[i & 0x1F]`; decrypt_video collapses
-    that into whole-block XORs. Keeping the original here is what makes the comparison
-    below a check on the port rather than on a previous version of itself.
-    """
+    """GICutscenes USM.cs::MaskVideo, transcribed byte for byte. decrypt_video collapses
+    this into whole-block XORs; checking against the original rather than a previous
+    version of the port is what keeps the two from drifting as a pair."""
     offset = MASK_START
     size = len(data) - offset
     if size < MIN_MASKED:
@@ -37,19 +34,11 @@ def mask_video_reference(usm: USM, data: bytearray) -> None:
         data[i + offset] ^= mask[i & 0x1F]
 
 
-@pytest.fixture
-def out_dir(tmp_path):
-    out = tmp_path / "out"
-    out.mkdir()
-    return out
-
-
 # --- decrypt_video ---
 
 
-# The threshold itself, then every shape of trailing partial block: none, one byte, a
-# byte short of a full one, and each of those again with the block count's parity
-# flipped, since an odd count leaves a different mask behind for the tail to pick up.
+# The threshold, then every shape of trailing partial block at both block-count
+# parities, since an odd count leaves a different mask behind for the tail.
 THRESHOLD = MASK_START + MIN_MASKED
 
 
@@ -58,8 +47,6 @@ THRESHOLD = MASK_START + MIN_MASKED
     [THRESHOLD, THRESHOLD + 1, THRESHOLD + 0x1F, THRESHOLD + 0x20, THRESHOLD + 0x21, 0x4321],
 )
 def test_decrypt_video_matches_the_reference_chain(tmp_path, size):
-    """decrypt_video rewrites the C# chain in whole blocks, which only holds if the two
-    agree byte for byte at every payload length."""
     rng = random.Random(size)
     payload = bytes(rng.randrange(256) for _ in range(size))
     key1, key2 = bytes([0x11, 0x22, 0x33, 0x44]), bytes([0x55, 0x66, 0x77, 0x00])
@@ -74,8 +61,7 @@ def test_decrypt_video_matches_the_reference_chain(tmp_path, size):
 
 
 def test_demux_extracts_streams(tmp_path, out_dir, reporter):
-    # A video chunk this small is below the encryption threshold, so it must
-    # pass through decrypt_video unchanged.
+    # The video chunk is below the masking threshold, so it comes out untouched.
     data = (
         chunk(b"@SFV", b"video")
         + chunk(b"@SFA", b"audio0", channel=0)
@@ -104,8 +90,6 @@ def test_unknown_signature_warned_once(tmp_path, out_dir, reporter, caplog):
 
 
 def test_known_metadata_signatures_skipped_silently(tmp_path, out_dir, reporter, caplog):
-    """CRID/@CUE/@APP and friends are recognized containers, not payloads: they are
-    dropped with neither an output stream nor the unknown-signature warning."""
     data = (
         chunk(b"CRID", b"header")
         + chunk(b"@CUE", b"cue")
@@ -125,35 +109,28 @@ def test_corrupt_chunk_raises(tmp_path, out_dir, reporter):
 
 
 def test_truncated_chunk_raises(tmp_path, out_dir, reporter):
-    """A file ending mid-payload would otherwise just end the walk, leaving a short .ivf
-    behind and reporting success."""
     data = chunk(b"@SFV", b"video") + chunk(b"@SFA", b"audio")[:-2]
     with pytest.raises(CharlotteError, match="Truncated USM chunk"):
         make_usm(tmp_path, data).demux(out_dir, reporter)
 
 
 def test_oversized_data_size_raises_before_reading(tmp_path, out_dir, reporter):
-    """A header claiming more payload than the file holds is rejected before the read.
-    read() allocates the declared size up front, so checking afterwards would first try
-    to allocate 4 GB for a corrupt 0xFFFFFFFF - and MemoryError is not a CharlotteError."""
+    """read() allocates the declared size up front, and MemoryError is not a CharlotteError."""
     bad = struct.pack(">4sIxBHB2xB16x", b"@SFA", 0xFFFFFFFF, 0x18, 0, 0, 0)
     with pytest.raises(CharlotteError, match="Truncated USM chunk"):
         make_usm(tmp_path, bad).demux(out_dir, reporter)
 
 
 def test_undersized_data_offset_raises(tmp_path, out_dir, reporter):
-    """A data_offset below 0x18 would seek back into the header just read, so the walk
-    would creep through the file yielding overlapping garbage instead of stopping."""
-    bad = struct.pack(">4sIxBHB2xB16x", b"@SFA", 0, 0, 0, 0, 0)  # data_offset 0 < 0x18
+    """Below 0x18 the walk would seek back into the header just read and creep."""
+    bad = struct.pack(">4sIxBHB2xB16x", b"@SFA", 0, 0, 0, 0, 0)  # data_offset 0
     with pytest.raises(CharlotteError, match="Corrupt USM chunk"):
         make_usm(tmp_path, bad).demux(out_dir, reporter)
 
 
 def test_cancel_mid_demux_records_partial_output(tmp_path, out_dir):
-    """On cancel, the caller-supplied dict still records what was written, so the
-    caller can clean up (demux itself deletes nothing)."""
-    # Enough chunks to pass the every-100-chunks checkpoint.
-    data = b"".join(chunk(b"@SFA", b"x") for _ in range(150))
+    """demux deletes nothing itself; the caller-supplied dict is how pipeline cleans up."""
+    data = b"".join(chunk(b"@SFA", b"x") for _ in range(150))  # past the 100-chunk checkpoint
     file_paths = {}
     with pytest.raises(Cancelled):
         make_usm(tmp_path, data).demux(out_dir, CancellingReporter(), file_paths=file_paths)

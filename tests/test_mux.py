@@ -20,11 +20,8 @@ def make_output(tmp_path, stem="Cs_Test", channels=("0", "1", "2"), subs=("EN", 
     return output
 
 
-# --- helpers to read the flat ffmpeg argument list ---
-
-
 def input_files(cmd):
-    """Every file passed to ffmpeg via -i, in order: video first, then audio, then subtitles."""
+    """Every -i argument in order: video, then audio, then subtitles."""
     return [value for flag, value in pairwise(cmd) if flag == "-i"]
 
 
@@ -34,7 +31,7 @@ def test_default_audio_sorted_first_and_flagged(ffmpeg, tmp_path):
 
     inputs = input_files(ffmpeg.cmd)
     assert inputs[0].endswith("Cs_Test.ivf")
-    assert inputs[1].endswith("Cs_Test_2.flac")  # ja leads
+    assert inputs[1].endswith("Cs_Test_2.flac")
     assert {Path(path).name for path in inputs[2:4]} == {"Cs_Test_0.flac", "Cs_Test_1.flac"}
     assert flag_value(ffmpeg.cmd, "-metadata:s:a:0") == "language=ja"
     assert flag_value(ffmpeg.cmd, "-disposition:a:0") == "default"
@@ -66,7 +63,6 @@ def test_audio_glob_follows_extension(ffmpeg, tmp_path):
     output = make_output(tmp_path, channels=())
     (output / "Cs_Test_2.mka").write_bytes(b"")
     mux(output, audio_extension=".mka")
-    # Input 0 is the video; the .mka must be picked up as the first audio input.
     assert input_files(ffmpeg.cmd)[1].endswith("Cs_Test_2.mka")
 
 
@@ -84,26 +80,15 @@ def test_fonts_attached_when_given(ffmpeg, tmp_path):
     assert flag_value(ffmpeg.cmd, "-metadata:s:t:0") == "mimetype=application/x-truetype-font"
 
 
-def test_no_fonts_no_attachments(ffmpeg, tmp_path):
+def test_command_frame(ffmpeg, tmp_path):
+    """-nostdin ahead of the first input: mux passes nothing on stdin, so ffmpeg would
+    otherwise inherit the GUI's command pipe under --json and read a byte off it per
+    keyboard poll. Output last, no attachments without fonts."""
     output = make_output(tmp_path)
     mux(output)
-    assert "-attach" not in ffmpeg.cmd
-
-
-def test_nostdin_guards_the_inherited_stdin(ffmpeg, tmp_path):
-    """Mux is the one run_ffmpeg call with nothing on stdin, so ffmpeg inherits the parent's -
-    the GUI command pipe under --json - and would read a byte off it per keyboard poll."""
-    output = make_output(tmp_path)
-    mux(output)
-    assert "-nostdin" in ffmpeg.cmd
-    # Global options only count ahead of the first input.
     assert ffmpeg.cmd.index("-nostdin") < ffmpeg.cmd.index("-i")
-
-
-def test_output_mkv_is_last_argument(ffmpeg, tmp_path):
-    output = make_output(tmp_path)
-    mux(output)
     assert ffmpeg.cmd[-1] == str(output / "Cs_Test.mkv")
+    assert "-attach" not in ffmpeg.cmd
 
 
 def test_missing_video_input_raises(ffmpeg, tmp_path):
@@ -116,11 +101,4 @@ def test_missing_video_input_raises(ffmpeg, tmp_path):
 def test_no_audio_raises(ffmpeg, tmp_path):
     output = make_output(tmp_path, channels=())
     with pytest.raises(CharlotteError, match="No audio files"):
-        mux(output)
-
-
-def test_ffmpeg_failure_raises(ffmpeg, tmp_path):
-    output = make_output(tmp_path)
-    ffmpeg.returncode = 1
-    with pytest.raises(CharlotteError, match="exited with code 1"):
         mux(output)

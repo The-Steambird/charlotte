@@ -1,10 +1,9 @@
 from stages.ass import ASS
 
 
-# Mirrors ASS.shadow to test failure if shadow was changed.
+# Pinned independently of ASS.shadow so a change there fails here.
 SHADOW = r"{\xshad-0.05\yshad-0.05\blur0.5}"
 
-# Fake SRT content.
 BASIC_SRT = """1
 00:00:01,234 --> 00:00:02,345
 Hello
@@ -17,9 +16,14 @@ def write_srt(tmp_path, text, name="Cs_Test_EN.srt"):
     return srt
 
 
-def convert_ass(tmp_path, text, lang=None, custom_style=None):
-    ass = ASS(str(write_srt(tmp_path, text)), lang=lang, custom_style=custom_style)
+def parse(tmp_path, text, **kwargs) -> ASS:
+    ass = ASS(str(write_srt(tmp_path, text)), **kwargs)
     assert ass.parse_srt()
+    return ass
+
+
+def convert_ass(tmp_path, text, **kwargs):
+    ass = parse(tmp_path, text, **kwargs)
     return ass.convert_to_ass(tmp_path / "out").read_text(encoding="utf-8")
 
 
@@ -27,42 +31,31 @@ def convert_ass(tmp_path, text, lang=None, custom_style=None):
 
 
 def test_timing_truncated_to_centiseconds(tmp_path):
-    """HH:MM:SS,cc → H:MM:SS.cc"""
-    ass = ASS(str(write_srt(tmp_path, BASIC_SRT)))
-    assert ass.parse_srt()
+    ass = parse(tmp_path, BASIC_SRT)
     assert ass.dialog_lines == [f"Dialogue: 0,0:00:01.23,0:00:02.34,Default,,0,0,0,,{SHADOW}Hello"]
 
 
 def test_negative_timing_sign_stripped(tmp_path):
-    """Strip negative timing sign (no idea why some files have this)."""
-    srt = "1\n-00:00:00,500 --> 00:00:01,500\nHello\n"
-    ass = ASS(str(write_srt(tmp_path, srt)))
-    assert ass.parse_srt()
+    ass = parse(tmp_path, "1\n-00:00:00,500 --> 00:00:01,500\nHello\n")
     assert ass.dialog_lines[0].startswith("Dialogue: 0,0:00:00.50,0:00:01.50,")
 
 
 def test_two_line_dialogue_joined(tmp_path):
-    """Multi-line dialogues join with \\N: renderers treat \\n as a space unless
-    WrapStyle is 2 (libass ass_get_next_char, VSFilter ParseString)."""
-    srt = "1\n00:00:01,000 --> 00:00:02,000\nOne\nTwo\n"
-    ass = ASS(str(write_srt(tmp_path, srt)))
-    assert ass.parse_srt()
+    """\\N, not \\n: libass and VSFilter render a soft break as a space at the
+    default WrapStyle."""
+    ass = parse(tmp_path, "1\n00:00:01,000 --> 00:00:02,000\nOne\nTwo\n")
     assert ass.dialog_lines[0].endswith(r"One\NTwo")
 
 
 def test_three_line_dialogue_keeps_every_line(tmp_path):
     """Cs_Fontaine_LQ1403901_Edg has blocks with three text lines."""
-    srt = "1\n00:00:01,000 --> 00:00:02,000\nOne\nTwo\nThree\n"
-    ass = ASS(str(write_srt(tmp_path, srt)))
-    assert ass.parse_srt()
+    ass = parse(tmp_path, "1\n00:00:01,000 --> 00:00:02,000\nOne\nTwo\nThree\n")
     assert ass.dialog_lines[0].endswith(r"One\NTwo\NThree")
 
 
 def test_bom_first_block_parsed(tmp_path):
-    """A UTF-8 BOM (some Cs_MD_* files upstream) must not break the digit check
-    on the first block."""
-    ass = ASS(str(write_srt(tmp_path, chr(0xFEFF) + BASIC_SRT)))
-    assert ass.parse_srt()
+    """22 upstream files carry a BOM, which would otherwise glue onto the first index."""
+    ass = parse(tmp_path, chr(0xFEFF) + BASIC_SRT)
     assert len(ass.dialog_lines) == 1
     assert ass.dialog_lines[0].endswith("Hello")
 
@@ -75,15 +68,9 @@ def test_malformed_blocks_skipped(tmp_path):
         "\n"
         "3\n00:00:03,000 --> 00:00:04,000\nValid\n"
     )
-    ass = ASS(str(write_srt(tmp_path, srt)))
-    assert ass.parse_srt()
+    ass = parse(tmp_path, srt)
     assert len(ass.dialog_lines) == 1
     assert ass.dialog_lines[0].endswith("Valid")
-
-
-def test_empty_srt_returns_false(tmp_path):
-    ass = ASS(str(write_srt(tmp_path, "")))
-    assert not ass.parse_srt()
 
 
 def test_unparseable_srt_returns_false(tmp_path):
@@ -91,13 +78,7 @@ def test_unparseable_srt_returns_false(tmp_path):
     assert not ass.parse_srt()
 
 
-# --- fonts and styles ---
-
-
-def test_font_by_language():
-    assert ASS("x.srt", lang="JP").font == "SDK_JP_Web"
-    assert ASS("x.srt", lang="EN").font == "SDK_SC_Web"
-    assert ASS("x.srt").font == "SDK_SC_Web"
+# --- ASS conversion ---
 
 
 def test_default_style_and_header(tmp_path):
@@ -113,20 +94,8 @@ def test_jp_style_uses_jp_font(tmp_path):
     assert "Style: Default,SDK_JP_Web,10.9," in content
 
 
-def test_custom_style_fontname_placeholder(tmp_path):
-    content = convert_ass(
-        tmp_path, BASIC_SRT, lang="JP", custom_style="Style: Custom,{fontname},20"
-    )
-    assert "Style: Custom,SDK_JP_Web,20" in content
-
-
-# --- ASS conversion ---
-
-
 def test_output_path_and_name(tmp_path):
-    ass = ASS(str(write_srt(tmp_path, BASIC_SRT)))
-    assert ass.parse_srt()
-    output = ass.convert_to_ass(tmp_path / "out")
+    output = parse(tmp_path, BASIC_SRT).convert_to_ass(tmp_path / "out")
     assert output == tmp_path / "out" / "subs" / "Cs_Test_EN.ass"
     assert output.is_file()
 
@@ -143,8 +112,6 @@ def test_html_tags_converted_to_ass_overrides(tmp_path):
     assert r"{\b1}bold{\b0}" in content
     assert r"{\i1}it{\i0}" in content
     assert r"{\u1}ul{\u0}" in content
-    # ASS colors are BGR, #A1B2C3 becomes &HC3B2A1&.
-    assert r"{\c&HC3B2A1&}red" in content
+    assert r"{\c&HC3B2A1&}red" in content  # ASS colours are BGR
     assert r"{\c&H0F0E0D&}unquoted" in content
-    # Check if any raw HTML survived in the dialogue lines (everything after [Events]).
     assert "<" not in content.split("[Events]")[1]

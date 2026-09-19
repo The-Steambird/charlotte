@@ -43,7 +43,6 @@ def test_only_missing_font_copied(tmp_app_root, game_fonts):
     local_font(tmp_app_root, "ja-jp.ttf")
     fonts = fetch_font()
     assert [font.name for font in fonts] == ["ja-jp.ttf", "zh-cn.ttf"]
-    # The existing cached font is kept, not overwritten by the game copy.
     assert (tmp_app_root / "font" / "ja-jp.ttf").read_bytes() == b"local"
     assert (tmp_app_root / "font" / "zh-cn.ttf").read_bytes() == b"game:zh-cn.ttf"
 
