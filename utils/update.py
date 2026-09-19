@@ -1,9 +1,10 @@
 import msvcrt
 import sys
 import time
+import zipfile
 
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
 
 import orjson
@@ -76,7 +77,7 @@ def fetch_latest_release() -> dict | None:
 def asset_download_url(release: dict) -> str | None:
     assets = release.get("assets", [])
     for asset in assets:
-        if asset.get("name", "").lower() == "charlotte.exe":
+        if asset.get("name", "").lower().endswith(".zip"):
             return asset.get("browser_download_url")
     return None
 
@@ -129,14 +130,10 @@ def report_update(reporter: Reporter) -> UpdateInfo:
 
 
 def running_exe() -> Path:
-    """Path of the currently running charlotte.exe."""
     return Path(sys.executable)
 
 
 def is_standalone_exe(json_mode: bool) -> bool:
-    """Whether this run may replace its own binary. True only for a frozen CLI. Running from
-    source (`uv run main.py`) there is no .exe to replace, and under --json the GUI is
-    in charge of updating rather than the engine."""
     return getattr(sys, "frozen", False) and not json_mode
 
 
@@ -152,8 +149,6 @@ def clear_stale_binary() -> None:
 
 
 def looks_like_exe(path: Path) -> bool:
-    """True if `path` starts with the "MZ" bytes that begin every Windows executable. Rejects a
-    file that downloaded but isn't the real binary (HTML error page or a truncated download)."""
     try:
         with open(path, "rb") as file:
             return file.read(2) == b"MZ"
@@ -176,9 +171,8 @@ def stream_to_file(response: urllib3.BaseHTTPResponse, dest: Path, reporter: Rep
             task.set_completed(downloaded)
 
 
-def download_binary(url: str, dest: Path, reporter: Reporter) -> None:
-    """Stream the release exe at `url` into `dest` and verify if it's an executable.
-    Raises CharlotteError on failure."""
+def download_bundle(url: str, dest: Path, reporter: Reporter) -> None:
+    """Stream the release zip at `url` into `dest`."""
     headers = {"User-Agent": f"charlotte/{__version__}"}
     try:
         with urllib3.request(
@@ -191,6 +185,24 @@ def download_binary(url: str, dest: Path, reporter: Reporter) -> None:
         raise CharlotteError(f"Failed to download the update: {e}") from e
     except OSError as e:
         raise CharlotteError(f"Failed to write the update to disk: {e}") from e
+
+
+def engine_member(archive: zipfile.ZipFile) -> str:
+    for name in archive.namelist():
+        if PurePosixPath(name).name.lower() == "charlotte.exe":
+            return name
+    raise CharlotteError("The update bundle has no charlotte.exe inside.")
+
+
+def extract_binary(bundle: Path, dest: Path) -> None:
+    try:
+        with zipfile.ZipFile(bundle) as archive:
+            member = engine_member(archive)
+            dest.write_bytes(archive.read(member))
+    except zipfile.BadZipFile as e:
+        raise CharlotteError(f"The update bundle is not a valid zip: {e}") from e
+    except OSError as e:
+        raise CharlotteError(f"Failed to unpack the update: {e}") from e
     if not looks_like_exe(dest):
         raise CharlotteError("Downloaded file is not a valid Windows executable.")
 
@@ -215,19 +227,22 @@ def swap_binary(new_file: Path) -> None:
 
 
 def apply_update(info: UpdateInfo, reporter: Reporter) -> bool:
-    """Download and swap charlotte.exe to charlotte.exe.old or rollback on failure."""
     exe = running_exe()
+    bundle = exe.with_name(exe.name + ".zip")
     new_file = exe.with_name(exe.name + ".new")
     try:
         if info.download is None:
-            raise CharlotteError("The latest release has no .exe asset to download.")
-        download_binary(info.download, new_file, reporter)
+            raise CharlotteError("The latest release has no .zip asset to download.")
+        download_bundle(info.download, bundle, reporter)
+        extract_binary(bundle, new_file)
         swap_binary(new_file)
         return True
     except CharlotteError as e:
         log.error(str(e))
         new_file.unlink(missing_ok=True)
         return False
+    finally:
+        bundle.unlink(missing_ok=True)
 
 
 def pause_before_exit(seconds: int = 5) -> None:
@@ -244,7 +259,6 @@ def pause_before_exit(seconds: int = 5) -> None:
 
 
 def run_update(reporter: Reporter, json_mode: bool) -> None:
-    """Offer to install the latest release and replace the binary."""
     info = report_update(reporter)
     if not (info.available and info.latest and is_standalone_exe(json_mode)):
         return

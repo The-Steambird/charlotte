@@ -1,4 +1,5 @@
 import sys
+import zipfile
 
 import pytest
 
@@ -10,6 +11,7 @@ from utils.update import (
     UpdateInfo,
     asset_download_url,
     check_for_update,
+    extract_binary,
     is_standalone_exe,
     looks_like_exe,
     parse_version,
@@ -81,7 +83,7 @@ def test_bare_tag_reports_unchanged(monkeypatch):
 
 def test_update_carries_download_url(monkeypatch):
     with_asset = release("v99.0.0") | {
-        "assets": [{"name": "charlotte.exe", "browser_download_url": "https://example/dl"}]
+        "assets": [{"name": "MonsieurVerite-99.0.0.zip", "browser_download_url": "https://example/dl"}]
     }
     monkeypatch.setattr(utils.update, "fetch_latest_release", lambda: with_asset)
     assert check_for_update().download == "https://example/dl"
@@ -142,42 +144,108 @@ def test_event_shape_fixed_on_failure(monkeypatch, reporter):
 # --- self-apply (step 2) ---
 
 
-def test_asset_download_url_picks_exe():
+def test_asset_download_url_picks_zip():
+    # The bundle is the only release asset, but a stray loose file must not distract from it,
+    # whatever order GitHub lists them in.
     release = {
         "assets": [
             {"name": "keys.json", "browser_download_url": "u1"},
-            {"name": "charlotte.exe", "browser_download_url": "u2"},
+            {"name": "MonsieurVerite-1.0.zip", "browser_download_url": "u2"},
         ]
     }
     assert asset_download_url(release) == "u2"
 
 
-def test_asset_download_url_prefers_charlotte_exe_over_other_assets():
-    # A release also carries the GUI bundle (.zip) and could carry another .exe; the
-    # self-updater must land on its own binary, whatever order GitHub lists them in.
-    release = {
-        "assets": [
-            {"name": "MonsieurVerite-1.0.zip", "browser_download_url": "zip"},
-            {"name": "MonsieurVerite.exe", "browser_download_url": "gui"},
-            {"name": "charlotte.exe", "browser_download_url": "engine"},
-        ]
-    }
-    assert asset_download_url(release) == "engine"
-
-
-def test_asset_download_url_none_when_no_exe():
-    only_md = {"assets": [{"name": "readme.md", "browser_download_url": "u"}]}
-    assert asset_download_url(only_md) is None
+def test_asset_download_url_none_when_no_zip():
+    only_exe = {"assets": [{"name": "charlotte.exe", "browser_download_url": "u"}]}
+    assert asset_download_url(only_exe) is None
     assert asset_download_url({}) is None
 
 
 def test_apply_update_declines_without_asset(reporter, monkeypatch, tmp_path):
-    # No .exe attached to the release: fail up front, before any download starts.
+    # No .zip attached to the release: fail up front, before any download starts.
     # running_exe is stubbed because apply_update unlinks the partial .new next to it,
     # which would otherwise be a real delete attempt beside the running interpreter.
     monkeypatch.setattr(utils.update, "running_exe", lambda: tmp_path / "charlotte.exe")
     info = UpdateInfo(current=__version__, latest="99.0.0", available=True)
     assert utils.update.apply_update(info, reporter) is False
+
+
+def bundle(path, **members: bytes):
+    with zipfile.ZipFile(path, "w") as archive:
+        for name, data in members.items():
+            archive.writestr(name, data)
+    return path
+
+
+def test_extract_binary_takes_only_charlotte_exe(tmp_path):
+    # The zip also holds the GUI, which the engine's updater must leave alone.
+    zip_path = bundle(
+        tmp_path / "b.zip", **{"MonsieurVerite.exe": b"MZgui", "charlotte.exe": b"MZengine"}
+    )
+    dest = tmp_path / "charlotte.exe.new"
+    extract_binary(zip_path, dest)
+    assert dest.read_bytes() == b"MZengine"
+    assert not (tmp_path / "MonsieurVerite.exe").exists()
+
+
+def test_extract_binary_strips_wrapping_folder(tmp_path):
+    zip_path = bundle(tmp_path / "b.zip", **{"MonsieurVerite-1.0/charlotte.exe": b"MZengine"})
+    dest = tmp_path / "charlotte.exe.new"
+    extract_binary(zip_path, dest)
+    assert dest.read_bytes() == b"MZengine"
+
+
+def test_extract_binary_rejects_zip_without_engine(tmp_path):
+    zip_path = bundle(tmp_path / "b.zip", **{"MonsieurVerite.exe": b"MZgui"})
+    with pytest.raises(CharlotteError):
+        extract_binary(zip_path, tmp_path / "charlotte.exe.new")
+
+
+def test_extract_binary_rejects_non_zip(tmp_path):
+    # An HTML error page saved under the zip name must be declined, not crash on BadZipFile.
+    not_zip = tmp_path / "b.zip"
+    not_zip.write_bytes(b"<!doctype html>")
+    with pytest.raises(CharlotteError):
+        extract_binary(not_zip, tmp_path / "charlotte.exe.new")
+
+
+def test_extract_binary_rejects_non_exe_member(tmp_path):
+    zip_path = bundle(tmp_path / "b.zip", **{"charlotte.exe": b"not a binary"})
+    with pytest.raises(CharlotteError):
+        extract_binary(zip_path, tmp_path / "charlotte.exe.new")
+
+
+def test_apply_update_cleans_up_bundle_and_partial(reporter, monkeypatch, tmp_path):
+    # A bad bundle leaves neither the downloaded zip nor a half-made .new beside the exe.
+    exe = tmp_path / "charlotte.exe"
+    exe.write_bytes(b"MZold")
+    monkeypatch.setattr(utils.update, "running_exe", lambda: exe)
+
+    def fake_download(url, dest, reporter):
+        bundle(dest, **{"charlotte.exe": b"not a binary"})
+
+    monkeypatch.setattr(utils.update, "download_bundle", fake_download)
+    info = UpdateInfo(current=__version__, latest="99.0.0", available=True, download="u")
+    assert utils.update.apply_update(info, reporter) is False
+    assert exe.read_bytes() == b"MZold"
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["charlotte.exe"]
+
+
+def test_apply_update_swaps_from_bundle(reporter, monkeypatch, tmp_path):
+    exe = tmp_path / "charlotte.exe"
+    exe.write_bytes(b"MZold")
+    monkeypatch.setattr(utils.update, "running_exe", lambda: exe)
+
+    def fake_download(url, dest, reporter):
+        bundle(dest, **{"MonsieurVerite.exe": b"MZgui", "charlotte.exe": b"MZnew"})
+
+    monkeypatch.setattr(utils.update, "download_bundle", fake_download)
+    info = UpdateInfo(current=__version__, latest="99.0.0", available=True, download="u")
+    assert utils.update.apply_update(info, reporter) is True
+    assert exe.read_bytes() == b"MZnew"
+    assert (tmp_path / "charlotte.exe.old").read_bytes() == b"MZold"
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["charlotte.exe", "charlotte.exe.old"]
 
 
 def test_looks_like_exe(tmp_path):
