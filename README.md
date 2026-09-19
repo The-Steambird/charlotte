@@ -48,7 +48,10 @@ content.
 - VapourSynth pipeline for post-processing quality improvements
 - Bundled lightweight custom FFmpeg build at only ~15MB
 - Built-in self updater
+
+## Roadmap
 - Graphical User Interface (coming soon)
+- Support for Honkai: Star Rail
 
 VapourSynth filter scripts take a lot of time to write to ensure quality, hence they will be slowly
 added over time. If you have encoding knowledge, contributions are welcome!
