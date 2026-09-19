@@ -19,10 +19,9 @@ class ASS:
         (re.compile(r"</font>"), ""),
     )
 
-    def __init__(self, srt_file: str, lang: str | None = None, custom_style: str | None = None):
+    def __init__(self, srt_file: str, lang: str | None = None):
         self.srt_file = Path(srt_file)
         self.lang = lang
-        self.custom_style = custom_style
         self.font = "SDK_JP_Web" if lang == "JP" else "SDK_SC_Web"
         self.dialog_lines: list[str] = []
 
@@ -68,37 +67,34 @@ class ASS:
         output_path.mkdir(parents=True, exist_ok=True)
         output_file = output_path / (self.srt_file.stem + ".ass")
 
-        if self.custom_style:
-            style_line = self.custom_style.replace("{fontname}", self.font)
-        else:
-            # Default style matching official GI subtitle style.
-            style_line = ",".join(
-                [
-                    "Style: Default",  # Name
-                    self.font,  # Font
-                    "10.9",  # Fontsize
-                    "&H00FFFFFF",  # PrimaryColour
-                    "&H000000FF",  # SecondaryColour
-                    "&H00484848",  # OutlineColour
-                    "&H00484848",  # BackColour
-                    "0",  # Bold
-                    "0",  # Italic
-                    "0",  # Underline
-                    "0",  # StrikeOut
-                    "100.0",  # ScaleX
-                    "100.0",  # ScaleY
-                    "0.0",  # Spacing
-                    "0.0",  # Angle
-                    "1",  # BorderStyle
-                    "0.05",  # Outline
-                    "0.05",  # Shadow
-                    "2",  # Alignment
-                    "10",  # MarginL
-                    "10",  # MarginR
-                    "17",  # MarginV
-                    "1",  # Encoding
-                ]
-            )
+        # Default style matching official GI subtitle style.
+        style_line = ",".join(
+            [
+                "Style: Default",  # Name
+                self.font,  # Font
+                "10.9",  # Fontsize
+                "&H00FFFFFF",  # PrimaryColour
+                "&H000000FF",  # SecondaryColour
+                "&H00484848",  # OutlineColour
+                "&H00484848",  # BackColour
+                "0",  # Bold
+                "0",  # Italic
+                "0",  # Underline
+                "0",  # StrikeOut
+                "100.0",  # ScaleX
+                "100.0",  # ScaleY
+                "0.0",  # Spacing
+                "0.0",  # Angle
+                "1",  # BorderStyle
+                "0.05",  # Outline
+                "0.05",  # Shadow
+                "2",  # Alignment
+                "10",  # MarginL
+                "10",  # MarginR
+                "17",  # MarginV
+                "1",  # Encoding
+            ]
+        )
 
         header = (
             "[Script Info]\n"
