@@ -10,8 +10,18 @@ permissions:
 jobs:
   build-release:
     runs-on: windows-latest
+    env:
+      # Builds as 0.0.0 from master because workflow_dispatch has no tag.
+      VERSION: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '0.0.0' }}
     steps:
       - uses: actions/checkout@v6
+
+      - name: Check out MonsieurVerite
+        uses: actions/checkout@v6
+        with:
+          repository: The-Steambird/MonsieurVerite
+          ref: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'master' }}
+          path: gui
 
       - name: Install uv
         uses: astral-sh/setup-uv@v10.0.1
@@ -33,19 +43,41 @@ jobs:
         run: uv run pyinstaller charlotte.spec
 
       - name: Smoke test
-        run: dist/charlotte.exe --help
+        run: dist/charlotte.exe --version
+
+      # ---- MonsieurVerite bundle -----
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+          cache: true
+          cache-dependency-path: gui/**/packages.lock.json
+
+      - name: Publish MonsieurVerite
+        run: >
+          dotnet publish gui/MonsieurVerite/MonsieurVerite.csproj
+          -c Release -r win-x64 --self-contained false
+          -p:PublishSingleFile=true -p:DebugType=none -p:PublishDocumentationFile=false
+          -p:RestoreLockedMode=true -p:Version=${{ env.VERSION }}
+          -o bundle
+
+      - name: Assemble bundle
+        run: |
+          Copy-Item dist/charlotte.exe bundle/
+          Compress-Archive -Path bundle/* -DestinationPath dist/MonsieurVerite-${{ env.VERSION }}.zip
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v7.0.1
         with:
           name: charlotte
-          path: dist/charlotte.exe
+          path: dist/*
 
       - name: Release
-        uses: softprops/action-gh-release@v3.0.0
+        uses: softprops/action-gh-release@v3.0.3
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: dist/charlotte.exe
+          files: dist/*
           generate_release_notes: true
           draft: true
           prerelease: false
