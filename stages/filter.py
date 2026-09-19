@@ -207,6 +207,7 @@ def worker(
                 ffmpeg_pipe()
             except Exception as e:
                 reporter.log("error", f"\nVapourSynth processing failed: {e}")
+                process.kill()
                 queue.put(("result", False))
                 return
 
