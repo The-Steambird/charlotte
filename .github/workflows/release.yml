@@ -62,6 +62,8 @@ jobs:
           -p:RestoreLockedMode=true -p:Version=${{ env.VERSION }}
           -o bundle
 
+      # .zip contains charlotte.exe + GUI binary.
+      # charlotte --update gets its own .exe out. GUI unpacks the whole archive.
       - name: Assemble bundle
         run: |
           Copy-Item dist/charlotte.exe bundle/
@@ -77,7 +79,7 @@ jobs:
         uses: softprops/action-gh-release@v3.0.3
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: dist/*
+          files: dist/*.zip
           generate_release_notes: true
           draft: true
           prerelease: false
