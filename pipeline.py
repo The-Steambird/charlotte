@@ -237,6 +237,7 @@ def crack_usm(usm_file: Path, reporter: Reporter) -> Recovery:
 def crack_all(usm_files: list[Path], reporter: Reporter) -> None:
     failures: dict[str, str] = {}  # filename -> why its key could not be recovered
     for usm_file in usm_files:
+        reporter.event("job_start", file=usm_file.name, stem=usm_file.stem)
         try:
             recovery = crack_usm(usm_file, reporter)
         except Cancelled:
