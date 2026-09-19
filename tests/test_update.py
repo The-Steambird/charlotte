@@ -152,6 +152,19 @@ def test_asset_download_url_picks_exe():
     assert asset_download_url(release) == "u2"
 
 
+def test_asset_download_url_prefers_charlotte_exe_over_other_assets():
+    # A release also carries the GUI bundle (.zip) and could carry another .exe; the
+    # self-updater must land on its own binary, whatever order GitHub lists them in.
+    release = {
+        "assets": [
+            {"name": "MonsieurVerite-1.0.zip", "browser_download_url": "zip"},
+            {"name": "MonsieurVerite.exe", "browser_download_url": "gui"},
+            {"name": "charlotte.exe", "browser_download_url": "engine"},
+        ]
+    }
+    assert asset_download_url(release) == "engine"
+
+
 def test_asset_download_url_none_when_no_exe():
     only_md = {"assets": [{"name": "readme.md", "browser_download_url": "u"}]}
     assert asset_download_url(only_md) is None

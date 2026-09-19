@@ -35,8 +35,6 @@ def parse_version(text: str) -> tuple[tuple[int, ...], int, int]:
     1.2.3b2  -> ((1, 2, 3), 1, 2)
     1.2.3rc1 -> ((1, 2, 3), 2, 1)
     1.2.3    -> ((1, 2, 3), 3, 0)
-
-    Pre-release is sorted before final release, so final is ranked higher.
     """
     phase_rank = {"a": 0, "b": 1, "rc": 2}
     final_rank = 3
@@ -76,9 +74,9 @@ def fetch_latest_release() -> dict | None:
 
 
 def asset_download_url(release: dict) -> str | None:
-    """Direct download URL of the .exe."""
-    for asset in release.get("assets", []):
-        if asset.get("name", "").lower().endswith(".exe"):
+    assets = release.get("assets", [])
+    for asset in assets:
+        if asset.get("name", "").lower() == "charlotte.exe":
             return asset.get("browser_download_url")
     return None
 
