@@ -9,8 +9,7 @@ a = Analysis(
     ],
     datas=[
         ("pyproject.toml", "."),  # utils/version.py reads __version__ out of it at runtime
-        ("vs", "vs"),
-        # .pdb debug symbols and the C headers/vspipe are unused in binary.
+        ("vs/*.py", "vs"),
         *collect_data_files(
             "vapoursynth",
             excludes=[
@@ -20,6 +19,7 @@ a = Analysis(
                 "pkgconfig",
                 "vspipe.exe",
                 "vsvfw.dll",
+                "plugins/avscompat.dll",
             ],
         ),
     ],

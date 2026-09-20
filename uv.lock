@@ -40,10 +40,8 @@ dependencies = [
     { name = "typer" },
     { name = "urllib3" },
     { name = "vapoursynth" },
-    { name = "vapoursynth-adaptivegrain" },
     { name = "vapoursynth-akarin" },
     { name = "vapoursynth-bestsource" },
-    { name = "vapoursynth-dctfilter" },
     { name = "vapoursynth-deblock" },
     { name = "vapoursynth-edgemasks" },
     { name = "vapoursynth-resize2" },
@@ -70,10 +68,8 @@ requires-dist = [
     { name = "typer", specifier = ">=0.27.2" },
     { name = "urllib3", specifier = ">=2.8.0" },
     { name = "vapoursynth", specifier = ">=80" },
-    { name = "vapoursynth-adaptivegrain", specifier = ">=0.5.0" },
     { name = "vapoursynth-akarin", specifier = ">=1.5.0" },
     { name = "vapoursynth-bestsource", specifier = ">=22.0" },
-    { name = "vapoursynth-dctfilter", specifier = ">=3.2" },
     { name = "vapoursynth-deblock", specifier = ">=9.0" },
     { name = "vapoursynth-edgemasks", specifier = ">=4.0" },
     { name = "vapoursynth-resize2", specifier = ">=0.5.1" },
@@ -697,22 +693,6 @@ wheels = [
 ]
 
 [[package]]
-name = "vapoursynth-adaptivegrain"
-version = "0.5.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "vapoursynth" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/6e/8a/aa50da0374b1339f5ce3c9a404c37b6e5f80fdf210d17b90bdf2d2550ae6/vapoursynth_adaptivegrain-0.5.0.tar.gz", hash = "sha256:9f68b2953f459d74bd31b4af4b308811917f70623f8bd40b30ab4664bd6d699f", size = 17431, upload-time = "2026-05-05T18:28:57.341Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/db/b9/55f5f08c46965448c3ab4bdc34d38e7ef5189f5120ba2398291c38c266a2/vapoursynth_adaptivegrain-0.5.0-py3-none-macosx_13_0_arm64.whl", hash = "sha256:cf7c67edc1fac2a985ce3ba7436847a2ac375b6f1f96dd27e760dd6cab7535f0", size = 182776, upload-time = "2026-05-05T18:28:49.206Z" },
-    { url = "https://files.pythonhosted.org/packages/5f/85/8259a8572717fcb0ddd5361564246e0f7ea4f0ac83f5e5dceaeae7643a20/vapoursynth_adaptivegrain-0.5.0-py3-none-macosx_13_0_x86_64.whl", hash = "sha256:974fe652716f6bcfdf6b03657cc905042bcaa6dec7aadb12acc45e6c7244a4f8", size = 370882, upload-time = "2026-05-05T18:28:50.755Z" },
-    { url = "https://files.pythonhosted.org/packages/17/06/103226ffaaa3217c140de17eb2d00a7c515d173e65ca101925f998bae67b/vapoursynth_adaptivegrain-0.5.0-py3-none-manylinux_2_28_aarch64.whl", hash = "sha256:4a8b89a643b1710b6b6316bfec07fef9f1a4c727ddcae76bcbd7886fc2e43d78", size = 177335, upload-time = "2026-05-05T18:28:52.241Z" },
-    { url = "https://files.pythonhosted.org/packages/a9/03/588328b944be32e270b24d6a94b06a6c4da200f0e8e22aba273cf24f554f/vapoursynth_adaptivegrain-0.5.0-py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:f3df06e2f32239e20634c533145e977dc68a8fc62739ec4a7053e9e0d224f592", size = 553647, upload-time = "2026-05-05T18:28:54.001Z" },
-    { url = "https://files.pythonhosted.org/packages/61/dc/1cf8ec79096ec83e2d6c223a44ece12ac2c5849f4c4b73f033ee2dea292d/vapoursynth_adaptivegrain-0.5.0-py3-none-win_amd64.whl", hash = "sha256:ba68c65cf62a96bc2990d78ba80f593b63b2f9baf83f48f51c319f75d095cedb", size = 258642, upload-time = "2026-05-05T18:28:55.871Z" },
-]
-
-[[package]]
 name = "vapoursynth-akarin"
 version = "1.5.0"
 source = { registry = "https://pypi.org/simple" }
@@ -745,24 +725,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/fc/90/fc68ba76de0a3a4617b47f1d71f43504a22241465d3f45bf43eac46c3807/vapoursynth_bestsource-22-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:f98dc0fbeb462b9b3ac1bf833067da232236a2ada04951153f475e406cb49099", size = 13391143, upload-time = "2026-09-16T10:16:16.487Z" },
     { url = "https://files.pythonhosted.org/packages/aa/8a/a582686e62ba1fb515cff72d0a362982d749f088bc1f86fb1863616a784d/vapoursynth_bestsource-22-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:126829965f9c30de4fe56c1e0d49b3f85f51cb291f76feb52276b7da49f2d016", size = 14828203, upload-time = "2026-09-16T10:16:18.75Z" },
     { url = "https://files.pythonhosted.org/packages/e1/01/8b65d43d73d6d3a5dab3aa79a65e98cf8fac33cfe24e94bdcad46ded390e/vapoursynth_bestsource-22-py3-none-win_amd64.whl", hash = "sha256:4dc2275d145128a2a86fa32efaab9fbab8e22582bfdf173b460f2ff33858c230", size = 15890493, upload-time = "2026-09-16T10:16:21.105Z" },
-]
-
-[[package]]
-name = "vapoursynth-dctfilter"
-version = "3.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "vapoursynth" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/de/16/2e49529672feb2a7d68d2483e6aaba1ad65fbbbc5103f6cb06501590ba40/vapoursynth_dctfilter-3.2.tar.gz", hash = "sha256:e37f81e26ee16e5fa30b1846c7b114adaf7f643b9eb178f037154fa5671cecda", size = 7070, upload-time = "2026-05-04T15:27:08.368Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/2b/91/abd73a5478027f9e5890a80170fcb060c2b4bfdc98babf27fce9b79b4c82/vapoursynth_dctfilter-3.2-py3-none-macosx_15_0_arm64.whl", hash = "sha256:50fafe4a779b15511e7a745845b7dd132e5c812026bc5ef3dda06b06cb9ef3dc", size = 376499, upload-time = "2026-05-04T15:26:54.449Z" },
-    { url = "https://files.pythonhosted.org/packages/7b/67/53c09d259455351a418ef9f9efbcb8497221e8b86af3a120241565e18b16/vapoursynth_dctfilter-3.2-py3-none-macosx_15_0_x86_64.whl", hash = "sha256:92b22823ec09fa44f5b6531d1967d3f471466db20d82f4c9af61221d53000165", size = 1294271, upload-time = "2026-05-04T15:26:56.365Z" },
-    { url = "https://files.pythonhosted.org/packages/de/d0/fe5817cd382ce4dc5030d2b5abefa5fadbdfaba750d3b0c08613b616072d/vapoursynth_dctfilter-3.2-py3-none-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:dd4836bf628c7d9bb255a2ef35552cd822c808570b7a21685ec27b41c889d537", size = 627545, upload-time = "2026-05-04T15:26:58.859Z" },
-    { url = "https://files.pythonhosted.org/packages/55/3e/35f43bf629c1b01627d2376c4b8bc0281e1998b351995a2bf0a8246e1a45/vapoursynth_dctfilter-3.2-py3-none-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:1d5ac651341ee4826c79aebe62e0ed7abf8871d2df60e731751cf961a7225e30", size = 1122264, upload-time = "2026-05-04T15:27:00.58Z" },
-    { url = "https://files.pythonhosted.org/packages/9a/8c/8e2e86ca03b08905945796ecf7dad09b7f10391a928856512002b8361795/vapoursynth_dctfilter-3.2-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:4552473b76726e9c502b2516f28aae6f1124691aff704cf2c19c5800fe7ae6b5", size = 1747697, upload-time = "2026-05-04T15:27:02.396Z" },
-    { url = "https://files.pythonhosted.org/packages/0a/bb/245112e7f55abbe166fbdd6f4d51b1a683dd0b56b02a5b066cdafbcfcaff/vapoursynth_dctfilter-3.2-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:9b7a184559cd50ffd567dede1f987c7093906b10105ceada7188093f1a9d8613", size = 1926076, upload-time = "2026-05-04T15:27:04.379Z" },
-    { url = "https://files.pythonhosted.org/packages/87/41/01818b4ccf327e35bc0d7fe1dab60ff8deb7506c0570ca37598436560867/vapoursynth_dctfilter-3.2-py3-none-win_amd64.whl", hash = "sha256:4a04502160631a7646b1f1158fba12c4b344739bafa5e46165c7e1dfd95a25f9", size = 1822493, upload-time = "2026-05-04T15:27:06.935Z" },
 ]
 
 [[package]]
