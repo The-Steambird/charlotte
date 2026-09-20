@@ -22,7 +22,6 @@ dependencies = [
     "vapoursynth-zsmooth>=0.20.0",
     "vs-placebo>=2.0.4",
     "vsjetpack>=2.2.4",
-    "vsnoise>=1.3",
     "vsview>=0.11.0",
 ]
 

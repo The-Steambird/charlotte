@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from preview import compare, show
-from vsdeband import Grainer, deband_detail_mask, placebo_deband
+from vsdeband import deband_detail_mask, placebo_deband
 from vsdenoise import deblock_qed
 from vsjetpack import setup_logging
 from vssource import BestSource
@@ -30,19 +30,8 @@ def filter_chain(input_path: Path) -> VideoNode:
     deband = placebo_deband(clip=deblock, radius=16, thr=2, grain=0, iterations=4)
     merge = core.std.MaskedMerge(clipa=deband, clipb=deblock, mask=detail_mask)
 
-    # Grain
-    grain = Grainer.FBM_SIMPLEX(
-        merge,
-        strength=(1, 0.5),
-        static=False,
-        temporal=(0.3, 2),
-        luma_scaling=5,
-        size=1.0,
-        seed=727,
-    )
-
     # Output
-    final = finalize_clip(clip=grain, bits=10)
+    final = finalize_clip(clip=merge, bits=10)
 
     # Preview (vsview only)
     show(clip, "Source")
@@ -50,7 +39,6 @@ def filter_chain(input_path: Path) -> VideoNode:
     show(detail_mask, "Detail Mask")
     compare("Deband", deblock, deband)
     show(merge, "Merge")
-    show(grain, "Grained")
     show(final, "Filtered")
 
     return final

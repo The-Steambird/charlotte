@@ -49,7 +49,6 @@ dependencies = [
     { name = "vapoursynth-zsmooth" },
     { name = "vs-placebo" },
     { name = "vsjetpack" },
-    { name = "vsnoise" },
     { name = "vsview" },
 ]
 
@@ -77,7 +76,6 @@ requires-dist = [
     { name = "vapoursynth-zsmooth", specifier = ">=0.20.0" },
     { name = "vs-placebo", specifier = ">=2.0.4" },
     { name = "vsjetpack", specifier = ">=2.2.4" },
-    { name = "vsnoise", specifier = ">=1.3" },
     { name = "vsview", specifier = ">=0.11.0" },
 ]
 
@@ -864,24 +862,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/6a/a1/6cb6f3ae6c8e445b742489c7f34cc29007b3190ab41ca06090e5e3b32e28/vsjetpack-2.2.4.tar.gz", hash = "sha256:2022801a199fd32e5e2959290d88ed1926ded865e052b2e0b24daa544fad1406", size = 604474, upload-time = "2026-08-28T15:09:44.892Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/92/f0/336279cacbb1d1aa612047030550990e6e0f7332913dcf24b205a3dc59d9/vsjetpack-2.2.4-py3-none-any.whl", hash = "sha256:2526f0645ff7185d31600e8f273baab2fb8dd42d8892dd0e6bcbfd9f0480dc5f", size = 437323, upload-time = "2026-08-28T15:09:42.393Z" },
-]
-
-[[package]]
-name = "vsnoise"
-version = "1.3"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "vapoursynth" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/b4/38/ba27b8d6bef87f7999a56a21e74a6781f3f0ebd556a72fdffd87e43d0605/vsnoise-1.3.tar.gz", hash = "sha256:de422d79a13b06708b1664135abf1a004d8a8462c40c7495e28a667c950ad678", size = 275782, upload-time = "2026-09-07T11:27:09.836Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/a3/d0/b9b095d7fa8650aafce540810e8de1ea86f6d2b19986993aa9d26fdc42e1/vsnoise-1.3-py3-none-macosx_10_13_x86_64.whl", hash = "sha256:b511e13ffd61ea9a894a62ce0b1ae25b8b6999c82f4d831434d9b9309c2c49eb", size = 36482, upload-time = "2026-09-07T11:27:00.941Z" },
-    { url = "https://files.pythonhosted.org/packages/2b/e4/93d3829982394444f5031c3af370eaafae10d64474b1f8ac06b2ff809e69/vsnoise-1.3-py3-none-macosx_11_0_arm64.whl", hash = "sha256:a5c817376a4200428ad896e503cb3a502c59692281f7e7982eb5bd1144eda971", size = 32171, upload-time = "2026-09-07T11:27:02.107Z" },
-    { url = "https://files.pythonhosted.org/packages/5e/5e/d1a6016638bd4ca999b91f820a03c0f62ae04b2b57172bb038075470415d/vsnoise-1.3-py3-none-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:0a9c7b416ac7969937a68acdb9e1c3d02f02e55ec187117db51f727127533ac5", size = 183391, upload-time = "2026-09-07T11:27:03.21Z" },
-    { url = "https://files.pythonhosted.org/packages/e3/86/497a531cc75061b609790542de3816cf61e8a902201aa0df909b75f583f7/vsnoise-1.3-py3-none-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:35cc606ef085cd140d62108023f30c16e9dddcea91f23c074cf798db520d66db", size = 198626, upload-time = "2026-09-07T11:27:04.325Z" },
-    { url = "https://files.pythonhosted.org/packages/0e/31/1cc901d16e72c69f010b7fcb2ecb2dac26e3f5c3c497d2f93df85be1647d/vsnoise-1.3-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:0365225e4f6a866ec51934c4c54be93e490f9d5d2de47720af6f51ac5d85c480", size = 1014011, upload-time = "2026-09-07T11:27:05.656Z" },
-    { url = "https://files.pythonhosted.org/packages/6f/ab/62b2135c40231b8f71c48c402c28e0569f2d11c62ef8ec366d4146819110/vsnoise-1.3-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:4b8da76ecc987e7435b90c3fbc9db02562de7323566fef74008ee1dd84eaeaa3", size = 1069200, upload-time = "2026-09-07T11:27:07.023Z" },
-    { url = "https://files.pythonhosted.org/packages/e9/b2/74caf326050f8ae03d8a6e24f810d5cca36f31f18dba5a77eb0c26a8eb02/vsnoise-1.3-py3-none-win_amd64.whl", hash = "sha256:39201f4c0ed11d4d3f44e4106a039831ae1e72b57a1fa45a313a13369267d779", size = 31919, upload-time = "2026-09-07T11:27:08.78Z" },
 ]
 
 [[package]]
