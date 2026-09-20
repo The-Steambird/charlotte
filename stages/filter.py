@@ -49,7 +49,6 @@ def ffmpeg_params(
                 "ref=6",
                 "bframes=8",
                 "lookahead-slices=0",
-                "rc-lookahead=60",
                 "aq-mode=3",
                 "aq-strength=0.75",
                 "qcomp=0.72",
