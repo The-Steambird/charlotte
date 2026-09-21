@@ -142,8 +142,9 @@ that Windows' Process Scheduling Priority will prioritize Charlotte.
 | Option   | `--default-sub [CODE]`   | `-ds`     | Select default subtitle: `chs`, `cht`, `de`, `en` (default), `es`, `fr`, `id`, `it`, `jp`, `kr`, `pt`, `ru`, `th`, `tr`, `vi`.                 |
 | Option   | `--key [KEY]`            | `-k`      | Manually input a key for a single file                                                                                                         |
 | Option   | `--vapoursynth`          | `-vs`     | Apply a matching VapourSynth filter script from `vs/`.                                                                                         |
-| Option   | `--crf [VALUE]`          | `-crf`    | x265 CRF value for VapourSynth output (default: `13.5`).                                                                                       |
-| Option   | `--preset [PRESET]`      | `-preset` | x265 preset for VapourSynth output (default: `slower`).                                                                                        |
+| Option   | `--hard-sub`             | `-hs`     | Burn the default subtitle language into the video with x265.                                                                                   |
+| Option   | `--crf [VALUE]`          | `-crf`    | x265 CRF value for re-encoded output, i.e. `-vs` or `-hs` (default: `13.5`).                                                                   |
+| Option   | `--preset [PRESET]`      | `-preset` | x265 preset for re-encoded output, i.e. `-vs` or `-hs` (default: `slower`).                                                                    |
 | Option   | `--x265-params [PARAMS]` | `-x265`   | Custom x265 params (colon-separated). Overrides the built-in defaults below.                                                                   |
 | Option   | `--probe`                | `-p`      | Only report what is available for each file (decryption key, local subtitles, VapourSynth script). Read-only: nothing is processed or fetched. |
 | Option   | `--crack`                | `-c`      | Recover key from USM file and report it, without demuxing or converting.                                                                       |
@@ -151,7 +152,7 @@ that Windows' Process Scheduling Priority will prioritize Charlotte.
 | Option   | `--update`               | `-u`      | Check GitHub for a newer release and update.                                                                                                   |
 | Option   | `--version`              | `-v`      | Print the Charlotte version and exit.                                                                                                          |
 
-When `-vs` option is used, the following x265 params are applied automatically unless
+When `-vs` or `-hs` is used, the following x265 params are applied automatically unless
 `--x265-params` is set:
 
 ```

@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from conftest import flag_value
-from stages.mux import mux
+from stages.mux import mux, mux_args
 from utils.errors import CharlotteError
 
 
@@ -51,12 +51,38 @@ def test_default_subtitle_sorted_first_and_flagged(ffmpeg, tmp_path):
     assert flag_value(ffmpeg.cmd, "-disposition:s:1") == "0"
 
 
-def test_vs_output_replaces_video_input(ffmpeg, tmp_path):
+def test_encode_tail_puts_codec_args_between_maps_and_metadata(tmp_path):
+    """Video comes in on ffmpeg's stdin ahead of these args, which is why the tail has to
+    start with the other inputs, place the codec options after the last -i (before it they
+    would be read as input options) and end with the output."""
     output = make_output(tmp_path)
-    vs_path = output / "Cs_Test_filtered.mkv"
-    vs_path.write_bytes(b"")
-    mux(output, vs_path=vs_path)
-    assert input_files(ffmpeg.cmd)[0].endswith("Cs_Test_filtered.mkv")
+    args = mux_args(output, output / "Cs_Test.mkv.part", ["-c:v", "libx265", "-c:a", "copy"])
+
+    assert args[0] == "-i"
+    assert args.index("-c:v") > max(i for i, flag in enumerate(args) if flag == "-i")
+    assert args.index("-c:v") > args.index("-map")
+    assert args.index("-c:v") < args.index("-metadata:s:a:0")
+    assert args[-1] == str(output / "Cs_Test.mkv.part")
+
+
+def test_hard_sub_output_carries_no_soft_subtitles(tmp_path):
+    output = make_output(tmp_path, subs=("EN", "JP", "DE"))
+    args = mux_args(output, output / "out.mkv", ["-c", "copy"], subtitles=False)
+
+    assert not [path for path in input_files(args) if path.endswith(".ass")]
+    assert "-disposition:s:0" not in args
+    assert len(input_files(args)) == 3  # the audio tracks still ride along
+
+
+def test_fonts_only_ride_with_subtitle_tracks(tmp_path):
+    """The two game fonts are 11 MB each and exist only for the .ass tracks, which is why a
+    hard-subbed output (or one whose cutscene has no subtitles) must not carry them."""
+    fonts = [tmp_path / "ja-jp.ttf", tmp_path / "zh-cn.ttf"]
+    output = make_output(tmp_path)
+    assert "-attach" not in mux_args(output, output / "o.mkv", [], fonts=fonts, subtitles=False)
+
+    output = make_output(tmp_path, stem="Cs_NoSubs", subs=())
+    assert "-attach" not in mux_args(output, output / "o.mkv", [], fonts=fonts)
 
 
 def test_audio_glob_follows_extension(ffmpeg, tmp_path):

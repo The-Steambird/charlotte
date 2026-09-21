@@ -115,12 +115,23 @@ def demux(
             ),
         ),
     ] = False,
+    hard_sub: Annotated[
+        bool,
+        typer.Option(
+            "--hard-sub",
+            "-hs",
+            help=(
+                "Burn the default subtitle language into the video (re-encodes with x265). "
+                "The output carries no soft subtitle tracks."
+            ),
+        ),
+    ] = False,
     crf: Annotated[
         float,
         typer.Option(
             "--crf",
             "-crf",
-            help="x265 CRF value for VapourSynth output.",
+            help="x265 CRF value when the video is re-encoded (--vapoursynth or --hard-sub).",
         ),
     ] = DEFAULT_CRF,
     preset: Annotated[
@@ -128,7 +139,7 @@ def demux(
         typer.Option(
             "--preset",
             "-preset",
-            help="x265 preset for VapourSynth output.",
+            help="x265 preset when the video is re-encoded (--vapoursynth or --hard-sub).",
         ),
     ] = DEFAULT_PRESET,
     x265_params: Annotated[
@@ -270,6 +281,7 @@ def demux(
         audio_codec=audio_codec,
         skip_existing=skip_existing,
         flat=flat,
+        hard_sub=hard_sub,
     )
 
     failures = 0

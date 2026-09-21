@@ -9,9 +9,9 @@ from resources.keys import calculate_key_from_filename, find_video_key, find_vid
 from resources.subtitles import local_subtitle_path
 from stages.ass import ASS
 from stages.crack import crack_key
-from stages.filter import find_vs_script, vapoursynth_filter
+from stages.filter import encode_args, find_vs_script, vapoursynth_filter
 from stages.hca import HCA
-from stages.mux import mux
+from stages.mux import mux, mux_args
 from stages.usm import USM
 from utils.errors import Cancelled, CharlotteError, Skipped
 from utils.ffmpeg import AUDIO_CODECS
@@ -46,6 +46,7 @@ class Options:
     audio_codec: str = "flac"
     skip_existing: bool = False
     flat: bool = False
+    hard_sub: bool = False
 
 
 def process_audio(
@@ -94,6 +95,10 @@ def process_subtitles(stem: str, output_path: Path) -> list[Path]:
     return ass_files
 
 
+def subtitle_for(ass_files: list[Path], lang: str) -> Path | None:
+    return next((path for path in ass_files if path.stem.split("_")[-1] == lang), None)
+
+
 def cleanup_files(file_paths: dict[str, list[Path]], output_path: Path) -> None:
     for value in file_paths.values():
         for file in value:
@@ -137,6 +142,7 @@ def process_usm(usm_file: Path, opts: Options, reporter: Reporter, keys: Keys) -
     usm = USM(usm_file, key1, key2)
     output_path = Path(opts.output) / f"{stem}"
     output_path.mkdir(exist_ok=True)
+    mkv = output_path / f"{stem}.mkv"
     file_paths: dict[str, list[Path]] = {}
     try:
         usm.demux(output_path=output_path, reporter=reporter, file_paths=file_paths)
@@ -161,34 +167,60 @@ def process_usm(usm_file: Path, opts: Options, reporter: Reporter, keys: Keys) -
 
         reporter.checkpoint()
 
-        filtered_mkv: Path | None = None
-        if opts.vapoursynth:
-            if find_vs_script(stem) is None:
-                log.warning(f"No VapourSynth script found for {stem}, skipping filter...")
-            else:
-                filtered_mkv = vapoursynth_filter(
-                    file_stem=stem,
-                    output_path=output_path,
-                    reporter=reporter,
-                    crf=opts.crf,
-                    preset=opts.preset,
-                    x265_params=opts.x265_params,
-                )
-                if filtered_mkv:
-                    file_paths.setdefault("vs", []).append(filtered_mkv)
-                else:
-                    log.warning(f"Failed to apply VapourSynth filter for {stem}, skipping...")
+        script = find_vs_script(stem) if opts.vapoursynth else None
+        if opts.vapoursynth and script is None:
+            log.warning(f"No VapourSynth script found for {stem}, skipping filter...")
+        elif script and script != stem:
+            log.info(f"VapourSynth script for {stem} not found, using {script} instead.")
+
+        burnt_subtitle = None
+        if opts.hard_sub:
+            burnt_subtitle = subtitle_for(ass_files, opts.default_subtitle)
+            if burnt_subtitle is None:
+                log.warning(f"No {opts.default_subtitle} subtitle for {stem}, nothing to burn in.")
+
+        # The encode writes the complete .mkv itself (see encode_args) under a .part name
+        # until it is known good, because a canceled ffmpeg still finalizes a truncated
+        # file that --skip-existing would otherwise take for a finished one.
+        audio_extension = AUDIO_CODECS.get(opts.audio_codec, AUDIO_CODECS["flac"])[0]
+        partial_mkv = output_path / f"{stem}.mkv.part"
+        encoded = False
+        if script or burnt_subtitle:
+            file_paths.setdefault("vs", []).append(partial_mkv)
+            encoded = vapoursynth_filter(
+                source=output_path / f"{stem}.ivf",
+                reporter=reporter,
+                ffmpeg_args=mux_args(
+                    output_path,
+                    partial_mkv,
+                    encode_args(opts.crf, opts.preset, opts.x265_params),
+                    fonts=opts.fonts,
+                    default_audio=opts.default_audio,
+                    default_subtitle=opts.default_subtitle,
+                    audio_extension=audio_extension,
+                    subtitles=burnt_subtitle is None,
+                ),
+                script=script,
+                subtitle=burnt_subtitle,
+                fonts=opts.fonts,
+            )
+            if not encoded:
+                log.warning(f"Failed to apply VapourSynth filter for {stem}, skipping...")
+                partial_mkv.unlink(missing_ok=True)
 
         reporter.checkpoint()
 
-        mux(
-            output_path,
-            vs_path=filtered_mkv,
-            fonts=opts.fonts,
-            default_audio=opts.default_audio,
-            default_subtitle=opts.default_subtitle,
-            audio_extension=AUDIO_CODECS.get(opts.audio_codec, AUDIO_CODECS["flac"])[0],
-        )
+        if encoded:
+            partial_mkv.replace(mkv)
+            log.info(f"Created: {mkv}")
+        else:
+            mux(
+                output_path,
+                fonts=opts.fonts,
+                default_audio=opts.default_audio,
+                default_subtitle=opts.default_subtitle,
+                audio_extension=audio_extension,
+            )
     except Cancelled, Skipped:
         if not opts.no_cleanup:
             cleanup_files(file_paths, output_path)
@@ -196,7 +228,7 @@ def process_usm(usm_file: Path, opts: Options, reporter: Reporter, keys: Keys) -
 
     if opts.flat:
         final_mkv.parent.mkdir(parents=True, exist_ok=True)
-        (output_path / f"{stem}.mkv").replace(final_mkv)
+        mkv.replace(final_mkv)
         if not opts.no_cleanup:
             shutil.rmtree(output_path, ignore_errors=True)
     elif not opts.no_cleanup:

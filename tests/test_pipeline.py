@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -230,6 +231,102 @@ def test_skip_existing_stops_before_the_key_lookup(tmp_path, reporter, flat, exi
 
     assert ("job_skipped", {"file": "Cs_Test.usm", "reason": "exists"}) in reporter.events
     assert existing.read_bytes() == b"already here"
+
+
+# --- hard-sub ---
+
+
+@pytest.fixture
+def encode_stub(monkeypatch):
+    """Like stub_stages, but with one audio track and EN plus JP subtitles on disk so the
+    real mux_args runs. The VapourSynth stage records what it was handed and always writes
+    the .part the way ffmpeg does whether or not it ends `ok`, and the fallback mux records
+    its call."""
+    calls = SimpleNamespace(ok=True, encode=None, mux=None)
+
+    def audio(hca_files, *args, **kwargs):
+        flac = hca_files[0].with_suffix(".flac")
+        flac.write_bytes(b"flac")
+        return [flac]
+
+    def subtitles(stem, output_path):
+        (output_path / "subs").mkdir()
+        files = [output_path / "subs" / f"{stem}_{lang}.ass" for lang in ("EN", "JP")]
+        for path in files:
+            path.write_bytes(b"ass")
+        return files
+
+    def encode(source, reporter, ffmpeg_args, **kwargs):
+        calls.encode = kwargs | {"source": source, "ffmpeg_args": ffmpeg_args}
+        Path(ffmpeg_args[-1]).write_bytes(b"hevc" if calls.ok else b"trunc")
+        return calls.ok
+
+    def mux(output_path, **kwargs):
+        calls.mux = kwargs
+        (output_path / f"{output_path.name}.mkv").write_bytes(b"mkv")
+
+    monkeypatch.setattr(pipeline, "process_audio", audio)
+    monkeypatch.setattr(pipeline, "process_subtitles", subtitles)
+    monkeypatch.setattr(pipeline, "vapoursynth_filter", encode)
+    monkeypatch.setattr(pipeline, "mux", mux)
+    return calls
+
+
+def test_hard_sub_burns_the_default_language_with_no_soft_tracks(encode_stub, tmp_path, reporter):
+    """The encode's ffmpeg gets the audio but no subtitle inputs and writes a .part that
+    becomes the final .mkv, with no second mux."""
+    usm_file, opts, keys = make_run(tmp_path, hard_sub=True, default_subtitle="JP")
+
+    process_usm(usm_file, opts, reporter, keys)
+
+    work_dir = tmp_path / "out" / "Cs_Test"
+    ffmpeg_args = encode_stub.encode["ffmpeg_args"]
+    assert encode_stub.encode["source"] == work_dir / "Cs_Test.ivf"
+    assert encode_stub.encode["script"] is None
+    assert encode_stub.encode["subtitle"] == work_dir / "subs" / "Cs_Test_JP.ass"
+    assert not [arg for arg in ffmpeg_args if arg.endswith(".ass")]
+    assert str(work_dir / "Cs_Test_0.flac") in ffmpeg_args
+    assert ffmpeg_args[-1] == str(work_dir / "Cs_Test.mkv.part")
+    assert (work_dir / "Cs_Test.mkv").read_bytes() == b"hevc"
+    assert not (work_dir / "Cs_Test.mkv.part").exists()
+    assert encode_stub.mux is None
+
+
+def test_hard_sub_with_vapoursynth_encodes_once(encode_stub, tmp_path, reporter, monkeypatch):
+    monkeypatch.setattr(pipeline, "find_vs_script", lambda stem: "default")
+    usm_file, opts, keys = make_run(tmp_path, hard_sub=True, vapoursynth=True)
+
+    process_usm(usm_file, opts, reporter, keys)
+
+    assert encode_stub.encode["script"] == "default"
+    assert encode_stub.encode["subtitle"].name == "Cs_Test_EN.ass"
+    assert encode_stub.mux is None
+
+
+def test_hard_sub_without_the_default_language_skips_the_encode(
+    encode_stub, tmp_path, reporter, monkeypatch, caplog
+):
+    monkeypatch.setattr(pipeline, "vapoursynth_filter", forbid_call)
+    usm_file, opts, keys = make_run(tmp_path, hard_sub=True, default_subtitle="DE")
+
+    process_usm(usm_file, opts, reporter, keys)
+
+    assert "No DE subtitle" in caplog.text
+    assert encode_stub.mux is not None
+
+
+def test_failed_encode_falls_back_to_soft_subtitles(encode_stub, tmp_path, reporter):
+    """The lossless copy with every language as a soft track is still a usable output, which
+    is why the fallback mux runs like any other run and no .part is left behind."""
+    encode_stub.ok = False
+    usm_file, opts, keys = make_run(tmp_path, hard_sub=True)
+
+    process_usm(usm_file, opts, reporter, keys)
+
+    work_dir = tmp_path / "out" / "Cs_Test"
+    assert encode_stub.mux is not None
+    assert (work_dir / "Cs_Test.mkv").read_bytes() == b"mkv"
+    assert not (work_dir / "Cs_Test.mkv.part").exists()
 
 
 # --- subtitles ---

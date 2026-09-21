@@ -125,6 +125,7 @@ def test_flags_normalized_into_options(pipeline_stub, tmp_path):
         "-ac", "OPUS",
         "-nc",
         "-f",
+        "--hard-sub",
     ]  # fmt: skip
     assert runner.invoke(main.app, args).exit_code == 0
 
@@ -134,6 +135,7 @@ def test_flags_normalized_into_options(pipeline_stub, tmp_path):
     assert opts.audio_codec == "opus"
     assert opts.no_cleanup is True
     assert opts.flat is True
+    assert opts.hard_sub is True
 
 
 def test_default_options(pipeline_stub, tmp_path):
@@ -145,6 +147,7 @@ def test_default_options(pipeline_stub, tmp_path):
     # Defaults run through the normalizer too: "en" becomes the canonical "EN" code.
     assert opts.default_subtitle == "EN"
     assert opts.audio_codec == "flac"
+    assert opts.hard_sub is False
 
 
 # --- run outcomes ---

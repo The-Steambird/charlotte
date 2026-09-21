@@ -13,7 +13,9 @@ if TYPE_CHECKING:
 
 FFMPEG_MISSING = "FFmpeg not found. Place ffmpeg.exe in the root directory and try again."
 AUDIO_CODECS = {
-    "flac": (".flac", ["-compression_level", "8"]),
+    # HCA decodes to float and ffmpeg would otherwise pick 24-bit, which a lossy source
+    # cannot fill and which doubles the audio size for nothing.
+    "flac": (".flac", ["-sample_fmt", "s16", "-compression_level", "8"]),
     "opus": (".mka", ["-c:a", "libopus", "-b:a", "256k", "-vbr", "on"]),
 }
 

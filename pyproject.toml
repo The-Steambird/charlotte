@@ -18,6 +18,7 @@ dependencies = [
     "vapoursynth-deblock>=9.0",
     "vapoursynth-edgemasks>=4.0",
     "vapoursynth-resize2>=0.5.1",
+    "vapoursynth-subtext>=7.0",
     "vapoursynth-vszip>=22.1.0",
     "vapoursynth-zsmooth>=0.20.0",
     "vs-placebo>=2.0.4",
