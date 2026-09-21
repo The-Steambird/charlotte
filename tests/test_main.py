@@ -7,7 +7,7 @@ from typer.testing import CliRunner
 import main
 
 from conftest import forbid_call
-from utils.errors import Cancelled, CharlotteError
+from utils.errors import Cancelled, CharlotteError, Skipped
 from utils.version import __version__
 
 
@@ -162,6 +162,23 @@ def test_run_outcome_sets_exit_code(pipeline_stub, monkeypatch, tmp_path, error,
     monkeypatch.setattr(main, "process_usm", raise_error)
     usm = make_usm(tmp_path)
     assert runner.invoke(main.app, [str(usm), "-o", str(tmp_path / "out")]).exit_code == exit_code
+
+
+def test_skip_carries_on_with_the_batch(pipeline_stub, monkeypatch, tmp_path):
+    seen = []
+
+    def process(usm_file, opts, reporter, keys):
+        seen.append(usm_file.name)
+        if usm_file.name == "Cs_A.usm":
+            raise Skipped
+
+    monkeypatch.setattr(main, "process_usm", process)
+    files = [make_usm(tmp_path, "Cs_A.usm"), make_usm(tmp_path, "Cs_B.usm")]
+    result = runner.invoke(main.app, [*map(str, files), "-o", str(tmp_path / "out"), "--json"])
+
+    assert result.exit_code == 0
+    assert seen == ["Cs_A.usm", "Cs_B.usm"]
+    assert '{"type":"job_skipped","file":"Cs_A.usm","reason":"requested"}' in result.stdout
 
 
 def test_probe_skips_sync_and_pipeline(monkeypatch, tmp_path):

@@ -44,7 +44,7 @@ def force_utf8(stream: Any) -> TextIO:
 
 
 class JsonReporter(Reporter):
-    """NDJSON events on stdout; commands (answers/cancel) read from stdin on demand.
+    """NDJSON events on stdout; commands (answers/cancel/skip) read from stdin on demand.
     Regular log go to stderr via the shared console in logger.py, keeping stdout JSON only."""
 
     def __init__(self, out=None, stdin=None):
@@ -52,6 +52,8 @@ class JsonReporter(Reporter):
         self.stdin = stdin if stdin is not None else sys.stdin
         self.question_counter = count()
         self.cancelled = False
+        self.current_file = None
+        self.skip_file = None
         self.last_percent = {}
         # stdin is read one of two ways:
         # 1. UI frontend: everything reads it through the raw fd (self.pipe_fd)
@@ -101,6 +103,8 @@ class JsonReporter(Reporter):
             self.emit({"type": "progress", "stage": handle, "current": current, "total": total})
 
     def event(self, kind, **data):
+        if kind == "job_start":
+            self.current_file = data.get("file")
         self.emit({"type": kind, **data})
 
     def pop_line(self) -> bytes | None:
@@ -140,18 +144,37 @@ class JsonReporter(Reporter):
             cmd = parse_command(line.strip())
             if cmd is None:
                 continue
-            if cmd.get("type") == "cancel":
-                self.cancelled = True
+            self.take_command(cmd)
+            if self.cancelled:
                 return default
             if cmd.get("type") == "answer" and cmd.get("id") == question_id:
                 return bool(cmd.get("value", default))
 
+    def take_command(self, cmd: dict) -> None:
+        match cmd.get("type"):
+            case "cancel":
+                self.cancelled = True
+            case "skip":
+                self.skip_file = cmd.get("file")
+
     def cancel_requested(self):
-        """Report if the frontend asked to stop, without blocking by draining any commands
-        already waiting on the stdin pipe and look for a cancel among them. Does nothing in
-        non-pipe mode. GUI closing stdin means no more commands will arrive instead of a cancel."""
+        self.drain_commands()
+        return self.cancelled
+
+    def skip_requested(self):
+        self.drain_commands()
+        if self.skip_file is None:
+            return False
+        wanted = self.skip_file == self.current_file
+        self.skip_file = None
+        return wanted
+
+    def drain_commands(self):
+        """Read every command already waiting on the stdin pipe without blocking. Does nothing
+        in non-pipe mode. GUI closing stdin means no more commands will arrive instead of a
+        cancel."""
         if self.cancelled or self.pipe_fd is None:
-            return self.cancelled
+            return
         while True:
             waiting = pipe_peek(self.pipe_fd)
             if waiting is None:  # Frontend hung up
@@ -166,6 +189,5 @@ class JsonReporter(Reporter):
                 break
         while (raw_line := self.pop_line()) is not None:
             cmd = parse_command(raw_line)
-            if cmd is not None and cmd.get("type") == "cancel":
-                self.cancelled = True
-        return self.cancelled
+            if cmd is not None:
+                self.take_command(cmd)

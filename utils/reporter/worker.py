@@ -1,7 +1,7 @@
 from contextlib import ExitStack, contextmanager
 from queue import Empty
 
-from utils.errors import Cancelled
+from utils.errors import Cancelled, Skipped
 from utils.reporter.base import Reporter, Task
 
 
@@ -49,15 +49,17 @@ def relay_worker(reporter: Reporter, queue, process):
                 case ("task_end", _):
                     pass
 
-        # Short timeout polls keep a frontend cancel responsive, "result" ends the relay.
+        # Short timeout polls keep a frontend cancel or skip responsive, "result" ends the relay.
         while process.is_alive():
-            if reporter.cancel_requested():
+            try:
+                reporter.checkpoint()
+            except Cancelled, Skipped:
                 # terminate() kills only the worker, not the ffmpeg it spawned. The dying
                 # worker closes the pipe feeding ffmpeg's stdin, so ffmpeg sees EOF and
                 # exits on its own. The GUI's Job Object is the backstop.
                 process.terminate()
                 process.join()
-                raise Cancelled
+                raise
             try:
                 msg = queue.get(timeout=0.2)
             except Empty:

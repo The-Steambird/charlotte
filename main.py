@@ -10,7 +10,7 @@ from resources.fonts import fetch_font
 from resources.keys import Keys, load_local_keys
 from resources.subtitles import sync_subtitles
 from stages.filter import DEFAULT_CRF, DEFAULT_PRESET
-from utils.errors import Cancelled, CharlotteError
+from utils.errors import Cancelled, CharlotteError, Skipped
 from utils.ffmpeg import AUDIO_CODECS
 from utils.languages import AUDIO_LANGUAGES, SUBTITLES_LANGUAGES
 from utils.logger import log
@@ -280,6 +280,9 @@ def demux(
             log.info(f"Cancelled during {usm_file.name}.")
             reporter.event("cancelled", file=usm_file.name)
             return
+        except Skipped:
+            log.info(f"Skipped {usm_file.name} on request.")
+            reporter.event("job_skipped", file=usm_file.name, reason="requested")
         except CharlotteError as e:
             log.error(f"Failed to process {usm_file.name}: {e}")
             reporter.event("error", file=usm_file.name, message=str(e))

@@ -13,7 +13,7 @@ from stages.filter import find_vs_script, vapoursynth_filter
 from stages.hca import HCA
 from stages.mux import mux
 from stages.usm import USM
-from utils.errors import Cancelled, CharlotteError
+from utils.errors import Cancelled, CharlotteError, Skipped
 from utils.ffmpeg import AUDIO_CODECS
 from utils.languages import SUBTITLES_LANGUAGES
 from utils.logger import log
@@ -189,7 +189,7 @@ def process_usm(usm_file: Path, opts: Options, reporter: Reporter, keys: Keys) -
             default_subtitle=opts.default_subtitle,
             audio_extension=AUDIO_CODECS.get(opts.audio_codec, AUDIO_CODECS["flac"])[0],
         )
-    except Cancelled:
+    except Cancelled, Skipped:
         if not opts.no_cleanup:
             cleanup_files(file_paths, output_path)
         raise
@@ -244,6 +244,11 @@ def crack_all(usm_files: list[Path], reporter: Reporter) -> None:
             log.info(f"Cancelled during {usm_file.name}.")
             reporter.event("cancelled", file=usm_file.name)
             return
+        except Skipped:
+            log.info(f"Skipped {usm_file.name} on request.")
+            reporter.event("job_skipped", file=usm_file.name, reason="requested")
+            failures[usm_file.name] = "skipped"
+            continue
         except CharlotteError as e:
             log.error(f"Failed to read {usm_file.name}: {e}")
             reporter.event("error", file=usm_file.name, message=str(e))

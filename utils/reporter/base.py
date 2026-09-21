@@ -1,4 +1,4 @@
-from utils.errors import Cancelled
+from utils.errors import Cancelled, Skipped
 
 
 class Task:
@@ -33,9 +33,14 @@ class Reporter:
     def cancel_requested(self):
         return False
 
+    def skip_requested(self):
+        return False
+
     def checkpoint(self):
         if self.cancel_requested():
             raise Cancelled
+        if self.skip_requested():
+            raise Skipped
 
     def event(self, kind, **data):
         pass

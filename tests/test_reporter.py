@@ -1,15 +1,24 @@
 import io
+import os
 
 import orjson
 import pytest
 
-from utils.errors import Cancelled
+from utils.errors import Cancelled, Skipped
 from utils.reporter import PROTOCOL_VERSION, ConsoleReporter, JsonReporter
 
 
 def make_reporter(stdin_text=""):
     """A StringIO stdin exercises the readline (non-pipe) path."""
     return JsonReporter(out=io.StringIO(), stdin=io.StringIO(stdin_text))
+
+
+def make_piped_reporter(stdin_text=""):
+    """A real anonymous pipe exercises the peek-and-drain path the GUI uses."""
+    read_fd, write_fd = os.pipe()
+    os.write(write_fd, stdin_text.encode())
+    os.close(write_fd)
+    return JsonReporter(out=io.StringIO(), stdin=os.fdopen(read_fd, "rb"))
 
 
 def events_of(reporter):
@@ -124,6 +133,38 @@ def test_cancel_during_ask_sticks():
     reporter = make_reporter('{"type": "cancel"}\n')
     assert reporter.ask("Overwrite?", default=False) is False
     assert reporter.cancel_requested() is True
+    with pytest.raises(Cancelled):
+        reporter.checkpoint()
+
+
+def test_skip_during_ask_is_kept_for_the_checkpoint():
+    reporter = make_reporter(
+        '{"type": "skip", "file": "Cs_A.usm"}\n{"type": "answer", "id": "q0", "value": true}\n'
+    )
+    reporter.event("job_start", file="Cs_A.usm")
+    assert reporter.ask("Overwrite?", default=False) is True
+    with pytest.raises(Skipped):
+        reporter.checkpoint()
+
+
+def test_skip_honored_only_for_the_running_file():
+    reporter = make_piped_reporter('{"type": "skip", "file": "Cs_A.usm"}\n')
+    reporter.event("job_start", file="Cs_A.usm")
+    with pytest.raises(Skipped):
+        reporter.checkpoint()
+    reporter.checkpoint()  # consumed: the next checkpoint is quiet
+
+
+def test_stale_skip_does_not_hit_the_next_file():
+    reporter = make_piped_reporter('{"type": "skip", "file": "Cs_A.usm"}\n')
+    reporter.event("job_start", file="Cs_B.usm")
+    reporter.checkpoint()
+    assert reporter.skip_file is None  # dropped, not left waiting for Cs_A
+
+
+def test_cancel_outranks_skip():
+    reporter = make_piped_reporter('{"type": "skip", "file": "Cs_A.usm"}\n{"type": "cancel"}\n')
+    reporter.event("job_start", file="Cs_A.usm")
     with pytest.raises(Cancelled):
         reporter.checkpoint()
 

@@ -5,3 +5,7 @@ class CharlotteError(Exception):
 
 class Cancelled(Exception):
     """Cancelled event as a clean exit, not an error."""
+
+
+class Skipped(Exception):
+    """The frontend asked to drop the current file and carry on with the batch."""

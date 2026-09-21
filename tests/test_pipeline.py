@@ -17,7 +17,7 @@ from pipeline import (
 from resources.keys import Keys, calculate_key_from_filename
 from resources.subtitles import local_subtitle_path
 from stages.crack import Recovery
-from utils.errors import Cancelled, CharlotteError
+from utils.errors import Cancelled, CharlotteError, Skipped
 
 
 KEYS_DATA = {"list": [{"version": "5.3", "videoKey": 111, "videos": ["Cs_A"]}]}
@@ -109,26 +109,29 @@ def test_probe_remaps_subtitle_stem_only(tmp_app_root, reporter, monkeypatch):
 # --- cancel and key fallback ---
 
 
-class CancelDuringDemux(FakeReporter):
-    """Quiet through process_usm's two pre-demux checkpoints, then cancels at the first
-    checkpoint inside the demux loop."""
+class StopDuringDemux(FakeReporter):
+    """Quiet through process_usm's two pre-demux checkpoints, then cancels (or skips) at the
+    first checkpoint inside the demux loop."""
 
-    def __init__(self):
+    def __init__(self, error):
         super().__init__()
+        self.error = error
         self.checks = 0
 
-    def cancel_requested(self):
+    def checkpoint(self):
         self.checks += 1
-        return self.checks > 2
+        if self.checks > 2:
+            raise self.error
 
 
+@pytest.mark.parametrize("error", [Cancelled, Skipped])
 @pytest.mark.parametrize("no_cleanup", [False, True])
-def test_cancel_mid_demux_cleans_partial_files_unless_nc(tmp_path, no_cleanup):
+def test_stop_mid_demux_cleans_partial_files_unless_nc(tmp_path, error, no_cleanup):
     past_checkpoint = b"".join(chunk(b"@SFA", b"x") for _ in range(150))
     usm_file, opts, keys = make_run(tmp_path, chunks=past_checkpoint, no_cleanup=no_cleanup)
 
-    with pytest.raises(Cancelled):
-        process_usm(usm_file, opts, CancelDuringDemux(), keys)
+    with pytest.raises(error):
+        process_usm(usm_file, opts, StopDuringDemux(error), keys)
 
     assert (tmp_path / "out" / "Cs_Test" / "Cs_Test_0.hca").exists() is no_cleanup
 
@@ -334,6 +337,27 @@ def test_crack_batch_continues_past_an_unreadable_file(tmp_app_root, reporter, m
         "crack",
         "crack_summary",
     ]
+    assert reporter.events[-1][1] == {"recovered": 1, "unrecovered": 1}
+
+
+def test_crack_batch_carries_on_after_skip(tmp_app_root, reporter, monkeypatch):
+    def crack(usm_file, reporter):
+        if usm_file.name == "Cs_A.usm":
+            raise Skipped
+        return Recovery(key=(b"" * 4, b"" * 4), reason="")
+
+    monkeypatch.setattr(pipeline, "crack_key", crack)
+
+    crack_all([tmp_app_root / "Cs_A.usm", tmp_app_root / "Cs_B.usm"], reporter)
+
+    assert [kind for kind, _ in reporter.events] == [
+        "job_start",
+        "job_skipped",
+        "job_start",
+        "crack",
+        "crack_summary",
+    ]
+    assert reporter.events[1][1] == {"file": "Cs_A.usm", "reason": "requested"}
     assert reporter.events[-1][1] == {"recovered": 1, "unrecovered": 1}
 
 

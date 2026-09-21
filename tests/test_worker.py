@@ -3,7 +3,7 @@ import queue
 import pytest
 
 from conftest import CancellingReporter, FakeReporter
-from utils.errors import Cancelled
+from utils.errors import Cancelled, Skipped
 from utils.reporter.worker import QueueReporter, relay_worker
 
 
@@ -137,6 +137,20 @@ def test_relay_cancel_terminates_the_worker():
 
     assert process.terminated
     assert process.joined  # no orphan left behind
+
+
+def test_relay_skip_terminates_the_worker():
+    class SkippingReporter(FakeReporter):
+        def skip_requested(self):
+            return True
+
+    process = FakeProcess()
+
+    with pytest.raises(Skipped):
+        relay_worker(SkippingReporter(), loaded_queue(("result", True)), process)
+
+    assert process.terminated
+    assert process.joined
 
 
 def test_relay_closes_open_tasks_on_cancel():
