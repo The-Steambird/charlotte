@@ -189,9 +189,9 @@ def download_bundle(url: str, dest: Path, reporter: Reporter) -> None:
 
 def engine_member(archive: zipfile.ZipFile) -> str:
     for name in archive.namelist():
-        if PurePosixPath(name).name.lower() == "charlotte.exe":
+        if PurePosixPath(name).name.lower() == "charlotte-cli.exe":
             return name
-    raise CharlotteError("The update bundle has no charlotte.exe inside.")
+    raise CharlotteError("The update bundle has no charlotte-cli.exe inside.")
 
 
 def extract_binary(bundle: Path, dest: Path) -> None:

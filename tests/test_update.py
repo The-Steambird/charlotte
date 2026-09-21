@@ -71,9 +71,7 @@ def test_update_available(monkeypatch):
 
 def test_update_carries_download_url(monkeypatch):
     with_asset = release("v99.0.0") | {
-        "assets": [
-            {"name": "MonsieurVerite-99.0.0.zip", "browser_download_url": "https://example/dl"}
-        ]
+        "assets": [{"name": "charlotte-99.0.0.zip", "browser_download_url": "https://example/dl"}]
     }
     monkeypatch.setattr(utils.update, "fetch_latest_release", lambda: with_asset)
     assert check_for_update().download == "https://example/dl"
@@ -122,21 +120,21 @@ def test_asset_download_url_picks_zip():
     release = {
         "assets": [
             {"name": "keys.json", "browser_download_url": "u1"},
-            {"name": "MonsieurVerite-1.0.zip", "browser_download_url": "u2"},
+            {"name": "charlotte-1.0.zip", "browser_download_url": "u2"},
         ]
     }
     assert asset_download_url(release) == "u2"
 
 
 def test_asset_download_url_none_when_no_zip():
-    only_exe = {"assets": [{"name": "charlotte.exe", "browser_download_url": "u"}]}
+    only_exe = {"assets": [{"name": "charlotte-cli.exe", "browser_download_url": "u"}]}
     assert asset_download_url(only_exe) is None
     assert asset_download_url({}) is None
 
 
 def test_apply_update_declines_without_asset(reporter, monkeypatch, tmp_path):
     # running_exe is stubbed because the cleanup unlinks beside it.
-    monkeypatch.setattr(utils.update, "running_exe", lambda: tmp_path / "charlotte.exe")
+    monkeypatch.setattr(utils.update, "running_exe", lambda: tmp_path / "charlotte-cli.exe")
     info = UpdateInfo(current=__version__, latest="99.0.0", available=True)
     assert apply_update(info, reporter) is False
 
@@ -150,75 +148,78 @@ def bundle(path, **members: bytes):
 
 def test_extract_binary_takes_only_charlotte_exe(tmp_path):
     zip_path = bundle(
-        tmp_path / "b.zip", **{"MonsieurVerite.exe": b"MZgui", "charlotte.exe": b"MZengine"}
+        tmp_path / "b.zip", **{"charlotte-gui.exe": b"MZgui", "charlotte-cli.exe": b"MZengine"}
     )
-    dest = tmp_path / "charlotte.exe.new"
+    dest = tmp_path / "charlotte-cli.exe.new"
     extract_binary(zip_path, dest)
     assert dest.read_bytes() == b"MZengine"
-    assert not (tmp_path / "MonsieurVerite.exe").exists()
+    assert not (tmp_path / "charlotte-gui.exe").exists()
 
 
 def test_extract_binary_strips_wrapping_folder(tmp_path):
-    zip_path = bundle(tmp_path / "b.zip", **{"MonsieurVerite-1.0/charlotte.exe": b"MZengine"})
-    dest = tmp_path / "charlotte.exe.new"
+    zip_path = bundle(tmp_path / "b.zip", **{"charlotte-1.0/charlotte-cli.exe": b"MZengine"})
+    dest = tmp_path / "charlotte-cli.exe.new"
     extract_binary(zip_path, dest)
     assert dest.read_bytes() == b"MZengine"
 
 
 def test_extract_binary_rejects_zip_without_engine(tmp_path):
-    zip_path = bundle(tmp_path / "b.zip", **{"MonsieurVerite.exe": b"MZgui"})
+    zip_path = bundle(tmp_path / "b.zip", **{"charlotte-gui.exe": b"MZgui"})
     with pytest.raises(CharlotteError):
-        extract_binary(zip_path, tmp_path / "charlotte.exe.new")
+        extract_binary(zip_path, tmp_path / "charlotte-cli.exe.new")
 
 
 def test_extract_binary_rejects_non_zip(tmp_path):
     not_zip = tmp_path / "b.zip"
     not_zip.write_bytes(b"<!doctype html>")
     with pytest.raises(CharlotteError):
-        extract_binary(not_zip, tmp_path / "charlotte.exe.new")
+        extract_binary(not_zip, tmp_path / "charlotte-cli.exe.new")
 
 
 def test_extract_binary_rejects_non_exe_member(tmp_path):
-    zip_path = bundle(tmp_path / "b.zip", **{"charlotte.exe": b"not a binary"})
+    zip_path = bundle(tmp_path / "b.zip", **{"charlotte-cli.exe": b"not a binary"})
     with pytest.raises(CharlotteError):
-        extract_binary(zip_path, tmp_path / "charlotte.exe.new")
+        extract_binary(zip_path, tmp_path / "charlotte-cli.exe.new")
 
 
 def test_apply_update_cleans_up_bundle_and_partial(reporter, monkeypatch, tmp_path):
-    exe = tmp_path / "charlotte.exe"
+    exe = tmp_path / "charlotte-cli.exe"
     exe.write_bytes(b"MZold")
     monkeypatch.setattr(utils.update, "running_exe", lambda: exe)
 
     def fake_download(url, dest, reporter):
-        bundle(dest, **{"charlotte.exe": b"not a binary"})
+        bundle(dest, **{"charlotte-cli.exe": b"not a binary"})
 
     monkeypatch.setattr(utils.update, "download_bundle", fake_download)
     info = UpdateInfo(current=__version__, latest="99.0.0", available=True, download="u")
     assert apply_update(info, reporter) is False
     assert exe.read_bytes() == b"MZold"
-    assert sorted(p.name for p in tmp_path.iterdir()) == ["charlotte.exe"]
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["charlotte-cli.exe"]
 
 
 def test_apply_update_swaps_from_bundle(reporter, monkeypatch, tmp_path):
-    exe = tmp_path / "charlotte.exe"
+    exe = tmp_path / "charlotte-cli.exe"
     exe.write_bytes(b"MZold")
     monkeypatch.setattr(utils.update, "running_exe", lambda: exe)
 
     def fake_download(url, dest, reporter):
-        bundle(dest, **{"MonsieurVerite.exe": b"MZgui", "charlotte.exe": b"MZnew"})
+        bundle(dest, **{"charlotte-gui.exe": b"MZgui", "charlotte-cli.exe": b"MZnew"})
 
     monkeypatch.setattr(utils.update, "download_bundle", fake_download)
     info = UpdateInfo(current=__version__, latest="99.0.0", available=True, download="u")
     assert apply_update(info, reporter) is True
     assert exe.read_bytes() == b"MZnew"
-    assert (tmp_path / "charlotte.exe.old").read_bytes() == b"MZold"
-    assert sorted(p.name for p in tmp_path.iterdir()) == ["charlotte.exe", "charlotte.exe.old"]
+    assert (tmp_path / "charlotte-cli.exe.old").read_bytes() == b"MZold"
+    assert sorted(p.name for p in tmp_path.iterdir()) == [
+        "charlotte-cli.exe",
+        "charlotte-cli.exe.old",
+    ]
 
 
 def test_swap_binary_rolls_back_when_new_missing(monkeypatch, tmp_path):
-    exe = tmp_path / "charlotte.exe"
+    exe = tmp_path / "charlotte-cli.exe"
     exe.write_bytes(b"OLD")
-    missing_new = tmp_path / "charlotte.exe.new"  # never created, so the rename raises
+    missing_new = tmp_path / "charlotte-cli.exe.new"  # never created, so the rename raises
     monkeypatch.setattr(utils.update, "running_exe", lambda: exe)
 
     with pytest.raises(CharlotteError):
@@ -227,9 +228,9 @@ def test_swap_binary_rolls_back_when_new_missing(monkeypatch, tmp_path):
 
 
 def test_clear_stale_binary_removes_old(monkeypatch, tmp_path):
-    exe = tmp_path / "charlotte.exe"
+    exe = tmp_path / "charlotte-cli.exe"
     exe.write_bytes(b"NEW")
-    old = tmp_path / "charlotte.exe.old"
+    old = tmp_path / "charlotte-cli.exe.old"
     old.write_bytes(b"OLD")
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     monkeypatch.setattr(utils.update, "running_exe", lambda: exe)

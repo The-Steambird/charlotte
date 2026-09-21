@@ -50,6 +50,7 @@ content.
 - Built-in self updater
 
 ## Roadmap
+
 - Graphical User Interface (coming soon)
 - Support for Honkai: Star Rail
 
@@ -63,8 +64,8 @@ degree), so it's recommended to have a powerful machine for optimal performance.
 
 ### Prerequisites
 
-1. Download `charlotte.exe` from
-   the [latest release](https://github.com/The-Steambird/charlotte/releases/latest).
+1. Download `charlotte-<version>.zip` from
+   the [latest release](https://github.com/The-Steambird/charlotte/releases/latest) and unzip it.
 2. Locate `.usm` files at:
 
 ```
@@ -77,7 +78,7 @@ history.
 ### Usage
 
 ```sh
-charlotte [PATHS...] [OPTIONS]
+charlotte-cli [PATHS...] [OPTIONS]
 ```
 
 `PATHS` is one or more `.usm` files and/or directories containing `.usm` files.
@@ -85,7 +86,7 @@ charlotte [PATHS...] [OPTIONS]
 Example:
 
 ```sh
-charlotte "USM\Cs_Cutscene_Something_Girl.usm" -vs -nc
+charlotte-cli "USM\Cs_Cutscene_Something_Girl.usm" -vs -nc
 ```
 
 This decrypts the cutscene, applies the VapourSynth filter script, and writes to
@@ -95,32 +96,32 @@ files.
 Process several files and/or directories at once:
 
 ```sh
-charlotte "USM\Cs_A.usm" "USM\Cs_B.usm" "USM\Cs_More_Cutscenes.usm" -o output
+charlotte-cli "USM\Cs_A.usm" "USM\Cs_B.usm" "USM\Cs_More_Cutscenes.usm" -o output
 ```
 
 To check what is available for your files (decryption key, local subtitles, VapourSynth script)
 without processing anything:
 
 ```sh
-charlotte "USM\Cs_Cutscene_Something_Girl.usm" --probe
+charlotte-cli "USM\Cs_Cutscene_Something_Girl.usm" --probe
 ```
 
 To recover key straight from the USM file and report them without demuxing or converting:
 
 ```sh
-charlotte "USM\Cs_Cutscene_Something_Girl.usm" --crack
+charlotte-cli "USM\Cs_Cutscene_Something_Girl.usm" --crack
 ```
 
 To check for a newer release, and install it in place after confirmation:
 
 ```sh
-charlotte --update
+charlotte-cli --update
 ```
 
 For help:
 
 ```sh
-charlotte --help
+charlotte-cli --help
 ```
 
 **Tip**: If you're running with `-vs` flag, for higher encoding speed, setting Python and FFmpeg in

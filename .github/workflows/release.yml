@@ -43,7 +43,7 @@ jobs:
         run: uv run pyinstaller charlotte.spec
 
       - name: Smoke test
-        run: dist/charlotte.exe --version
+        run: dist/charlotte-cli.exe --version
 
       # ---- MonsieurVerite bundle -----
 
@@ -57,17 +57,14 @@ jobs:
       - name: Publish MonsieurVerite
         run: >
           dotnet publish gui/MonsieurVerite/MonsieurVerite.csproj
-          -c Release -r win-x64 --self-contained false
-          -p:PublishSingleFile=true -p:DebugType=none -p:PublishDocumentationFile=false
-          -p:RestoreLockedMode=true -p:Version=${{ env.VERSION }}
-          -o bundle
+          -c Release -p:Version=${{ env.VERSION }} -o bundle
 
-      # .zip contains charlotte.exe + GUI binary.
-      # charlotte --update gets its own .exe out. GUI unpacks the whole archive.
+      # .zip contains charlotte-cli.exe + charlotte-gui.exe.
+      # charlotte-cli --update updates its own .exe; GUI unpacks the entire archive.
       - name: Assemble bundle
         run: |
-          Copy-Item dist/charlotte.exe bundle/
-          Compress-Archive -Path bundle/* -DestinationPath dist/MonsieurVerite-${{ env.VERSION }}.zip
+          Copy-Item dist/charlotte-cli.exe bundle/
+          Compress-Archive -Path bundle/* -DestinationPath dist/charlotte-${{ env.VERSION }}.zip
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v7.0.1

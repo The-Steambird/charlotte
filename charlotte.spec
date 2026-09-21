@@ -49,7 +49,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name="charlotte",
+    name="charlotte-cli",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
