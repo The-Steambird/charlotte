@@ -17,16 +17,16 @@ if TYPE_CHECKING:
     from utils.reporter import Reporter
 
 
-# Every chunk is a 32-byte header, then its payload data_offset bytes past byte 8.
+# Every chunk starts with a 32-byte header. The payload begins data_offset bytes past byte 8.
 HEADER_SIZE = 32
 MIN_DATA_OFFSET = 0x18  # the header itself already covers this much past byte 8
 
-# A video payload is masked in two regions, unless fewer than MIN_MASKED bytes follow
-# the clear part - then it is left alone entirely.
+# A video payload is masked in two regions. If fewer than MIN_MASKED bytes follow the
+# clear part, the payload is left alone entirely.
 #
 #   0x00       0x40        0x140                       end
 #    |  clear   |   head    |   chained body ...         |
-BLOCK = 0x20  # the mask is 32 bytes and applies one block at a time
+BLOCK = 0x20
 MASK_START = 0x40
 CIPHER_START = 0x140
 HEAD_SIZE = CIPHER_START - MASK_START
@@ -34,7 +34,6 @@ MIN_MASKED = 0x200
 
 
 def is_masked(payload_size: int) -> bool:
-    """Whether `decrypt_video` actually masks a video payload of this size."""
     return payload_size - MASK_START >= MIN_MASKED
 
 
@@ -66,9 +65,10 @@ def read_chunks(file_path: Path) -> Generator[tuple[ChunkHeader, bytes]]:
                 raise CharlotteError(f"Corrupt USM chunk: {file_path.name}")
 
             fp.seek(header.data_offset - MIN_DATA_OFFSET, 1)
-            # Bound the payload before reading it: read() allocates the declared size up
-            # front (a corrupt size could ask for 4 GB), and a short read would only end
-            # the walk, leaving a truncated .ivf behind as if it were whole.
+            # The payload size is checked before the read because read() allocates the
+            # declared size up front, and a corrupt size could ask for 4 GB. A short read
+            # would also just end the walk and leave a truncated .ivf behind as if it
+            # were whole.
             if payload_size > file_size - fp.tell():
                 raise CharlotteError(f"Truncated USM chunk: {file_path.name}")
 
@@ -147,13 +147,13 @@ class USM:
         body[:] = running
 
         # A partial last block continues the chain with the mask the last full block
-        # left behind: its plaintext ^ video_mask2.
+        # left behind, which is its plaintext ^ video_mask2.
         tail = CIPHER_START + rows * BLOCK
         if tail < len(data):
             buf[tail:] ^= (running[-1] ^ mask2)[: len(data) - tail]
 
-        # The head goes last: video_mask1, accumulated with the decrypted body blocks
-        # that follow it.
+        # The head is unmasked last, with video_mask1 accumulated over the decrypted body
+        # blocks that follow it.
         head = buf[MASK_START:CIPHER_START].reshape(-1, BLOCK)
         later = buf[CIPHER_START : CIPHER_START + HEAD_SIZE].reshape(-1, BLOCK)
         head ^= mask1 ^ np.bitwise_xor.accumulate(later, axis=0)

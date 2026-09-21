@@ -8,11 +8,11 @@ The chained video mask collapses against the running XOR of the ciphertext block
 
 Even blocks are a repeating-key XOR against video_mask2, and compressed VP9 has
 enough `00 00` / `FF FF` byte pairs to rank candidates for it. Only 7 key bytes are
-free (`USM.build_mask`), so a beam search fixes one per stage.
+free (see `USM.build_mask`), and a beam search fixes one of them per stage.
 
 A key is accepted only when two halves of the video, each built from its own distinct
-payloads, solve to the same 56 bits. Parsing the decrypted output proves nothing: IVF
-frame lengths are never masked, so the stream parses under any key.
+payloads, solve to the same 56 bits. Parsing the decrypted output proves nothing
+because IVF frame lengths are never masked, and the stream parses under any key.
 """
 
 from contextlib import closing
@@ -31,18 +31,19 @@ if TYPE_CHECKING:
     from utils.reporter import Reporter
 
 
-SAMPLE_STEPS = (10_000_000, 30_000_000)  # combined budgets; each pool sees half of one
-MIN_SAMPLE_BYTES = 100_000  # floor for attempting a solve at all
-BEAM = 50  # candidates carried from one stage to the next
+SAMPLE_STEPS = (10_000_000, 30_000_000)  # combined budget per step, each pool sees half of it
+MIN_SAMPLE_BYTES = 100_000
+BEAM = 50
 WIDE_BEAM = 300  # the 16-bit stage scores too few entries to trust a narrow beam
 BIGRAM_WEIGHT = 25  # total weight shared between the 00,00 and FF,FF terms
 BIGRAM_MIN_HITS = 100  # plaintext pairs needed before measuring how to share it
-BIGRAM_RATIO = (1.0, 5.0)  # clamp, so one lopsided file cannot zero out either term
+BIGRAM_RATIO = (1.0, 5.0)  # clamped so that one lopsided file cannot zero out either term
 BIGRAM_FALLBACK = (10, 4)  # zero/ff weights when there are too few hits to measure
 
 
-# `USM.build_mask` line for line, vectorized: `m` is a (32, n) array of candidates and
-# `value` the key byte tried for each. Any change to `build_mask` lands here too.
+# These mirror `USM.build_mask` line for line, vectorized over a (32, n) array of
+# candidates `m` with `value` holding the key byte tried for each. Any change to
+# `build_mask` lands here too.
 def expand_0(m: np.ndarray, value: np.ndarray) -> None:
     m[0x00] = value
     m[0x07] = m[0x00] ^ 0xFF
@@ -94,18 +95,16 @@ def expand_6(m: np.ndarray, value: np.ndarray) -> None:
 
 
 class Stage(NamedTuple):
-    """One beam-search step: try `span` values for a key byte and score what it unlocks."""
-
     expand: Callable[[np.ndarray, np.ndarray], None]
     span: int
-    beam: int  # candidates this step keeps for the next one
+    beam: int
     entries: tuple[int, ...]  # mask entries this step determines
     pairs: tuple[int, ...]  # adjacent entry pairs that first become scorable here
 
 
 def plan_stages() -> list[Stage]:
-    """Order the expansions by dependency (6 before 5: `expand_5` reads m[0x16]) and
-    note where each adjacent pair first becomes scorable."""
+    """Order the expansions by dependency (6 before 5, since `expand_5` reads m[0x16])
+    and note where each adjacent pair first becomes scorable."""
     order = [
         (expand_1_2, 0x10000, WIDE_BEAM, (0x01, 0x02, 0x08, 0x0A, 0x0B, 0x0F, 0x10, 0x12)),
         (expand_0, 0x100, BEAM, (0x00, 0x07, 0x09, 0x0C, 0x11)),
@@ -130,8 +129,6 @@ STAGES = plan_stages()
 
 
 class Stats:
-    """Per-entry byte and adjacent-pair counts pooled over even blocks."""
-
     def __init__(self):
         self.evens: list[np.ndarray] = []  # plaintext ^ video_mask2 rows, counted in tables()
         self.zero_pairs = 0
@@ -139,12 +136,12 @@ class Stats:
         self.blocks = 0
 
     def add(self, payload: bytes) -> int:
-        """Fold one video payload in. Returns the cipher bytes consumed."""
-        rows = (len(payload) - CIPHER_START) // BLOCK
+        rows =(len(payload) - CIPHER_START) // BLOCK
         body = np.frombuffer(payload, dtype=np.uint8, count=rows * BLOCK, offset=CIPHER_START)
         running = np.bitwise_xor.accumulate(body.reshape(rows, BLOCK), axis=0)
-        odd = running[1::2]  # plaintext, free of the key
-        # Counted once in tables(): a bincount per payload is mostly zeroing a 65536-wide table.
+        odd = running[1::2]  # plaintext with no key involved
+        # Counted once in tables(), because a bincount per payload would mostly be zeroing
+        # a 65536-wide table.
         self.evens.append(running[0::2])
 
         # Odd blocks measure this file's 00,00 vs FF,FF split.
@@ -156,8 +153,8 @@ class Stats:
         return rows * BLOCK
 
     def tables(self) -> tuple[np.ndarray, np.ndarray]:
-        """Score tables, each candidate summed with its complement: plaintext FF lands
-        the running XOR on v, plaintext 00 on v ^ FF."""
+        """Score tables where each candidate is summed with its complement, since plaintext
+        FF lands the running XOR on v and plaintext 00 lands it on v ^ FF."""
         even = np.concatenate(self.evens)
         pairs = (even[:, :-1].astype(np.int32) << 8) | even[:, 1:]
         unigram = np.stack([np.bincount(even[:, j], minlength=256) for j in range(BLOCK)])
@@ -180,8 +177,7 @@ class Stats:
 
 
 def solve(unigram: np.ndarray, bigram: np.ndarray) -> list[int]:
-    """Beam search over the 7 free key bytes. Returns the best video_mask1."""
-    masks = np.zeros((BLOCK, 1), dtype=np.int32)
+    masks =np.zeros((BLOCK, 1), dtype=np.int32)
     scores = np.zeros(1, dtype=np.int64)
 
     for stage in STAGES:
@@ -204,15 +200,13 @@ def solve(unigram: np.ndarray, bigram: np.ndarray) -> list[int]:
 
 def split_key(mask: list[int]) -> tuple[bytes, bytes]:
     """Invert `USM.build_mask`. Byte 7 is never read by the mask and is always zero
-    anyway - a real key is 56 bits (`Keys.decryption_key`)."""
+    anyway, because a real key is only 56 bits (see `Keys.decryption_key`)."""
     key1 = bytes([mask[0x00], mask[0x01], mask[0x02], (mask[0x03] + 0x34) & 0xFF])
     key2 = bytes([(mask[0x04] - 0xF9) & 0xFF, mask[0x05] ^ 0x13, (mask[0x06] - 0x61) & 0xFF, 0])
     return key1, key2
 
 
 class Sample(NamedTuple):
-    """One pass over the file, pooled into two independent halves."""
-
     left: Stats
     right: Stats
     first_payload: bytes | None  # None when the file carries no video
@@ -230,11 +224,10 @@ def decline(usm_file: Path, reason: str) -> Recovery:
 
 
 def collect(usm_file: Path, reporter: Reporter, budget: int) -> Sample:
-    """Pool payload statistics into two independent halves, alternating between them."""
-    pools = (Stats(), Stats())
-    seen: set[int] = set()  # payload digests, so a repeated frame is dealt only once
+    pools =(Stats(), Stats())
+    seen: set[int] = set()  # payload digests, used to deal a repeated frame only once
     first: bytes | None = None
-    pool = 0  # alternates between the two halves
+    pool = 0
     used = 0
     file_size = usm_file.stat().st_size
 
@@ -269,7 +262,8 @@ def collect(usm_file: Path, reporter: Reporter, budget: int) -> Sample:
 
 def evaluate(sample: Sample) -> tuple[list[int] | None, str]:
     if not sample.right.blocks:
-        # Placeholder assets: one frame looped, dealt once, nothing to confirm it.
+        # A placeholder asset loops one frame, which is dealt once and leaves nothing to
+        # confirm it against.
         return None, "only one distinct video payload, so there is no second half to confirm it"
 
     left = solve(*sample.left.tables())
@@ -298,7 +292,7 @@ def crack_key(usm_file: Path, reporter: Reporter) -> Recovery:
             return Recovery(split_key(mask), "")
 
         if sample.used < budget:
-            break  # the whole file was sampled; more budget adds nothing
+            break  # the whole file was already sampled, and more budget adds nothing
 
         log.info(f"{sample.used} bytes were inconclusive, retrying with more video...")
 

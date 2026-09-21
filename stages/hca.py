@@ -200,7 +200,6 @@ class HCA:
             )
 
     def decrypt(self) -> None:
-        """Decrypt header and data in memory leaving file on disk untouched."""
         if self.ciph_type == 0:
             return
 
@@ -213,7 +212,6 @@ class HCA:
         struct.pack_into(">H", self.header, len(self.header) - 2, crc)
 
     def save(self) -> None:
-        """Write the decrypted stream back to the source .hca for -nc runs."""
         size = self.block_size
         view = memoryview(self.data)
         for offset in range(0, len(self.data) - size + 1, size):
@@ -228,6 +226,5 @@ class HCA:
         extension, codec_args = AUDIO_CODECS.get(codec, AUDIO_CODECS["flac"])
         output_file = output_path / f"{self.file_path.stem}{extension}"
         args = ["-f", "hca", "-i", "pipe:0", *codec_args, str(output_file)]
-        # Feed from memory so the decrypted stream doesn't need a round trip to disk.
         run_ffmpeg(args, "Audio conversion failed", input=b"".join((self.header, self.data)))
         return output_file
