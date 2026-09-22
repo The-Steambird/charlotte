@@ -9,7 +9,7 @@ from resources.keys import calculate_key_from_filename, find_video_key, find_vid
 from resources.subtitles import local_subtitle_path
 from stages.ass import ASS
 from stages.crack import crack_key
-from stages.filter import encode_args, find_vs_script, vapoursynth_filter
+from stages.filter import encode_args, find_vs_script, subtitle_filter, vapoursynth_filter
 from stages.hca import HCA
 from stages.mux import mux, mux_args
 from stages.usm import USM
@@ -127,10 +127,11 @@ def encode_video(
 
     partial_mkv = output_path / f"{stem}.mkv.part"
     file_paths.setdefault("vs", []).append(partial_mkv)
+    video_filter = subtitle_filter(burnt_subtitle, opts.fonts) if burnt_subtitle else None
     ffmpeg_args = mux_args(
         output_path,
         partial_mkv,
-        encode_args(opts.crf, opts.preset, opts.x265_params, burnt_subtitle, opts.fonts),
+        encode_args(opts.crf, opts.preset, opts.x265_params, video_filter),
         fonts=opts.fonts,
         default_audio=opts.default_audio,
         default_subtitle=opts.default_subtitle,

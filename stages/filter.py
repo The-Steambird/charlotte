@@ -35,18 +35,16 @@ LEVEL_TAG = re.compile(r"\[(panic|fatal|error|warning|info|verbose|debug|trace)]
 
 
 def filter_escape(value: str) -> str:
-    """ffmpeg parses a `-vf` string twice, once to split the graph on `,;[]` and once to
-    split each filter's options on `:`, and a backslash is consumed by both passes, which
-    is why a Windows path needs its backslashes doubled twice."""
+    """ffmpeg unescapes a `-vf` value twice, first as a filter graph and then as one filter's
+    options, and each pass has its own special characters. The first `re.sub` is for the
+    inner pass and the second wraps it for the outer one."""
     value = re.sub(r"([\\:'])", r"\\\1", value)
     return re.sub(r"([\\'\[\],;])", r"\\\1", value)
 
 
 def subtitle_filter(subtitle: Path, fonts: list[Path]) -> str:
-    """libass loads a directory of fonts rather than files and matches on the family names
-    inside them. No matrix is pinned because the `ass` filter blends with BT.601 whatever
-    the input is tagged (checked on 8.0.1 with a red line under 601, 709 and no tag), which
-    is what the source is anyway."""
+    """libass takes a font directory instead of font files. No matrix option is set because the
+    `ass` filter always blends in BT.601 similarly to source."""
     graph = f"ass=filename={filter_escape(str(subtitle))}"
     if fonts:
         graph += f":fontsdir={filter_escape(str(fonts[0].parent))}"
@@ -54,15 +52,11 @@ def subtitle_filter(subtitle: Path, fonts: list[Path]) -> str:
 
 
 def encode_args(
-    crf: float,
-    preset: str,
-    x265_params: str = "",
-    subtitle: Path | None = None,
-    fonts: list[Path] | None = None,
+    crf: float, preset: str, x265_params: str = "", video_filter: str | None = None
 ) -> list[str]:
-    """The other tracks are muxed in the same ffmpeg run because the bundled build has no
-    HEVC decoder and a later copy of the B-frame stream would come out with clamped
-    timestamps. The muxer is named because the output ends in `.part`."""
+    """Audio and subtitles are muxed by this same ffmpeg run because the bundled build cannot
+    decode HEVC, and remuxing the B-frame stream later would clamp its timestamps. `-f` is
+    explicit because the output ends in `.part`."""
     if not x265_params:
         x265_params = ":".join(
             [
@@ -92,7 +86,7 @@ def encode_args(
 
     return [
         "-f", "matroska",
-        *(["-vf", subtitle_filter(subtitle, fonts or [])] if subtitle else []),
+        *(["-vf", video_filter] if video_filter else []),
         "-c:v", "libx265",
         "-pix_fmt", "yuv420p10le",
         "-profile:v", "main10",

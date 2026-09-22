@@ -89,17 +89,10 @@ def test_other_tracks_copied_and_muxer_named():
     assert flag_value(cmd, "-c:a") == "copy"
     assert flag_value(cmd, "-c:s") == "copy"
     assert flag_value(cmd, "-f") == "matroska"
+    assert "-vf" not in cmd
 
 
 # --- hard-sub ---
-
-
-def test_subtitle_goes_through_vf_only_when_set():
-    cmd = encode_args(DEFAULT_CRF, DEFAULT_PRESET)
-    assert "-vf" not in cmd
-
-    cmd = encode_args(DEFAULT_CRF, DEFAULT_PRESET, subtitle=Path("C:/subs/Cs_A_EN.ass"))
-    assert flag_value(cmd, "-vf") == subtitle_filter(Path("C:/subs/Cs_A_EN.ass"), [])
 
 
 def test_subtitle_filter_names_the_font_directory_only_when_fonts_exist():
