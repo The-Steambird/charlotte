@@ -6,7 +6,7 @@ import pytest
 import pipeline
 import resources.keys
 
-from conftest import FakeReporter, chunk, forbid_call
+from conftest import FakeReporter, chunk, flag_value, forbid_call
 from pipeline import (
     Options,
     crack_all,
@@ -281,11 +281,11 @@ def test_hard_sub_burns_the_default_language_with_no_soft_tracks(encode_stub, tm
 
     work_dir = tmp_path / "out" / "Cs_Test"
     ffmpeg_args = encode_stub.encode["ffmpeg_args"]
+    inputs = [ffmpeg_args[i + 1] for i, arg in enumerate(ffmpeg_args) if arg == "-i"]
     assert encode_stub.encode["source"] == work_dir / "Cs_Test.ivf"
     assert encode_stub.encode["script"] is None
-    assert encode_stub.encode["subtitle"] == work_dir / "subs" / "Cs_Test_JP.ass"
-    assert not [arg for arg in ffmpeg_args if arg.endswith(".ass")]
-    assert str(work_dir / "Cs_Test_0.flac") in ffmpeg_args
+    assert "Cs_Test_JP.ass" in flag_value(ffmpeg_args, "-vf")
+    assert inputs == [str(work_dir / "Cs_Test_0.flac")]
     assert ffmpeg_args[-1] == str(work_dir / "Cs_Test.mkv.part")
     assert (work_dir / "Cs_Test.mkv").read_bytes() == b"hevc"
     assert not (work_dir / "Cs_Test.mkv.part").exists()
@@ -299,7 +299,7 @@ def test_hard_sub_with_vapoursynth_encodes_once(encode_stub, tmp_path, reporter,
     process_usm(usm_file, opts, reporter, keys)
 
     assert encode_stub.encode["script"] == "default"
-    assert encode_stub.encode["subtitle"].name == "Cs_Test_EN.ass"
+    assert "Cs_Test_EN.ass" in flag_value(encode_stub.encode["ffmpeg_args"], "-vf")
     assert encode_stub.mux is None
 
 

@@ -34,7 +34,32 @@ FFMPEG_LEVELS = {
 LEVEL_TAG = re.compile(r"\[(panic|fatal|error|warning|info|verbose|debug|trace)]")
 
 
-def encode_args(crf: float, preset: str, x265_params: str = "") -> list[str]:
+def filter_escape(value: str) -> str:
+    """ffmpeg parses a `-vf` string twice, once to split the graph on `,;[]` and once to
+    split each filter's options on `:`, and a backslash is consumed by both passes, which
+    is why a Windows path needs its backslashes doubled twice."""
+    value = re.sub(r"([\\:'])", r"\\\1", value)
+    return re.sub(r"([\\'\[\],;])", r"\\\1", value)
+
+
+def subtitle_filter(subtitle: Path, fonts: list[Path]) -> str:
+    """libass loads a directory of fonts rather than files and matches on the family names
+    inside them. No matrix is pinned because the `ass` filter blends with BT.601 whatever
+    the input is tagged (checked on 8.0.1 with a red line under 601, 709 and no tag), which
+    is what the source is anyway."""
+    graph = f"ass=filename={filter_escape(str(subtitle))}"
+    if fonts:
+        graph += f":fontsdir={filter_escape(str(fonts[0].parent))}"
+    return graph
+
+
+def encode_args(
+    crf: float,
+    preset: str,
+    x265_params: str = "",
+    subtitle: Path | None = None,
+    fonts: list[Path] | None = None,
+) -> list[str]:
     """The other tracks are muxed in the same ffmpeg run because the bundled build has no
     HEVC decoder and a later copy of the B-frame stream would come out with clamped
     timestamps. The muxer is named because the output ends in `.part`."""
@@ -67,6 +92,7 @@ def encode_args(crf: float, preset: str, x265_params: str = "") -> list[str]:
 
     return [
         "-f", "matroska",
+        *(["-vf", subtitle_filter(subtitle, fonts or [])] if subtitle else []),
         "-c:v", "libx265",
         "-pix_fmt", "yuv420p10le",
         "-profile:v", "main10",
@@ -122,39 +148,18 @@ def find_vs_script(stem: str) -> str | None:
     return None
 
 
-def burn_subtitle(clip, subtitle: Path, fonts: list[Path]):
-    """Render an .ass file onto the clip with libass (the subtext plugin)."""
-    import vapoursynth as vs
-
-    font_dir = str(fonts[0].parent) if fonts else None
-    return vs.core.sub.TextFile(clip, file=str(subtitle), fontdir=font_dir, matrix_s="170m")
-
-
-def build_clip(
-    source: Path,
-    script: str | None,
-    subtitle: Path | None,
-    fonts: list[Path],
-    reporter: Reporter,
-):
+def build_clip(source: Path, script: str | None, reporter: Reporter):
     import vapoursynth as vs
 
     if script:
         reporter.log("info", f"Applying VapourSynth filter: vs/{script}.py")
-        clip = importlib.import_module(f"vs.{script}").filter_chain(source)
-    else:
-        clip = vs.core.bs.VideoSource(str(source), showprogress=False)
-    if subtitle:
-        reporter.log("info", f"Burning subtitle: {subtitle.name}")
-        clip = burn_subtitle(clip, subtitle, fonts)
-    return clip
+        return importlib.import_module(f"vs.{script}").filter_chain(source)
+    return vs.core.bs.VideoSource(str(source), showprogress=False)
 
 
 def worker(
     source: Path,
     script: str | None,
-    subtitle: Path | None,
-    fonts: list[Path],
     ffmpeg_args: list[str],
     queue: multiprocessing.Queue,
 ) -> None:
@@ -170,7 +175,7 @@ def worker(
             sys.path.insert(0, str(path))
 
     try:
-        clip = build_clip(source, script, subtitle, fonts, reporter)
+        clip = build_clip(source, script, reporter)
     except Exception as e:
         reporter.log("warning", f"Error building the VapourSynth clip for {source.stem}: {e}")
         queue.put(("result", False))
@@ -242,12 +247,10 @@ def vapoursynth_filter(
     reporter: Reporter,
     ffmpeg_args: list[str],
     script: str | None = None,
-    subtitle: Path | None = None,
-    fonts: list[Path] | None = None,
 ) -> bool:
     """
     Runs the worker in an isolated process. `ffmpeg_args` comes from `stages.mux.mux_args`
-    and carries the encode options, the other tracks and the output path.
+    and carries the encode options, the burnt subtitle, the other tracks and the output path.
 
     vssource.BestSource seems to hold an OS-level file handle to index and read the .ivf
     file. Because VapourSynth's core environment is effectively a global singleton in the
@@ -260,7 +263,7 @@ def vapoursynth_filter(
 
     process = ctx.Process(
         target=worker,
-        args=(source, script, subtitle, fonts or [], ffmpeg_args, queue),
+        args=(source, script, ffmpeg_args, queue),
     )
     process.start()
     result = relay_worker(reporter, queue, process)

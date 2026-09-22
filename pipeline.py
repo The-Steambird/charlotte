@@ -119,6 +119,8 @@ def encode_video(
                 break
         if burnt_subtitle is None:
             log.warning(f"No {opts.default_subtitle} subtitle for {stem}, nothing to burn in.")
+        else:
+            log.info(f"Burning subtitle: {burnt_subtitle.name}")
 
     if not (script or burnt_subtitle):
         return None
@@ -128,7 +130,7 @@ def encode_video(
     ffmpeg_args = mux_args(
         output_path,
         partial_mkv,
-        encode_args(opts.crf, opts.preset, opts.x265_params),
+        encode_args(opts.crf, opts.preset, opts.x265_params, burnt_subtitle, opts.fonts),
         fonts=opts.fonts,
         default_audio=opts.default_audio,
         default_subtitle=opts.default_subtitle,
@@ -140,8 +142,6 @@ def encode_video(
         reporter=reporter,
         ffmpeg_args=ffmpeg_args,
         script=script,
-        subtitle=burnt_subtitle,
-        fonts=opts.fonts,
     )
     if not encoded:
         log.warning(f"Failed to apply VapourSynth filter for {stem}, skipping...")
