@@ -1,7 +1,7 @@
 from stages.ass import ASS
 
 
-# Pinned independently of ASS.shadow so a change there fails here.
+# Spelled out rather than imported from ASS.shadow because a change there should fail here.
 SHADOW = r"{\xshad-0.05\yshad-0.05\blur0.5}"
 
 BASIC_SRT = """1
@@ -41,8 +41,8 @@ def test_negative_timing_sign_stripped(tmp_path):
 
 
 def test_two_line_dialogue_joined(tmp_path):
-    """\\N, not \\n: libass and VSFilter render a soft break as a space at the
-    default WrapStyle."""
+    """libass and VSFilter render a soft \\n as a space at the default WrapStyle, which is
+    why the join is \\N."""
     ass = parse(tmp_path, "1\n00:00:01,000 --> 00:00:02,000\nOne\nTwo\n")
     assert ass.dialog_lines[0].endswith(r"One\NTwo")
 

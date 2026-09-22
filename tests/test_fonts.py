@@ -7,7 +7,6 @@ from resources.fonts import fetch_font
 
 @pytest.fixture
 def game_fonts(tmp_path, monkeypatch):
-    """Point the registry lookup at a fake game font directory."""
     game = tmp_path / "game_fonts"
     game.mkdir()
     for name in ("ja-jp.ttf", "zh-cn.ttf"):
@@ -47,17 +46,13 @@ def test_only_missing_font_copied(tmp_app_root, game_fonts):
     assert (tmp_app_root / "font" / "zh-cn.ttf").read_bytes() == b"game:zh-cn.ttf"
 
 
-def test_no_game_install_returns_available_subset(tmp_app_root, monkeypatch):
-    local_font(tmp_app_root, "ja-jp.ttf")
+def test_no_game_install_returns_whatever_is_local(tmp_app_root, monkeypatch):
     monkeypatch.setattr(resources.fonts, "game_font_dir", lambda: None)
+    assert fetch_font() == []
+    local_font(tmp_app_root, "ja-jp.ttf")
     assert [font.name for font in fetch_font()] == ["ja-jp.ttf"]
 
 
 def test_game_missing_font_returns_available_subset(tmp_app_root, game_fonts):
     (game_fonts / "zh-cn.ttf").unlink()
     assert [font.name for font in fetch_font()] == ["ja-jp.ttf"]
-
-
-def test_nothing_available_returns_empty(tmp_app_root, monkeypatch):
-    monkeypatch.setattr(resources.fonts, "game_font_dir", lambda: None)
-    assert fetch_font() == []

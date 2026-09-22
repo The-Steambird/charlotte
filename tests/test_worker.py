@@ -2,14 +2,22 @@ import queue
 
 import pytest
 
-from conftest import CancellingReporter, FakeReporter
+from conftest import FakeReporter
 from utils.errors import Cancelled, Skipped
 from utils.reporter.worker import QueueReporter, relay_worker
 
 
-class FakeProcess:
-    """`alive` counts down how many is_alive() polls report a running worker."""
+class CancellingReporter(FakeReporter):
+    def cancel_requested(self):
+        return True
 
+
+class SkippingReporter(FakeReporter):
+    def skip_requested(self):
+        return True
+
+
+class FakeProcess:
     def __init__(self, alive: int = 10):
         self.alive = alive
         self.terminated = False
@@ -64,7 +72,7 @@ def test_queue_reporter_ends_the_task_even_on_failure():
 
 
 def test_queue_reporter_cannot_ask():
-    """stdin belongs to the parent; a prompt from the worker would deadlock."""
+    """stdin belongs to the parent, and a prompt from the worker would deadlock."""
     with pytest.raises(RuntimeError, match="cannot ask questions"):
         QueueReporter(queue.Queue()).ask("Overwrite?")
 
@@ -96,7 +104,7 @@ def test_relay_stops_at_the_result_leaving_the_rest(reporter):
 
 
 def test_relay_drains_a_result_the_dying_worker_left_behind(reporter):
-    """is_alive() can go false with the result still in flight: the queue feeder
+    """is_alive() can go false with the result still in flight, because the queue feeder
     flushes as the process exits."""
     q = loaded_queue(("log", "info", "done"), ("result", True))
 
@@ -109,7 +117,7 @@ def test_relay_returns_none_when_the_worker_sent_no_result(reporter):
 
 
 def test_relay_survives_an_empty_poll(reporter):
-    """queue.get times out whenever the worker is busy between messages; a quiet
+    """queue.get times out whenever the worker is busy between messages, and a quiet
     moment is not the end of the run."""
 
     class SlowQueue(queue.Queue):
@@ -128,26 +136,16 @@ def test_relay_survives_an_empty_poll(reporter):
     assert q.polls == 2  # timed out once, then delivered
 
 
-def test_relay_cancel_terminates_the_worker():
-    reporter = CancellingReporter()
+@pytest.mark.parametrize(
+    "stopping, error",
+    [(CancellingReporter, Cancelled), (SkippingReporter, Skipped)],
+    ids=["cancel", "skip"],
+)
+def test_relay_stop_terminates_the_worker(stopping, error):
     process = FakeProcess()
 
-    with pytest.raises(Cancelled):
-        relay_worker(reporter, loaded_queue(("result", True)), process)
-
-    assert process.terminated
-    assert process.joined  # no orphan left behind
-
-
-def test_relay_skip_terminates_the_worker():
-    class SkippingReporter(FakeReporter):
-        def skip_requested(self):
-            return True
-
-    process = FakeProcess()
-
-    with pytest.raises(Skipped):
-        relay_worker(SkippingReporter(), loaded_queue(("result", True)), process)
+    with pytest.raises(error):
+        relay_worker(stopping(), loaded_queue(("result", True)), process)
 
     assert process.terminated
     assert process.joined

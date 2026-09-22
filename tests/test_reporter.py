@@ -50,8 +50,8 @@ def test_custom_event_shape():
 
 
 def test_non_ascii_payload_not_dropped():
-    """On a cp1252 stdout, UnicodeEncodeError is a ValueError that emit swallows; the
-    stream is forced to UTF-8 so release notes and the like survive."""
+    """On a cp1252 stdout, UnicodeEncodeError is a ValueError that emit swallows, which is
+    why the stream is forced to UTF-8."""
     raw = io.BytesIO()
     stream = io.TextIOWrapper(raw, encoding="cp1252", newline="")
     reporter = JsonReporter(out=stream, stdin=io.StringIO())
@@ -83,15 +83,15 @@ def test_progress_throttled_to_whole_percents():
             task.advance()
 
     progress = progress_of(reporter)
-    assert 100 <= len(progress) <= 102  # one per whole percent, not one per advance
+    assert 100 <= len(progress) <= 102
     assert progress[-1]["current"] == 1000
 
 
 @pytest.mark.parametrize("advanced, ticks", [(97, [97, 100]), (100, [100])])
 def test_set_completed_lands_final_tick_without_duplicating(advanced, ticks):
-    """demux ends by snapping the bar to the file size, covering trailing bytes too
-    short to be a chunk: from short of the total that is the closing tick, from the
-    total it must not duplicate."""
+    """demux ends by snapping the bar to the file size to cover trailing bytes too short to
+    be a chunk. From short of the total that is the closing tick, and from the total it
+    must not duplicate."""
     reporter = make_reporter()
     with reporter.task("demux", 100) as task:
         task.advance(advanced)
@@ -147,19 +147,19 @@ def test_skip_during_ask_is_kept_for_the_checkpoint():
         reporter.checkpoint()
 
 
-def test_skip_honored_only_for_the_running_file():
+def test_skip_raises_once_for_the_running_file():
     reporter = make_piped_reporter('{"type": "skip", "file": "Cs_A.usm"}\n')
     reporter.event("job_start", file="Cs_A.usm")
     with pytest.raises(Skipped):
         reporter.checkpoint()
-    reporter.checkpoint()  # consumed: the next checkpoint is quiet
+    reporter.checkpoint()
 
 
 def test_stale_skip_does_not_hit_the_next_file():
     reporter = make_piped_reporter('{"type": "skip", "file": "Cs_A.usm"}\n')
     reporter.event("job_start", file="Cs_B.usm")
     reporter.checkpoint()
-    assert reporter.skip_file is None  # dropped, not left waiting for Cs_A
+    assert reporter.skip_file is None  # dropped rather than left waiting for Cs_A
 
 
 def test_cancel_outranks_skip():

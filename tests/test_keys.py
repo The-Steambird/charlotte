@@ -30,15 +30,9 @@ def write_keys(root, data):
 # --- find_video_key ---
 
 
-def test_find_key_flat():
+def test_find_key_in_flat_and_grouped_lists():
     assert find_video_key(FLAT_KEYS, "Cs_B") == 111
-
-
-def test_find_key_grouped():
     assert find_video_key(GROUPED_KEYS, "Cs_C") == 222
-
-
-def test_find_key_missing():
     assert find_video_key(FLAT_KEYS, "Cs_X") is None
     assert find_video_key(GROUPED_KEYS, "Cs_X") is None
     assert find_video_key({}, "Cs_A") is None
@@ -84,7 +78,8 @@ def test_manual_key_skips_disk_and_network(reporter, monkeypatch):
 
 
 def test_missing_file_and_no_upstream_is_not_fatal(reporter, monkeypatch):
-    """An empty key set, not an exception: every file can still fall back to recovery."""
+    """The result is an empty key set rather than an exception, because every file can
+    still fall back to recovery."""
     monkeypatch.setattr(resources.keys, "fetch_upstream_keys", lambda: None)
     assert Keys(reporter).get("Cs_A") is None
 
@@ -127,14 +122,13 @@ def test_new_upstream_key_declined(tmp_app_root, reporter, monkeypatch):
     assert keys.get("Cs_New") is None
     assert load_local_keys() == FLAT_KEYS
     assert keys.get("Cs_New") is None
-    assert len(reporter.prompts) == 1  # the decline is remembered
+    assert len(reporter.prompts) == 1
 
 
 # --- decryption_key ---
 
 
 def test_decryption_key_splits_the_combined_key(tmp_app_root, reporter, monkeypatch):
-    """The two halves are the little-endian combined key: filename hash plus videoKey."""
     write_keys(tmp_app_root, FLAT_KEYS)
     monkeypatch.setattr(resources.keys, "fetch_upstream_keys", forbid_call)
 

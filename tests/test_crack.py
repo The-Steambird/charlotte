@@ -40,7 +40,7 @@ SEEDS = {
 
 def key_pairs(count: int) -> list[tuple[bytes, bytes]]:
     rng = random.Random(0)
-    # Byte 3 of key2 is never read by build_mask, so it is always recovered as 0.
+    # build_mask never reads byte 3 of key2, which is why it always comes back as 0.
     return [
         (
             bytes(rng.randrange(256) for _ in range(4)),
@@ -51,8 +51,8 @@ def key_pairs(count: int) -> list[tuple[bytes, bytes]]:
 
 
 def video_plaintext(rng, blocks: int) -> bytes:
-    """Compressed VP9 is close to uniform, but 00,00 and FF,FF byte pairs run above
-    chance - the only signal the solver has to work with."""
+    """Compressed VP9 is close to uniform except for 00,00 and FF,FF byte pairs running
+    above chance, which is the only signal the solver has."""
     data = bytearray(rng.randrange(256) for _ in range(blocks * BLOCK))
     for _ in range(len(data) // 40):
         i = rng.randrange(len(data) - 1)
@@ -61,10 +61,10 @@ def video_plaintext(rng, blocks: int) -> bytes:
 
 
 def encrypt(plain: bytes, key1: bytes, key2: bytes) -> bytes:
-    """Inverse of the chained region of USM.decrypt_video: the running mask starts at
-    video_mask2 and is reset to `plaintext ^ video_mask2` after every block."""
+    """Inverse of the chained region of USM.decrypt_video. The running mask starts at
+    video_mask2 and resets to plaintext ^ video_mask2 after every block."""
     mask2 = bytes(b ^ 0xFF for b in USM.build_mask(key1, key2))
-    payload = bytearray(CIPHER_START)  # the head is masked separately, so leave it blank
+    payload = bytearray(CIPHER_START)  # the head is masked separately and stays blank here
     m = mask2
     for i in range(0, len(plain), BLOCK):
         block = plain[i : i + BLOCK]
@@ -74,7 +74,6 @@ def encrypt(plain: bytes, key1: bytes, key2: bytes) -> bytes:
 
 
 def video_chunk(rng, blocks: int = 900) -> bytes:
-    """One @SFV chunk carrying an encrypted IVF payload."""
     return chunk(b"@SFV", b"DKIF" + encrypt(video_plaintext(rng, blocks), KEY1, KEY2)[4:])
 
 
@@ -91,7 +90,6 @@ def test_pair_schedule_covers_every_adjacent_pair_exactly_once():
 
 @pytest.mark.parametrize(("key1", "key2"), key_pairs(12))
 def test_expansions_reproduce_build_mask(key1, key2):
-    """The expansions mirror USM.build_mask by hand; this pins them to it."""
     truth = USM.build_mask(key1, key2)
 
     mask = np.zeros((BLOCK, 1), dtype=np.int32)
@@ -134,7 +132,6 @@ def test_crack_key_declines_a_file_with_no_video(tmp_path, reporter):
 
 
 def test_crack_key_declines_too_little_video(tmp_path, reporter):
-    """The sample floor rejects a short cutscene before the halves are compared."""
     payload = b"DKIF" + bytes(MASK_START + MIN_MASKED)
     usm_file = tmp_path / "Cs_Test.usm"
     usm_file.write_bytes(b"".join(chunk(b"@SFV", payload) for _ in range(4)))
@@ -159,8 +156,8 @@ def test_repeated_payloads_are_dealt_once(tmp_path, reporter):
 
 
 def test_crack_key_declines_a_repeated_payload(tmp_path, reporter):
-    """One frame repeated past the sample floor: split-half proves nothing when both
-    pools would see the same bytes, so a single distinct payload is declined."""
+    """The frame repeats past the sample floor, but split-half proves nothing when both
+    pools would see the same bytes, which is why a single distinct payload is declined."""
     payload = b"DKIF" + bytes(CIPHER_START + 3200 * BLOCK - 4)
     usm_file = tmp_path / "Cs_Test.usm"
     usm_file.write_bytes(b"".join(chunk(b"@SFV", payload) for _ in range(4)))
@@ -172,8 +169,8 @@ def test_crack_key_declines_a_repeated_payload(tmp_path, reporter):
 
 
 def test_split_half_rejects_disagreeing_noise():
-    """The core safety property: pure noise carries no 00,00/FF,FF signal, so each
-    half solves a different mask and no key is accepted."""
+    """Pure noise carries no 00,00/FF,FF signal and each half solves to a different mask,
+    which is why no key is accepted. This is the core safety property."""
     rng = random.Random(11)
     left, right = Stats(), Stats()
     for i in range(30):
@@ -188,7 +185,8 @@ def test_split_half_rejects_disagreeing_noise():
 
 
 def test_is_masked_matches_decrypt_video(tmp_path):
-    """The sampler skips payloads decrypt_video leaves alone; the two must agree."""
+    """A sampler that disagrees with decrypt_video about which payloads are masked poisons
+    the statistics."""
     usm = USM(tmp_path / "Cs_Test.usm", bytes([1, 2, 3, 4]), bytes([5, 6, 7, 0]))
     threshold = MASK_START + MIN_MASKED
 

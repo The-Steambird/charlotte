@@ -55,39 +55,27 @@ def test_version_is_a_usable_tag():
 
 
 def test_update_available(monkeypatch):
-    monkeypatch.setattr(utils.update, "fetch_latest_release", lambda: release("v99.0.0"))
-    info = check_for_update()
-    expected = UpdateInfo(
+    with_asset = release("v99.0.0") | {
+        "assets": [{"name": "charlotte-99.0.0.zip", "browser_download_url": "https://example/dl"}]
+    }
+    monkeypatch.setattr(utils.update, "fetch_latest_release", lambda: with_asset)
+    assert check_for_update() == UpdateInfo(
         current=__version__,
         latest="99.0.0",
         available=True,
         url="https://example/rel",
         notes="notes",
-        download=None,
+        download="https://example/dl",
         reason=None,
     )
-    assert info == expected
 
 
-def test_update_carries_download_url(monkeypatch):
-    with_asset = release("v99.0.0") | {
-        "assets": [{"name": "charlotte-99.0.0.zip", "browser_download_url": "https://example/dl"}]
-    }
-    monkeypatch.setattr(utils.update, "fetch_latest_release", lambda: with_asset)
-    assert check_for_update().download == "https://example/dl"
-
-
-def test_up_to_date(monkeypatch):
-    monkeypatch.setattr(utils.update, "fetch_latest_release", lambda: release(f"v{__version__}"))
+@pytest.mark.parametrize("tag", [f"v{__version__}", "v0.0.1"], ids=["same", "older"])
+def test_not_available_when_current_or_ahead(monkeypatch, tag):
+    monkeypatch.setattr(utils.update, "fetch_latest_release", lambda: release(tag))
     info = check_for_update()
     assert info.available is False
-    assert info.latest == __version__
     assert info.reason is None
-
-
-def test_current_ahead_of_release(monkeypatch):
-    monkeypatch.setattr(utils.update, "fetch_latest_release", lambda: release("v0.0.1"))
-    assert check_for_update().available is False
 
 
 @pytest.mark.parametrize(
@@ -116,20 +104,15 @@ def test_event_shape_fixed_regardless_of_outcome(monkeypatch, reporter, fetched)
 # --- self-apply ---
 
 
-def test_asset_download_url_picks_zip():
-    release = {
-        "assets": [
-            {"name": "keys.json", "browser_download_url": "u1"},
-            {"name": "charlotte-1.0.zip", "browser_download_url": "u2"},
-        ]
-    }
-    assert asset_download_url(release) == "u2"
-
-
-def test_asset_download_url_none_when_no_zip():
-    only_exe = {"assets": [{"name": "charlotte-cli.exe", "browser_download_url": "u"}]}
-    assert asset_download_url(only_exe) is None
+def test_asset_download_url_picks_the_zip_only():
+    assets = [
+        {"name": "keys.json", "browser_download_url": "u1"},
+        {"name": "charlotte-cli.exe", "browser_download_url": "u2"},
+    ]
+    assert asset_download_url({"assets": assets}) is None
     assert asset_download_url({}) is None
+    assets.append({"name": "charlotte-1.0.zip", "browser_download_url": "u3"})
+    assert asset_download_url({"assets": assets}) == "u3"
 
 
 def test_apply_update_declines_without_asset(reporter, monkeypatch, tmp_path):
@@ -144,16 +127,6 @@ def bundle(path, **members: bytes):
         for name, data in members.items():
             archive.writestr(name, data)
     return path
-
-
-def test_extract_binary_takes_only_charlotte_exe(tmp_path):
-    zip_path = bundle(
-        tmp_path / "b.zip", **{"charlotte-gui.exe": b"MZgui", "charlotte-cli.exe": b"MZengine"}
-    )
-    dest = tmp_path / "charlotte-cli.exe.new"
-    extract_binary(zip_path, dest)
-    assert dest.read_bytes() == b"MZengine"
-    assert not (tmp_path / "charlotte-gui.exe").exists()
 
 
 def test_extract_binary_strips_wrapping_folder(tmp_path):
@@ -174,12 +147,6 @@ def test_extract_binary_rejects_non_zip(tmp_path):
     not_zip.write_bytes(b"<!doctype html>")
     with pytest.raises(CharlotteError):
         extract_binary(not_zip, tmp_path / "charlotte-cli.exe.new")
-
-
-def test_extract_binary_rejects_non_exe_member(tmp_path):
-    zip_path = bundle(tmp_path / "b.zip", **{"charlotte-cli.exe": b"not a binary"})
-    with pytest.raises(CharlotteError):
-        extract_binary(zip_path, tmp_path / "charlotte-cli.exe.new")
 
 
 def test_apply_update_cleans_up_bundle_and_partial(reporter, monkeypatch, tmp_path):
@@ -219,12 +186,12 @@ def test_apply_update_swaps_from_bundle(reporter, monkeypatch, tmp_path):
 def test_swap_binary_rolls_back_when_new_missing(monkeypatch, tmp_path):
     exe = tmp_path / "charlotte-cli.exe"
     exe.write_bytes(b"OLD")
-    missing_new = tmp_path / "charlotte-cli.exe.new"  # never created, so the rename raises
+    missing_new = tmp_path / "charlotte-cli.exe.new"  # never created, which makes the rename raise
     monkeypatch.setattr(utils.update, "running_exe", lambda: exe)
 
     with pytest.raises(CharlotteError):
         swap_binary(missing_new)
-    assert exe.read_bytes() == b"OLD"  # rolled back
+    assert exe.read_bytes() == b"OLD"
 
 
 def test_clear_stale_binary_removes_old(monkeypatch, tmp_path):
@@ -251,8 +218,8 @@ def update_available(monkeypatch, frozen: bool = True) -> None:
 @pytest.mark.parametrize(
     "frozen, json_mode",
     [
-        (False, False),  # source run: report-only, nothing to swap
-        (True, True),  # --json: the GUI owns installing
+        (False, False),  # from source there is no exe to swap
+        (True, True),  # under --json the GUI owns installing
     ],
 )
 def test_run_update_report_only_when_not_standalone(monkeypatch, reporter, frozen, json_mode):

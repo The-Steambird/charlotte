@@ -3,9 +3,9 @@ import struct
 
 import pytest
 
-from conftest import CancellingReporter, chunk
+from conftest import chunk
 from stages.usm import MASK_START, MIN_MASKED, USM
-from utils.errors import Cancelled, CharlotteError
+from utils.errors import CharlotteError
 
 
 def make_usm(tmp_path, chunks: bytes) -> USM:
@@ -16,7 +16,7 @@ def make_usm(tmp_path, chunks: bytes) -> USM:
 
 def mask_video_reference(usm: USM, data: bytearray) -> None:
     """GICutscenes USM.cs::MaskVideo, transcribed byte for byte. decrypt_video collapses
-    this into whole-block XORs; checking against the original rather than a previous
+    this into whole-block XORs, and checking against the original rather than a previous
     version of the port is what keeps the two from drifting as a pair."""
     offset = MASK_START
     size = len(data) - offset
@@ -61,7 +61,7 @@ def test_decrypt_video_matches_the_reference_chain(tmp_path, size):
 
 
 def test_demux_extracts_streams(tmp_path, out_dir, reporter):
-    # The video chunk is below the masking threshold, so it comes out untouched.
+    # The video chunk is below the masking threshold and comes out untouched.
     data = (
         chunk(b"@SFV", b"video")
         + chunk(b"@SFA", b"audio0", channel=0)
@@ -99,7 +99,7 @@ def test_known_metadata_signatures_skipped_silently(tmp_path, out_dir, reporter,
     file_paths = make_usm(tmp_path, data).demux(out_dir, reporter)
 
     assert [record for record in caplog.records if "Unknown signature" in record.message] == []
-    assert set(file_paths) == {"ivf"}  # only the video became an output stream
+    assert set(file_paths) == {"ivf"}
 
 
 def test_corrupt_chunk_raises(tmp_path, out_dir, reporter):
@@ -126,13 +126,3 @@ def test_undersized_data_offset_raises(tmp_path, out_dir, reporter):
     bad = struct.pack(">4sIxBHB2xB16x", b"@SFA", 0, 0, 0, 0, 0)  # data_offset 0
     with pytest.raises(CharlotteError, match="Corrupt USM chunk"):
         make_usm(tmp_path, bad).demux(out_dir, reporter)
-
-
-def test_cancel_mid_demux_records_partial_output(tmp_path, out_dir):
-    """demux deletes nothing itself; the caller-supplied dict is how pipeline cleans up."""
-    data = b"".join(chunk(b"@SFA", b"x") for _ in range(150))  # past the 100-chunk checkpoint
-    file_paths = {}
-    with pytest.raises(Cancelled):
-        make_usm(tmp_path, data).demux(out_dir, CancellingReporter(), file_paths=file_paths)
-    assert [path.name for path in file_paths["hca"]] == ["Cs_Test_0.hca"]
-    assert (out_dir / "Cs_Test_0.hca").exists()

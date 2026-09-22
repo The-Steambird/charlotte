@@ -1,6 +1,8 @@
 import io
 import zipfile
 
+import pytest
+
 import resources.subtitles
 
 from conftest import forbid_call
@@ -8,7 +10,7 @@ from resources.subtitles import local_subtitle_path, stored_commit, sync_subtitl
 from utils.errors import CharlotteError
 
 
-# Top-level directory GitLab puts in the subpath archive; sync_subtitles strips it.
+# GitLab wraps the subpath archive in this top-level directory, and sync_subtitles strips it.
 ARCHIVE_ROOT = "animegamedata2-main-Subtitle"
 
 
@@ -49,6 +51,9 @@ def test_stored_commit_tolerates_corrupt_marker(tmp_app_root):
 
 
 def test_sync_writes_files_and_marker(tmp_app_root, reporter, monkeypatch):
+    stale = local_subtitle_path("Cs_A", "EN")
+    stale.parent.mkdir(parents=True)
+    stale.write_bytes(b"old")
     entries = {
         f"{ARCHIVE_ROOT}/Subtitle/EN/Cs_A_EN.srt": b"english",
         f"{ARCHIVE_ROOT}/Subtitle/JP/Cs_A_JP.srt": b"japanese",
@@ -57,20 +62,9 @@ def test_sync_writes_files_and_marker(tmp_app_root, reporter, monkeypatch):
 
     sync_subtitles(reporter)
 
-    assert local_subtitle_path("Cs_A", "EN").read_bytes() == b"english"
+    assert stale.read_bytes() == b"english"
     assert local_subtitle_path("Cs_A", "JP").read_bytes() == b"japanese"
     assert stored_commit() == "abc123"
-
-
-def test_sync_overwrites_stale_local_file(tmp_app_root, reporter, monkeypatch):
-    stale = local_subtitle_path("Cs_A", "EN")
-    stale.parent.mkdir(parents=True)
-    stale.write_bytes(b"old")
-    stub_upstream(monkeypatch, {f"{ARCHIVE_ROOT}/Subtitle/EN/Cs_A_EN.srt": b"new"})
-
-    sync_subtitles(reporter)
-
-    assert stale.read_bytes() == b"new"
 
 
 def test_sync_skips_when_up_to_date(tmp_app_root, reporter, monkeypatch):
@@ -107,21 +101,14 @@ def test_sync_archive_without_subtitles_keeps_cache(tmp_app_root, reporter, monk
     assert stored_commit() == ""
 
 
-def test_sync_network_failure_falls_back(reporter, monkeypatch):
+@pytest.mark.parametrize("failing", ["latest_commit", "fetch_archive"])
+def test_sync_network_failure_keeps_the_cache(tmp_app_root, reporter, monkeypatch, failing):
     def down():
         raise CharlotteError("net down")
 
-    monkeypatch.setattr(resources.subtitles, "latest_commit", down)
-    monkeypatch.setattr(resources.subtitles, "fetch_archive", forbid_call)
-    sync_subtitles(reporter)
-
-
-def test_sync_download_failure_falls_back(tmp_app_root, reporter, monkeypatch):
-    def down():
-        raise CharlotteError("download failed")
-
     monkeypatch.setattr(resources.subtitles, "latest_commit", lambda: "abc123")
-    monkeypatch.setattr(resources.subtitles, "fetch_archive", down)
+    monkeypatch.setattr(resources.subtitles, "fetch_archive", forbid_call)
+    monkeypatch.setattr(resources.subtitles, failing, down)
 
     sync_subtitles(reporter)
 
@@ -146,4 +133,4 @@ def test_sync_partial_write_skips_marker(tmp_app_root, reporter, monkeypatch):
     sync_subtitles(reporter)
 
     assert local_subtitle_path("Cs_A", "EN").read_bytes() == b"ok"
-    assert stored_commit() == ""  # so the next run retries
+    assert stored_commit() == ""  # the next run retries

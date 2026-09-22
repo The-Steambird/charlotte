@@ -22,7 +22,6 @@ def make_usm(directory, name="Cs_Test.usm"):
 
 @pytest.fixture
 def pipeline_stub(monkeypatch):
-    """Stub everything after flag validation; records the process_usm calls."""
     stub = types.SimpleNamespace(files=[], opts=None)
 
     def fake_process(usm_file, opts, reporter, keys):
@@ -144,7 +143,7 @@ def test_default_options(pipeline_stub, tmp_path):
 
     opts = pipeline_stub.opts
     assert opts.default_audio == "ja"
-    # Defaults run through the normalizer too: "en" becomes the canonical "EN" code.
+    # The default "en" runs through the normalizer too and comes out as the canonical code.
     assert opts.default_subtitle == "EN"
     assert opts.audio_codec == "flac"
     assert opts.hard_sub is False

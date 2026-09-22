@@ -26,7 +26,6 @@ from utils.ffmpeg import ffmpeg_path
 
 @pytest.fixture
 def vs_dir(tmp_path, monkeypatch):
-    """Point the bundled vs/ script directory at a scratch dir."""
     monkeypatch.setattr(stages.filter, "bundle_root", lambda: tmp_path)
     scripts = tmp_path / "vs"
     scripts.mkdir()
@@ -109,12 +108,10 @@ def test_filter_escape_doubles_backslashes_twice():
 
 
 def test_subtitle_rendered_at_frame_size_only_during_its_cue(tmp_path):
-    """The converted .ass declares PlayRes 384x288 and libass has to scale that to the frame.
-    On a 1080p frame the line then lands in the bottom band at a legible height, where an
-    unscaled render would be about 7 px tall near row 271. Nothing is drawn once the cue
-    ends. Four black frames at 1 fps go through the bundled ffmpeg and come back raw. The
-    subtitle sits under a directory named with every character `filter_escape` has to
-    protect, because only ffmpeg's own parser can prove the escaping right."""
+    """libass has to scale the .ass PlayRes 384x288 to the frame, and an unscaled render on
+    1080p would be about 7 px tall near row 271. The subtitle sits under a directory named
+    with every character `filter_escape` has to protect, because only ffmpeg's own parser
+    can prove the escaping right."""
     if not ffmpeg_path().exists():
         pytest.skip("bundled ffmpeg.exe is not present")
     filters = subprocess.run(

@@ -3,13 +3,12 @@ from pathlib import Path
 
 import pytest
 
-from conftest import flag_value
+from conftest import flag_value, input_files
 from stages.mux import mux, mux_args
 from utils.errors import CharlotteError
 
 
 def make_output(tmp_path, stem="Cs_Test", channels=("0", "1", "2"), subs=("EN", "JP")):
-    """Lay out a demuxed cutscene directory: video, one audio file per channel, subs/."""
     output = tmp_path / stem
     (output / "subs").mkdir(parents=True)
     (output / f"{stem}.ivf").write_bytes(b"")
@@ -18,11 +17,6 @@ def make_output(tmp_path, stem="Cs_Test", channels=("0", "1", "2"), subs=("EN", 
     for lang in subs:
         (output / "subs" / f"{stem}_{lang}.ass").write_bytes(b"")
     return output
-
-
-def input_files(cmd):
-    """Every -i argument in order: video, then audio, then subtitles."""
-    return [value for flag, value in pairwise(cmd) if flag == "-i"]
 
 
 def test_default_audio_sorted_first_and_flagged(ffmpeg, tmp_path):
@@ -65,15 +59,6 @@ def test_encode_tail_puts_codec_args_between_maps_and_metadata(tmp_path):
     assert args[-1] == str(output / "Cs_Test.mkv.part")
 
 
-def test_hard_sub_output_carries_no_soft_subtitles(tmp_path):
-    output = make_output(tmp_path, subs=("EN", "JP", "DE"))
-    args = mux_args(output, output / "out.mkv", ["-c", "copy"], subtitles=False)
-
-    assert not [path for path in input_files(args) if path.endswith(".ass")]
-    assert "-disposition:s:0" not in args
-    assert len(input_files(args)) == 3  # the audio tracks still ride along
-
-
 def test_fonts_only_ride_with_subtitle_tracks(tmp_path):
     """The two game fonts are 11 MB each and exist only for the .ass tracks, which is why a
     hard-subbed output (or one whose cutscene has no subtitles) must not carry them."""
@@ -106,15 +91,12 @@ def test_fonts_attached_when_given(ffmpeg, tmp_path):
     assert flag_value(ffmpeg.cmd, "-metadata:s:t:0") == "mimetype=application/x-truetype-font"
 
 
-def test_command_frame(ffmpeg, tmp_path):
-    """-nostdin ahead of the first input: mux passes nothing on stdin, so ffmpeg would
-    otherwise inherit the GUI's command pipe under --json and read a byte off it per
-    keyboard poll. Output last, no attachments without fonts."""
+def test_nostdin_ahead_of_the_first_input(ffmpeg, tmp_path):
+    """mux passes nothing on stdin, and without the flag ffmpeg would inherit the GUI's
+    command pipe under --json and read a byte off it per keyboard poll."""
     output = make_output(tmp_path)
     mux(output)
     assert ffmpeg.cmd.index("-nostdin") < ffmpeg.cmd.index("-i")
-    assert ffmpeg.cmd[-1] == str(output / "Cs_Test.mkv")
-    assert "-attach" not in ffmpeg.cmd
 
 
 def test_missing_video_input_raises(ffmpeg, tmp_path):

@@ -6,7 +6,7 @@ import pytest
 import pipeline
 import resources.keys
 
-from conftest import FakeReporter, chunk, flag_value, forbid_call
+from conftest import FakeReporter, chunk, flag_value, forbid_call, input_files
 from pipeline import (
     Options,
     crack_all,
@@ -51,8 +51,6 @@ def make_options(tmp_path, **overrides) -> Options:
 
 
 def make_run(tmp_path, chunks=None, **overrides):
-    """A one-video one-audio USM (unless `chunks` says otherwise) plus the options and
-    keys to process it."""
     usm_file = tmp_path / "Cs_Test.usm"
     usm_file.write_bytes(chunks or chunk(b"@SFV", b"video") + chunk(b"@SFA", b"audio"))
     keys = SimpleNamespace(decryption_key=lambda stem: (bytes(4), bytes(4)))
@@ -111,8 +109,8 @@ def test_probe_remaps_subtitle_stem_only(tmp_app_root, reporter, monkeypatch):
 
 
 class StopDuringDemux(FakeReporter):
-    """Quiet through process_usm's two pre-demux checkpoints, then cancels (or skips) at the
-    first checkpoint inside the demux loop."""
+    """Stays quiet through process_usm's two pre-demux checkpoints and raises at the first
+    one inside the demux loop."""
 
     def __init__(self, error):
         super().__init__()
@@ -159,15 +157,37 @@ def test_missing_key_falls_back_to_cracking(tmp_path, reporter, monkeypatch):
 
 @pytest.fixture
 def stub_stages(monkeypatch):
-    """Run process_usm from demux to cleanup with the ffmpeg/VapourSynth stages replaced;
-    the mux stub writes the .mkv the output handling then moves."""
-    monkeypatch.setattr(pipeline, "process_audio", lambda *args, **kwargs: [])
-    monkeypatch.setattr(pipeline, "process_subtitles", lambda **kwargs: [])
-    monkeypatch.setattr(
-        pipeline,
-        "mux",
-        lambda output_path, **kwargs: (output_path / f"{output_path.name}.mkv").write_bytes(b"mkv"),
-    )
+    """Everything after demux is stubbed, leaving one audio track and EN plus JP subtitles
+    on disk for the real mux_args to find. The encode writes its .part whether or not it
+    reports `ok`, the way a failing ffmpeg does."""
+    calls = SimpleNamespace(ok=True, encode=None, mux=None)
+
+    def audio(hca_files, *args, **kwargs):
+        flac = hca_files[0].with_suffix(".flac")
+        flac.write_bytes(b"flac")
+        return [flac]
+
+    def subtitles(stem, output_path):
+        (output_path / "subs").mkdir()
+        files = [output_path / "subs" / f"{stem}_{lang}.ass" for lang in ("EN", "JP")]
+        for path in files:
+            path.write_bytes(b"ass")
+        return files
+
+    def encode(source, reporter, ffmpeg_args, **kwargs):
+        calls.encode = kwargs | {"source": source, "ffmpeg_args": ffmpeg_args}
+        Path(ffmpeg_args[-1]).write_bytes(b"hevc" if calls.ok else b"trunc")
+        return calls.ok
+
+    def mux(output_path, **kwargs):
+        calls.mux = kwargs
+        (output_path / f"{output_path.name}.mkv").write_bytes(b"mkv")
+
+    monkeypatch.setattr(pipeline, "process_audio", audio)
+    monkeypatch.setattr(pipeline, "process_subtitles", subtitles)
+    monkeypatch.setattr(pipeline, "vapoursynth_filter", encode)
+    monkeypatch.setattr(pipeline, "mux", mux)
+    return calls
 
 
 def test_run_writes_mkv_and_clears_intermediates(stub_stages, tmp_path, reporter):
@@ -236,43 +256,7 @@ def test_skip_existing_stops_before_the_key_lookup(tmp_path, reporter, flat, exi
 # --- hard-sub ---
 
 
-@pytest.fixture
-def encode_stub(monkeypatch):
-    """Like stub_stages, but with one audio track and EN plus JP subtitles on disk so the
-    real mux_args runs. The VapourSynth stage records what it was handed and always writes
-    the .part the way ffmpeg does whether or not it ends `ok`, and the fallback mux records
-    its call."""
-    calls = SimpleNamespace(ok=True, encode=None, mux=None)
-
-    def audio(hca_files, *args, **kwargs):
-        flac = hca_files[0].with_suffix(".flac")
-        flac.write_bytes(b"flac")
-        return [flac]
-
-    def subtitles(stem, output_path):
-        (output_path / "subs").mkdir()
-        files = [output_path / "subs" / f"{stem}_{lang}.ass" for lang in ("EN", "JP")]
-        for path in files:
-            path.write_bytes(b"ass")
-        return files
-
-    def encode(source, reporter, ffmpeg_args, **kwargs):
-        calls.encode = kwargs | {"source": source, "ffmpeg_args": ffmpeg_args}
-        Path(ffmpeg_args[-1]).write_bytes(b"hevc" if calls.ok else b"trunc")
-        return calls.ok
-
-    def mux(output_path, **kwargs):
-        calls.mux = kwargs
-        (output_path / f"{output_path.name}.mkv").write_bytes(b"mkv")
-
-    monkeypatch.setattr(pipeline, "process_audio", audio)
-    monkeypatch.setattr(pipeline, "process_subtitles", subtitles)
-    monkeypatch.setattr(pipeline, "vapoursynth_filter", encode)
-    monkeypatch.setattr(pipeline, "mux", mux)
-    return calls
-
-
-def test_hard_sub_burns_the_default_language_with_no_soft_tracks(encode_stub, tmp_path, reporter):
+def test_hard_sub_burns_the_default_language_with_no_soft_tracks(stub_stages, tmp_path, reporter):
     """The encode's ffmpeg gets the audio but no subtitle inputs and writes a .part that
     becomes the final .mkv, with no second mux."""
     usm_file, opts, keys = make_run(tmp_path, hard_sub=True, default_subtitle="JP")
@@ -280,31 +264,30 @@ def test_hard_sub_burns_the_default_language_with_no_soft_tracks(encode_stub, tm
     process_usm(usm_file, opts, reporter, keys)
 
     work_dir = tmp_path / "out" / "Cs_Test"
-    ffmpeg_args = encode_stub.encode["ffmpeg_args"]
-    inputs = [ffmpeg_args[i + 1] for i, arg in enumerate(ffmpeg_args) if arg == "-i"]
-    assert encode_stub.encode["source"] == work_dir / "Cs_Test.ivf"
-    assert encode_stub.encode["script"] is None
+    ffmpeg_args = stub_stages.encode["ffmpeg_args"]
+    assert stub_stages.encode["source"] == work_dir / "Cs_Test.ivf"
+    assert stub_stages.encode["script"] is None
     assert "Cs_Test_JP.ass" in flag_value(ffmpeg_args, "-vf")
-    assert inputs == [str(work_dir / "Cs_Test_0.flac")]
+    assert input_files(ffmpeg_args) == [str(work_dir / "Cs_Test_0.flac")]
     assert ffmpeg_args[-1] == str(work_dir / "Cs_Test.mkv.part")
     assert (work_dir / "Cs_Test.mkv").read_bytes() == b"hevc"
     assert not (work_dir / "Cs_Test.mkv.part").exists()
-    assert encode_stub.mux is None
+    assert stub_stages.mux is None
 
 
-def test_hard_sub_with_vapoursynth_encodes_once(encode_stub, tmp_path, reporter, monkeypatch):
+def test_hard_sub_with_vapoursynth_encodes_once(stub_stages, tmp_path, reporter, monkeypatch):
     monkeypatch.setattr(pipeline, "find_vs_script", lambda stem: "default")
     usm_file, opts, keys = make_run(tmp_path, hard_sub=True, vapoursynth=True)
 
     process_usm(usm_file, opts, reporter, keys)
 
-    assert encode_stub.encode["script"] == "default"
-    assert "Cs_Test_EN.ass" in flag_value(encode_stub.encode["ffmpeg_args"], "-vf")
-    assert encode_stub.mux is None
+    assert stub_stages.encode["script"] == "default"
+    assert "Cs_Test_EN.ass" in flag_value(stub_stages.encode["ffmpeg_args"], "-vf")
+    assert stub_stages.mux is None
 
 
 def test_hard_sub_without_the_default_language_skips_the_encode(
-    encode_stub, tmp_path, reporter, monkeypatch, caplog
+    stub_stages, tmp_path, reporter, monkeypatch, caplog
 ):
     monkeypatch.setattr(pipeline, "vapoursynth_filter", forbid_call)
     usm_file, opts, keys = make_run(tmp_path, hard_sub=True, default_subtitle="DE")
@@ -312,19 +295,19 @@ def test_hard_sub_without_the_default_language_skips_the_encode(
     process_usm(usm_file, opts, reporter, keys)
 
     assert "No DE subtitle" in caplog.text
-    assert encode_stub.mux is not None
+    assert stub_stages.mux is not None
 
 
-def test_failed_encode_falls_back_to_soft_subtitles(encode_stub, tmp_path, reporter):
+def test_failed_encode_falls_back_to_soft_subtitles(stub_stages, tmp_path, reporter):
     """The lossless copy with every language as a soft track is still a usable output, which
     is why the fallback mux runs like any other run and no .part is left behind."""
-    encode_stub.ok = False
+    stub_stages.ok = False
     usm_file, opts, keys = make_run(tmp_path, hard_sub=True)
 
     process_usm(usm_file, opts, reporter, keys)
 
     work_dir = tmp_path / "out" / "Cs_Test"
-    assert encode_stub.mux is not None
+    assert stub_stages.mux is not None
     assert (work_dir / "Cs_Test.mkv").read_bytes() == b"mkv"
     assert not (work_dir / "Cs_Test.mkv.part").exists()
 
@@ -416,45 +399,39 @@ def test_crack_failure_keeps_the_same_event_shape(tmp_app_root, reporter, monkey
     }
 
 
-def test_crack_batch_continues_past_an_unreadable_file(tmp_app_root, reporter, monkeypatch):
+@pytest.mark.parametrize(
+    "error, event",
+    [
+        (
+            CharlotteError("Corrupt USM chunk: Cs_Bad.usm"),
+            ("error", {"file": "Cs_Bad.usm", "message": "Corrupt USM chunk: Cs_Bad.usm"}),
+        ),
+        (Skipped(), ("job_skipped", {"file": "Cs_Bad.usm", "reason": "requested"})),
+    ],
+    ids=["unreadable", "skipped"],
+)
+def test_crack_batch_carries_on_past_a_failed_file(
+    tmp_app_root, reporter, monkeypatch, error, event
+):
     def crack(usm_file, reporter):
         if usm_file.name == "Cs_Bad.usm":
-            raise CharlotteError("Corrupt USM chunk: Cs_Bad.usm")
+            raise error
         return Recovery((bytes(4), bytes(4)), "")
 
     monkeypatch.setattr(pipeline, "crack_key", crack)
 
     crack_all([tmp_app_root / "Cs_Bad.usm", tmp_app_root / "Cs_A.usm"], reporter)
 
-    # job_start per file, like process_usm, so the GUI has something to attach progress to.
+    # The GUI attaches progress to the last job_start, which is why crack_all opens one per
+    # file like process_usm does.
     assert [kind for kind, _ in reporter.events] == [
         "job_start",
-        "error",
+        event[0],
         "job_start",
         "crack",
         "crack_summary",
     ]
-    assert reporter.events[-1][1] == {"recovered": 1, "unrecovered": 1}
-
-
-def test_crack_batch_carries_on_after_skip(tmp_app_root, reporter, monkeypatch):
-    def crack(usm_file, reporter):
-        if usm_file.name == "Cs_A.usm":
-            raise Skipped
-        return Recovery(key=(b"" * 4, b"" * 4), reason="")
-
-    monkeypatch.setattr(pipeline, "crack_key", crack)
-
-    crack_all([tmp_app_root / "Cs_A.usm", tmp_app_root / "Cs_B.usm"], reporter)
-
-    assert [kind for kind, _ in reporter.events] == [
-        "job_start",
-        "job_skipped",
-        "job_start",
-        "crack",
-        "crack_summary",
-    ]
-    assert reporter.events[1][1] == {"file": "Cs_A.usm", "reason": "requested"}
+    assert reporter.events[1] == event
     assert reporter.events[-1][1] == {"recovered": 1, "unrecovered": 1}
 
 

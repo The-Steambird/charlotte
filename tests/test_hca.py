@@ -1,6 +1,6 @@
-"""The decryption itself is deliberately not tested: it is a line-for-line port of the
-C#, and a test would have to encrypt with the same tables it decrypts with, which passes
-whether or not the port matches the original. The corpus is the check that matters."""
+"""The decryption itself is deliberately not tested, because a test would have to encrypt
+with the same tables the line-for-line port decrypts with and would pass whether or not the
+port matches the original. The corpus is the check that matters."""
 
 import struct
 
@@ -14,7 +14,7 @@ from utils.ffmpeg import FFMPEG_MISSING
 
 KEY1, KEY2 = bytes([0x11, 0x22, 0x33, 0x44]), bytes([0x55, 0x66, 0x77, 0x00])
 
-# Chunks carry no length of their own; these are the strides read_header walks by.
+# Chunks carry no length of their own, and these are the strides read_header walks by.
 CHUNK_SIZES = {b"fmt\x00": 16, b"comp": 16, b"ciph": 6}
 
 
@@ -25,8 +25,6 @@ def hca_bytes(
     block_count: int = 2,
     data: bytes | None = None,
 ) -> bytes:
-    """A minimal .hca: the chunk sequence read_header walks, then block_count blocks
-    of block_size bytes, zeroed unless `data` says otherwise."""
     chunks: list[tuple[bytes, dict]] = [
         (b"fmt\x00", {8: (">I", block_count)}),
         (b"comp", {4: (">H", block_size)}),
@@ -64,8 +62,8 @@ def make_hca(tmp_path, name: str = "Cs_Test_0.hca") -> HCA:
 
 
 def test_crc16_check_value():
-    """Standard check value for CRC-16 poly 0x8005 (unreflected, zero init): the table
-    is generated from its polynomial, and this pins it to the one the C# shipped."""
+    """The table is generated from its polynomial, and the standard check value for CRC-16
+    poly 0x8005 (unreflected, zero init) pins it to the one the C# shipped."""
     assert crc16(b"123456789") == 0xFEE8
 
 
@@ -73,8 +71,8 @@ def test_crc16_check_value():
 
 
 def test_header_fields_parsed(tmp_path):
-    """Positive control for the rejections below: a builder producing nonsense would
-    still make all of them pass."""
+    """This is the positive control for the rejections below, because a builder producing
+    nonsense would still make all of them pass."""
     path = write_hca(tmp_path, hca_bytes(ciph_type=0x38, block_size=0x40, block_count=3))
     hca = HCA(path, KEY1, KEY2)
 
@@ -112,7 +110,7 @@ def test_malformed_header_rejected(tmp_path, blob, match):
 
 
 def test_zero_block_size_raises(tmp_path):
-    """The C# allows it, but it is the stride save() walks by: a bare ValueError there
+    """The C# allows it, but it is the stride save() walks by, and a bare ValueError there
     escapes the per-file handler and kills the whole batch."""
     path = write_hca(tmp_path, hca_bytes(block_size=0, block_count=0))
     with pytest.raises(CharlotteError, match="no audio blocks"):
@@ -128,7 +126,8 @@ def test_unknown_cipher_type_raises(tmp_path):
 
 
 def test_truncated_header_raises(tmp_path):
-    """data_offset past the end of the file: struct.error is translated, not leaked."""
+    """data_offset past the end of the file raises struct.error, which is translated
+    rather than leaked."""
     path = write_hca(tmp_path, hca_bytes()[:12])
     with pytest.raises(CharlotteError, match="Corrupt HCA header"):
         HCA(path, KEY1, KEY2)
@@ -138,8 +137,8 @@ def test_truncated_header_raises(tmp_path):
 
 
 def test_save_overwrites_the_source_with_the_in_memory_stream(tmp_path):
-    # Non-zero on purpose: zeros pass through the cipher table untouched, so a zeroed
-    # body would pass on the header edit alone.
+    # Zeros pass through the cipher table untouched, and a zeroed body would pass on the
+    # header edit alone.
     body = bytes(range(0x20)) * 4
     original = hca_bytes(ciph_type=0x38, block_count=4, data=body)
     path = write_hca(tmp_path, original)
@@ -150,8 +149,8 @@ def test_save_overwrites_the_source_with_the_in_memory_stream(tmp_path):
 
     written = path.read_bytes()
     assert written == bytes(hca.header) + bytes(hca.data)
-    assert written[len(hca.header) :] != body  # the audio really was rewritten
-    assert HCA(path, KEY1, KEY2).ciph_type == 0  # and it reads back as a plain HCA
+    assert written[len(hca.header) :] != body
+    assert HCA(path, KEY1, KEY2).ciph_type == 0
 
 
 # --- convert ---
@@ -182,7 +181,7 @@ def test_convert_reports_ffmpeg_failure(ffmpeg, tmp_path, caplog):
     with pytest.raises(CharlotteError, match="Audio conversion failed"):
         make_hca(tmp_path).convert(output_path=tmp_path)
 
-    assert "Invalid data found" in caplog.text  # ffmpeg's own diagnosis is surfaced
+    assert "Invalid data found" in caplog.text
 
 
 def test_convert_without_ffmpeg_raises(ffmpeg, tmp_path):
