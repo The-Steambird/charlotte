@@ -95,10 +95,6 @@ def process_subtitles(stem: str, output_path: Path) -> list[Path]:
     return ass_files
 
 
-def subtitle_for(ass_files: list[Path], lang: str) -> Path | None:
-    return next((path for path in ass_files if path.stem.split("_")[-1] == lang), None)
-
-
 def encode_video(
     stem: str,
     output_path: Path,
@@ -117,7 +113,10 @@ def encode_video(
 
     burnt_subtitle = None
     if opts.hard_sub:
-        burnt_subtitle = subtitle_for(file_paths["ass"], opts.default_subtitle)
+        for path in file_paths["ass"]:
+            if path.stem.split("_")[-1] == opts.default_subtitle:
+                burnt_subtitle = path
+                break
         if burnt_subtitle is None:
             log.warning(f"No {opts.default_subtitle} subtitle for {stem}, nothing to burn in.")
 
@@ -126,19 +125,20 @@ def encode_video(
 
     partial_mkv = output_path / f"{stem}.mkv.part"
     file_paths.setdefault("vs", []).append(partial_mkv)
+    ffmpeg_args = mux_args(
+        output_path,
+        partial_mkv,
+        encode_args(opts.crf, opts.preset, opts.x265_params),
+        fonts=opts.fonts,
+        default_audio=opts.default_audio,
+        default_subtitle=opts.default_subtitle,
+        audio_extension=AUDIO_CODECS[opts.audio_codec][0],
+        subtitles=burnt_subtitle is None,
+    )
     encoded = vapoursynth_filter(
         source=output_path / f"{stem}.ivf",
         reporter=reporter,
-        ffmpeg_args=mux_args(
-            output_path,
-            partial_mkv,
-            encode_args(opts.crf, opts.preset, opts.x265_params),
-            fonts=opts.fonts,
-            default_audio=opts.default_audio,
-            default_subtitle=opts.default_subtitle,
-            audio_extension=AUDIO_CODECS[opts.audio_codec][0],
-            subtitles=burnt_subtitle is None,
-        ),
+        ffmpeg_args=ffmpeg_args,
         script=script,
         subtitle=burnt_subtitle,
         fonts=opts.fonts,
@@ -151,8 +151,8 @@ def encode_video(
 
 
 def cleanup_files(file_paths: dict[str, list[Path]], output_path: Path) -> None:
-    for value in file_paths.values():
-        for file in value:
+    for files in file_paths.values():
+        for file in files:
             try:
                 file.unlink(missing_ok=True)
             except OSError as e:
