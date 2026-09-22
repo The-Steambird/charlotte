@@ -58,31 +58,27 @@ def encode_args(
     decode HEVC, and remuxing the B-frame stream later would clamp its timestamps. `-f` is
     explicit because the output ends in `.part`."""
     if not x265_params:
-        x265_params = ":".join(
-            [
-                "keyint=300",
-                "min-keyint=30",
-                "no-open-gop=1",
-                "ref=6",
-                "bframes=8",
-                "lookahead-slices=0",
-                "aq-mode=3",
-                "aq-strength=0.75",
-                "qcomp=0.72",
-                "cbqpoffs=-2",
-                "crqpoffs=-2",
-                "no-cutree=1",
-                "rd=4",
-                "psy-rd=2.0",
-                "psy-rdoq=1.7",
-                "max-merge=5",
-                "no-strong-intra-smoothing=1",
-                "tskip=1",
-                "deblock=-2,-2",
-                "no-sao=1",
-                "no-sao-non-deblock=1",
-            ]
-        )
+        tuning = [
+            "keyint=300",
+            "min-keyint=30",
+            "no-open-gop=1",
+            "aq-mode=3",
+            "aq-strength=0.75",
+            "qcomp=0.72",
+            "cbqpoffs=-2",
+            "crqpoffs=-2",
+            "no-cutree=1",
+            "psy-rd=2.0",
+            "psy-rdoq=1.7",
+            "no-strong-intra-smoothing=1",
+            "deblock=-2,-2",
+            "no-sao=1",
+            "no-sao-non-deblock=1",
+        ]
+        # ultrafast encode with bframes=8 breaks against its rc-lookahead=5.
+        if preset in ("slow", "slower", "veryslow", "placebo"):
+            tuning += ["ref=6", "bframes=8", "lookahead-slices=0", "rd=4", "max-merge=5", "tskip=1"]
+        x265_params = ":".join(tuning)
 
     return [
         "-f", "matroska",

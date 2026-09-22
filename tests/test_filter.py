@@ -61,11 +61,20 @@ def test_find_vs_script_default_is_last_resort(vs_dir):
 # --- encode_args ---
 
 
-def test_crf_and_preset_keep_builtin_params():
-    cmd = encode_args(20.0, "medium")
-    assert "psy-rd=2.0" in flag_value(cmd, "-x265-params")
+@pytest.mark.parametrize("preset", ["ultrafast", "medium"])
+def test_fast_presets_keep_tuning_but_own_their_effort(preset):
+    cmd = encode_args(20.0, preset)
+    params = flag_value(cmd, "-x265-params").split(":")
+    assert "psy-rd=2.0" in params
+    assert not {"bframes=8", "rd=4", "ref=6"} & set(params)
     assert flag_value(cmd, "-crf") == "20.0"
-    assert flag_value(cmd, "-preset") == "medium"
+    assert flag_value(cmd, "-preset") == preset
+
+
+@pytest.mark.parametrize("preset", ["slow", "placebo"])
+def test_slow_presets_pin_effort(preset):
+    params = flag_value(encode_args(DEFAULT_CRF, preset), "-x265-params").split(":")
+    assert {"psy-rd=2.0", "bframes=8", "rd=4", "ref=6"} <= set(params)
 
 
 def test_explicit_params_replace_builtin_ahead_of_colour_tags():

@@ -139,7 +139,7 @@ def demux(
         typer.Option(
             "--preset",
             "-preset",
-            help="x265 preset when the video is re-encoded (--vapoursynth or --hard-sub).",
+            help="x265 preset when the video is re-encoded (--vapoursynth or --hard-sub)."
         ),
     ] = DEFAULT_PRESET,
     x265_params: Annotated[
