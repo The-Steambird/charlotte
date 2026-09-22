@@ -1,6 +1,7 @@
 from pathlib import Path
 from types import SimpleNamespace
 
+import orjson
 import pytest
 
 import pipeline
@@ -29,6 +30,15 @@ def write_subtitle(stem, lang, text=SRT):
     path = local_subtitle_path(stem, lang)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
+
+
+def make_keys(reporter, monkeypatch, data=None, upstream=None):
+    """A real Keys over `data` on disk, reaching a fake upstream that serves `upstream`."""
+    if data is not None:
+        (resources.keys.app_root() / "keys.json").write_bytes(orjson.dumps(data))
+    fetch = (lambda: orjson.dumps(upstream)) if upstream is not None else forbid_call
+    monkeypatch.setattr(resources.keys, "fetch_upstream_keys", fetch)
+    return Keys(reporter)
 
 
 def last_event(reporter, kind):
@@ -65,7 +75,7 @@ def test_probe_reports_available(tmp_app_root, reporter, monkeypatch):
     write_subtitle("Cs_A", "EN")
     write_subtitle("Cs_A", "JP")
 
-    probe_usm(tmp_app_root / "Cs_A.usm", KEYS_DATA, reporter)
+    probe_usm(tmp_app_root / "Cs_A.usm", make_keys(reporter, monkeypatch, KEYS_DATA), reporter)
 
     assert last_event(reporter, "probe") == {
         "file": "Cs_A.usm",
@@ -77,10 +87,11 @@ def test_probe_reports_available(tmp_app_root, reporter, monkeypatch):
     }
 
 
-def test_probe_reports_missing_and_never_prompts(tmp_app_root, reporter, monkeypatch):
+def test_probe_reports_missing_when_upstream_has_nothing(tmp_app_root, reporter, monkeypatch):
     monkeypatch.setattr(pipeline, "find_vs_script", lambda stem: None)
+    keys = make_keys(reporter, monkeypatch, {"list": []}, upstream={"list": []})
 
-    probe_usm(tmp_app_root / "Cs_A.usm", {}, reporter)
+    probe_usm(tmp_app_root / "Cs_A.usm", keys, reporter)
 
     data = last_event(reporter, "probe")
     assert data["key"] is False
@@ -90,6 +101,33 @@ def test_probe_reports_missing_and_never_prompts(tmp_app_root, reporter, monkeyp
     assert reporter.prompts == []
 
 
+def test_probe_picks_up_an_accepted_upstream_update(tmp_app_root, reporter, monkeypatch):
+    """The whole point of probing through Keys: a stem the local file misses is reported with
+    its key and version once the update is accepted, without a second probe run."""
+    monkeypatch.setattr(pipeline, "find_vs_script", lambda stem: None)
+    reporter.answer = True
+    keys = make_keys(reporter, monkeypatch, {"list": []}, upstream=KEYS_DATA)
+
+    probe_usm(tmp_app_root / "Cs_A.usm", keys, reporter)
+
+    data = last_event(reporter, "probe")
+    assert data["key"] is True
+    assert data["version"] == "5.3"
+    assert len(reporter.prompts) == 1
+
+
+def test_probe_reports_missing_when_the_update_is_declined(tmp_app_root, reporter, monkeypatch):
+    monkeypatch.setattr(pipeline, "find_vs_script", lambda stem: None)
+    reporter.answer = False
+    keys = make_keys(reporter, monkeypatch, {"list": []}, upstream=KEYS_DATA)
+
+    probe_usm(tmp_app_root / "Cs_A.usm", keys, reporter)
+
+    data = last_event(reporter, "probe")
+    assert data["key"] is False
+    assert data["version"] is None
+
+
 def test_probe_remaps_subtitle_stem_only(tmp_app_root, reporter, monkeypatch):
     """BASENAME_FIXES applies to the subtitle lookup; the key and VapourSynth script
     keep the original stem."""
@@ -97,7 +135,8 @@ def test_probe_remaps_subtitle_stem_only(tmp_app_root, reporter, monkeypatch):
     monkeypatch.setattr(pipeline, "find_vs_script", seen_vs_stems.append)  # returns None
     write_subtitle("Cs_DQAQ200211_WanYeXianVideo", "EN")
 
-    probe_usm(tmp_app_root / "Cs_200211_WanYeXianVideo.usm", {}, reporter)
+    keys = make_keys(reporter, monkeypatch, {"list": []}, upstream={"list": []})
+    probe_usm(tmp_app_root / "Cs_200211_WanYeXianVideo.usm", keys, reporter)
 
     data = last_event(reporter, "probe")
     assert data["stem"] == "Cs_200211_WanYeXianVideo"

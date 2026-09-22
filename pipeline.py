@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from resources.keys import calculate_key_from_filename, find_video_key, find_video_version
+from resources.keys import calculate_key_from_filename, find_video_version
 from resources.subtitles import local_subtitle_path
 from stages.ass import ASS
 from stages.crack import crack_key
@@ -307,11 +307,11 @@ def crack_all(usm_files: list[Path], reporter: Reporter) -> None:
     reporter.event("crack_summary", recovered=recovered, unrecovered=len(failures))
 
 
-def probe_usm(usm_file: Path, keys_data: dict, reporter: Reporter) -> None:
+def probe_usm(usm_file: Path, keys: Keys, reporter: Reporter) -> None:
     stem = usm_file.stem
     sub_stem = BASENAME_FIXES.get(stem, stem)
-    key = find_video_key(keys_data, stem) is not None
-    version = find_video_version(keys_data, stem)
+    key = keys.get(stem) is not None
+    version = find_video_version(keys.data, stem)
     subtitles = [
         lang for lang in SUBTITLES_LANGUAGES if local_subtitle_path(sub_stem, lang).exists()
     ]

@@ -183,17 +183,21 @@ def test_skip_carries_on_with_the_batch(pipeline_stub, monkeypatch, tmp_path):
     assert '{"type":"job_skipped","file":"Cs_A.usm","reason":"requested"}' in result.stdout
 
 
-def test_probe_skips_sync_and_pipeline(monkeypatch, tmp_path):
+def test_probe_shares_one_keys_and_skips_sync_and_pipeline(monkeypatch, tmp_path):
+    """One Keys for the whole run, handed to probe_usm itself rather than a snapshot of its
+    data, so an update accepted partway through reaches the files probed after it."""
+    keys = types.SimpleNamespace(data={"list": []})
     probed = []
-    monkeypatch.setattr(main, "probe_usm", lambda usm_file, keys, reporter: probed.append(usm_file))
-    monkeypatch.setattr(main, "load_local_keys", dict)
-    monkeypatch.setattr(main, "Keys", forbid_call)
+    monkeypatch.setattr(
+        main, "probe_usm", lambda usm_file, keys, reporter: probed.append((usm_file, keys))
+    )
+    monkeypatch.setattr(main, "Keys", lambda reporter: keys)
     monkeypatch.setattr(main, "sync_subtitles", forbid_call)
     monkeypatch.setattr(main, "process_usm", forbid_call)
 
-    usm = make_usm(tmp_path)
-    assert runner.invoke(main.app, [str(usm), "--probe"]).exit_code == 0
-    assert probed == [usm]
+    files = [make_usm(tmp_path, "Cs_A.usm"), make_usm(tmp_path, "Cs_B.usm")]
+    assert runner.invoke(main.app, [*map(str, files), "--probe"]).exit_code == 0
+    assert probed == [(files[0], keys), (files[1], keys)]
 
 
 def test_crack_skips_keys_and_pipeline(monkeypatch, tmp_path):

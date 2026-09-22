@@ -7,7 +7,7 @@ import typer
 
 from pipeline import Options, crack_all, probe_usm, process_usm
 from resources.fonts import fetch_font
-from resources.keys import Keys, load_local_keys
+from resources.keys import Keys
 from resources.subtitles import sync_subtitles
 from stages.filter import DEFAULT_CRF, DEFAULT_PRESET
 from utils.errors import Cancelled, CharlotteError, Skipped
@@ -257,9 +257,9 @@ def demux(
         return
 
     if probe:
-        keys_data = load_local_keys()
+        probe_keys = Keys(reporter)
         for usm_file in usm_files:
-            probe_usm(usm_file, keys_data, reporter)
+            probe_usm(usm_file, probe_keys, reporter)
         return
 
     log.info(f"Found {len(usm_files)} USM file(s).")
