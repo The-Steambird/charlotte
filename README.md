@@ -50,7 +50,6 @@ content.
 - Built-in self updater
 
 ## Roadmap
-
 - Graphical User Interface (coming soon)
 - Support for Honkai: Star Rail
 
@@ -64,8 +63,8 @@ degree), so it's recommended to have a powerful machine for optimal performance.
 
 ### Prerequisites
 
-1. Download `charlotte-<version>.zip` from
-   the [latest release](https://github.com/The-Steambird/charlotte/releases/latest) and unzip it.
+1. Download `charlotte.exe` from
+   the [latest release](https://github.com/The-Steambird/charlotte/releases/latest).
 2. Locate `.usm` files at:
 
 ```
@@ -78,7 +77,7 @@ history.
 ### Usage
 
 ```sh
-charlotte-cli [PATHS...] [OPTIONS]
+charlotte [PATHS...] [OPTIONS]
 ```
 
 `PATHS` is one or more `.usm` files and/or directories containing `.usm` files.
@@ -86,7 +85,7 @@ charlotte-cli [PATHS...] [OPTIONS]
 Example:
 
 ```sh
-charlotte-cli "USM\Cs_Cutscene_Something_Girl.usm" -vs -nc
+charlotte "USM\Cs_Cutscene_Something_Girl.usm" -vs -nc
 ```
 
 This decrypts the cutscene, applies the VapourSynth filter script, and writes to
@@ -96,32 +95,32 @@ files.
 Process several files and/or directories at once:
 
 ```sh
-charlotte-cli "USM\Cs_A.usm" "USM\Cs_B.usm" "USM\Cs_More_Cutscenes.usm" -o output
+charlotte "USM\Cs_A.usm" "USM\Cs_B.usm" "USM\Cs_More_Cutscenes.usm" -o output
 ```
 
 To check what is available for your files (decryption key, local subtitles, VapourSynth script)
 without processing anything:
 
 ```sh
-charlotte-cli "USM\Cs_Cutscene_Something_Girl.usm" --probe
+charlotte "USM\Cs_Cutscene_Something_Girl.usm" --probe
 ```
 
 To recover key straight from the USM file and report them without demuxing or converting:
 
 ```sh
-charlotte-cli "USM\Cs_Cutscene_Something_Girl.usm" --crack
+charlotte "USM\Cs_Cutscene_Something_Girl.usm" --crack
 ```
 
 To check for a newer release, and install it in place after confirmation:
 
 ```sh
-charlotte-cli --update
+charlotte --update
 ```
 
 For help:
 
 ```sh
-charlotte-cli --help
+charlotte --help
 ```
 
 **Tip**: If you're running with `-vs` flag, for higher encoding speed, setting Python and FFmpeg in
@@ -142,9 +141,8 @@ that Windows' Process Scheduling Priority will prioritize Charlotte.
 | Option   | `--default-sub [CODE]`   | `-ds`     | Select default subtitle: `chs`, `cht`, `de`, `en` (default), `es`, `fr`, `id`, `it`, `jp`, `kr`, `pt`, `ru`, `th`, `tr`, `vi`.                 |
 | Option   | `--key [KEY]`            | `-k`      | Manually input a key for a single file                                                                                                         |
 | Option   | `--vapoursynth`          | `-vs`     | Apply a matching VapourSynth filter script from `vs/`.                                                                                         |
-| Option   | `--hard-sub`             | `-hs`     | Burn the default subtitle language into the video with x265.                                                                                   |
-| Option   | `--crf [VALUE]`          | `-crf`    | x265 CRF value for re-encoded output, i.e. `-vs` or `-hs` (default: `13.5`).                                                                   |
-| Option   | `--preset [PRESET]`      | `-preset` | x265 preset for re-encoded output, i.e. `-vs` or `-hs` (default: `slower`).                                                                    |
+| Option   | `--crf [VALUE]`          | `-crf`    | x265 CRF value for VapourSynth output (default: `13.5`).                                                                                       |
+| Option   | `--preset [PRESET]`      | `-preset` | x265 preset for VapourSynth output (default: `slower`).                                                                                        |
 | Option   | `--x265-params [PARAMS]` | `-x265`   | Custom x265 params (colon-separated). Overrides the built-in defaults below.                                                                   |
 | Option   | `--probe`                | `-p`      | Only report what is available for each file (decryption key, local subtitles, VapourSynth script). Read-only: nothing is processed or fetched. |
 | Option   | `--crack`                | `-c`      | Recover key from USM file and report it, without demuxing or converting.                                                                       |
@@ -152,11 +150,11 @@ that Windows' Process Scheduling Priority will prioritize Charlotte.
 | Option   | `--update`               | `-u`      | Check GitHub for a newer release and update.                                                                                                   |
 | Option   | `--version`              | `-v`      | Print the Charlotte version and exit.                                                                                                          |
 
-When `-vs` or `-hs` is used, the following x265 params are applied automatically unless
+When `-vs` option is used, the following x265 params are applied automatically unless
 `--x265-params` is set:
 
 ```
-keyint=300:min-keyint=30:no-open-gop=1:ref=6:bframes=8:lookahead-slices=0:aq-mode=3:aq-strength=0.75:qcomp=0.72:cbqpoffs=-2:crqpoffs=-2:no-cutree=1:rd=4:psy-rd=2.0:psy-rdoq=1.7:max-merge=5:no-strong-intra-smoothing=1:tskip=1:deblock=-2,-2:no-sao=1:no-sao-non-deblock=1
+keyint=300:min-keyint=30:no-open-gop=1:ref=6:bframes=8:lookahead-slices=0:rc-lookahead=60:aq-mode=3:aq-strength=0.75:qcomp=0.72:cbqpoffs=-2:crqpoffs=-2:no-cutree=1:rd=4:psy-rd=2.0:psy-rdoq=1.7:max-merge=5:no-strong-intra-smoothing=1:tskip=1:deblock=-2,-2:no-sao=1:no-sao-non-deblock=1
 ```
 
 These options are highly optimized for video quality, I do not recommend changing it unless you have
