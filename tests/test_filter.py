@@ -115,6 +115,8 @@ def test_subtitle_rendered_at_frame_size_only_during_its_cue(tmp_path):
     ends. Four black frames at 1 fps go through the bundled ffmpeg and come back raw. The
     subtitle sits under a directory named with every character `filter_escape` has to
     protect, because only ffmpeg's own parser can prove the escaping right."""
+    if not ffmpeg_path().exists():
+        pytest.skip("bundled ffmpeg.exe is not present")
     filters = subprocess.run(
         [str(ffmpeg_path()), "-hide_banner", "-filters"], capture_output=True, text=True
     ).stdout

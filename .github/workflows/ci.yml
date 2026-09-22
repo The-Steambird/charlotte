@@ -29,5 +29,10 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
+      - name: Download custom ffmpeg
+        run: gh release download tools --pattern ffmpeg.exe --repo ${{ github.repository }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Run tests
         run: uv run pytest -q
