@@ -222,9 +222,6 @@ class HCA:
             f.write(self.header)
             f.write(self.data)
 
-    def convert(self, output_path: Path, codec: str = "flac") -> Path:
-        extension, codec_args = AUDIO_CODECS.get(codec, AUDIO_CODECS["flac"])
-        output_file = output_path / f"{self.file_path.stem}{extension}"
-        args = ["-f", "hca", "-i", "pipe:0", *codec_args, str(output_file)]
+    def convert(self, output_file: Path, codec: str = "flac") -> None:
+        args = ["-f", "hca", "-i", "pipe:0", *AUDIO_CODECS[codec][1], str(output_file)]
         run_ffmpeg(args, "Audio conversion failed", input=b"".join((self.header, self.data)))
-        return output_file
