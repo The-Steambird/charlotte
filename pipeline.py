@@ -39,7 +39,7 @@ class Options:
     vapoursynth: bool
     crf: float
     preset: str
-    x265_params: str
+    x265_params: str | None
     fonts: list[Path] | None = None
     default_audio: str = "ja"
     default_subtitle: str = "EN"

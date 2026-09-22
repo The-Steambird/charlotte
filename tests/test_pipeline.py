@@ -45,7 +45,7 @@ def make_options(tmp_path, **overrides) -> Options:
         "vapoursynth": False,
         "crf": 0.0,
         "preset": "fast",
-        "x265_params": "",
+        "x265_params": None,
     }
     return Options(**defaults | overrides)
 

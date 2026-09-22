@@ -82,6 +82,11 @@ def test_explicit_params_replace_builtin_ahead_of_colour_tags():
     assert flag_value(cmd, "-x265-params") == f"rd=6:{X265_COLOUR_TAGS}"
 
 
+def test_empty_params_mean_the_bare_preset():
+    cmd = encode_args(DEFAULT_CRF, DEFAULT_PRESET, "")
+    assert flag_value(cmd, "-x265-params") == X265_COLOUR_TAGS
+
+
 def test_colour_tags_go_through_x265_only():
     """-colorspace on an untagged Y4M input makes ffmpeg convert, not tag."""
     cmd = encode_args(DEFAULT_CRF, DEFAULT_PRESET)

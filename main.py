@@ -143,14 +143,13 @@ def demux(
         ),
     ] = DEFAULT_PRESET,
     x265_params: Annotated[
-        str,
+        str | None,
         typer.Option(
             "--x265-params",
             "-x265",
-            help="Custom x265 parameters (colon-separated). Replaces the built-in tuning "
-            "(see README).",
+            help="Custom x265 parameters (colon-separated). Replaces the built-in tuning."
         ),
-    ] = "",
+    ] = None,
     json_output: Annotated[
         bool,
         typer.Option(

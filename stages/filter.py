@@ -52,12 +52,13 @@ def subtitle_filter(subtitle: Path, fonts: list[Path]) -> str:
 
 
 def encode_args(
-    crf: float, preset: str, x265_params: str = "", video_filter: str | None = None
+    crf: float, preset: str, x265_params: str | None = None, video_filter: str | None = None
 ) -> list[str]:
     """Audio and subtitles are muxed by this same ffmpeg run because the bundled build cannot
     decode HEVC, and remuxing the B-frame stream later would clamp its timestamps. `-f` is
-    explicit because the output ends in `.part`."""
-    if not x265_params:
+    explicit because the output ends in `.part`. `x265_params` None means the built-in tuning;
+    an empty string means the bare preset."""
+    if x265_params is None:
         tuning = [
             "keyint=300",
             "min-keyint=30",
