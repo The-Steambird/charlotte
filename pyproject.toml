@@ -1,6 +1,6 @@
 [project]
 name = "charlotte"
-version = "0.4.2"
+version = "1.0.0"
 description = "A cutscene encoder tool for a certain popular anime game."
 authors = [{ name = "lunarmint", email = "me@chocomint.dev" }]
 requires-python = ">=3.14"
