@@ -37,7 +37,9 @@ def calculate_key_from_filename(filename: str) -> int:
 
 @functools.cache
 def fetch_upstream_keys() -> bytes | None:
-    keys_url = "https://raw.githubusercontent.com/lunarmint/charlotte/refs/heads/master/keys.json"
+    keys_url = (
+        "https://raw.githubusercontent.com/The-Steambird/charlotte/refs/heads/master/keys.json"
+    )
     try:
         log.info("Attempting to fetch keys.json from upstream...")
         response = urllib3.request("GET", keys_url, timeout=10.0)
@@ -66,13 +68,6 @@ def find_video_key(data: dict, filename: str) -> int | None:
 def find_video_version(data: dict, filename: str) -> str | None:
     found = find_video(data, filename)
     return found[0].get("version") if found else None
-
-
-def load_local_keys() -> dict:
-    try:
-        return orjson.loads(keys_path().read_bytes())
-    except OSError, orjson.JSONDecodeError:
-        return {}
 
 
 class Keys:
@@ -139,7 +134,8 @@ class Keys:
             return None
 
         overwrite_prompt = self.reporter.ask(
-            "New key(s) found. Overwrite local keys.json?", default=False
+            "Some local keys are missing, but an updated key list is available. Update now?",
+            default=False,
         )
         if not overwrite_prompt:
             self.declined = True
