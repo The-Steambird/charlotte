@@ -11,6 +11,7 @@ from typing import Any, TextIO
 import orjson
 
 from utils.reporter.base import Reporter, Task
+from utils.version import __version__
 
 
 PROTOCOL_VERSION = 1
@@ -70,7 +71,7 @@ class JsonReporter(Reporter):
             self.pipe_fd = fd if pipe_peek(fd) is not None else None
         except AttributeError, OSError, ValueError:
             self.pipe_fd = None
-        self.emit({"type": "session_start", "protocol": PROTOCOL_VERSION})
+        self.emit({"type": "session_start", "protocol": PROTOCOL_VERSION, "version": __version__})
 
     def emit(self, event):
         line = orjson.dumps(event).decode("utf-8")

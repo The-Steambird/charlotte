@@ -6,6 +6,7 @@ import pytest
 
 from utils.errors import Cancelled, Skipped
 from utils.reporter import PROTOCOL_VERSION, ConsoleReporter, JsonReporter
+from utils.version import __version__
 
 
 def make_reporter(stdin_text=""):
@@ -32,9 +33,11 @@ def progress_of(reporter):
 # --- event shapes (the contract with the GUI frontend) ---
 
 
-def test_session_start_announces_protocol():
+def test_session_start_announces_protocol_and_version():
     reporter = make_reporter()
-    assert events_of(reporter) == [{"type": "session_start", "protocol": PROTOCOL_VERSION}]
+    assert events_of(reporter) == [
+        {"type": "session_start", "protocol": PROTOCOL_VERSION, "version": __version__}
+    ]
 
 
 def test_log_event_shape():
