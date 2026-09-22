@@ -130,6 +130,26 @@ def burn_subtitle(clip, subtitle: Path, fonts: list[Path]):
     return vs.core.sub.TextFile(clip, file=str(subtitle), fontdir=font_dir, matrix_s="170m")
 
 
+def build_clip(
+    source: Path,
+    script: str | None,
+    subtitle: Path | None,
+    fonts: list[Path],
+    reporter: Reporter,
+):
+    import vapoursynth as vs
+
+    if script:
+        reporter.log("info", f"Applying VapourSynth filter: vs/{script}.py")
+        clip = importlib.import_module(f"vs.{script}").filter_chain(source)
+    else:
+        clip = vs.core.bs.VideoSource(str(source), showprogress=False)
+    if subtitle:
+        reporter.log("info", f"Burning subtitle: {subtitle.name}")
+        clip = burn_subtitle(clip, subtitle, fonts)
+    return clip
+
+
 def worker(
     source: Path,
     script: str | None,
@@ -150,14 +170,7 @@ def worker(
             sys.path.insert(0, str(path))
 
     try:
-        if script:
-            reporter.log("info", f"Applying VapourSynth filter: vs/{script}.py")
-            clip = importlib.import_module(f"vs.{script}").filter_chain(source)
-        else:
-            clip = vs.core.bs.VideoSource(str(source), showprogress=False)
-        if subtitle:
-            reporter.log("info", f"Burning subtitle: {subtitle.name}")
-            clip = burn_subtitle(clip, subtitle, fonts)
+        clip = build_clip(source, script, subtitle, fonts, reporter)
     except Exception as e:
         reporter.log("warning", f"Error building the VapourSynth clip for {source.stem}: {e}")
         queue.put(("result", False))
