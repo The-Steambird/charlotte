@@ -16,6 +16,15 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Require the matching MonsieurVerite tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          git ls-remote --exit-code --tags https://github.com/The-Steambird/MonsieurVerite "refs/tags/${{ github.ref_name }}"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::MonsieurVerite has no tag ${{ github.ref_name }}. Tag the GUI repo with the same version and re-run."
+            exit 1
+          }
+
       - name: Check out MonsieurVerite
         uses: actions/checkout@v6
         with:
