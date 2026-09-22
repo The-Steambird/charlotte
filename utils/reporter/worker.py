@@ -31,7 +31,7 @@ class QueueReporter(Reporter):
         raise RuntimeError("the worker process cannot ask questions")
 
 
-def relay_worker(reporter: Reporter, queue, process):
+def relay_worker(reporter: Reporter, queue, process, stop):
     """Drain the worker's queue onto `reporter` and return its result payload
     (True/False), or None if the worker died without sending one. This is the
     consumer side of the tuples QueueReporter emits."""
@@ -54,11 +54,15 @@ def relay_worker(reporter: Reporter, queue, process):
             try:
                 reporter.checkpoint()
             except Cancelled, Skipped:
-                # terminate() kills only the worker, not the ffmpeg it spawned. The dying
-                # worker closes the pipe feeding ffmpeg's stdin, so ffmpeg sees EOF and
-                # exits on its own. The GUI's Job Object is the backstop.
-                process.terminate()
-                process.join()
+                # The worker kills its ffmpeg when `stop` is set, which terminate() doesn't do.
+                # A worker still building the clip has no ffmpeg yet and may not
+                # notice the flag for a long time, and is terminated after the grace period.
+                stop.set()
+                # stop grace period = 5s
+                process.join(5.0)
+                if process.is_alive():
+                    process.terminate()
+                    process.join()
                 raise
             try:
                 msg = queue.get(timeout=0.2)

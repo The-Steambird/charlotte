@@ -3,6 +3,7 @@ import multiprocessing
 import re
 import subprocess
 import sys
+import threading
 
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
@@ -13,6 +14,7 @@ from utils.reporter import QueueReporter, Reporter, relay_worker
 
 
 if TYPE_CHECKING:
+    from multiprocessing.synchronize import Event
     from pathlib import Path
 
 
@@ -55,9 +57,7 @@ def encode_args(
     crf: float, preset: str, x265_params: str | None = None, video_filter: str | None = None
 ) -> list[str]:
     """Audio and subtitles are muxed by this same ffmpeg run because the bundled build cannot
-    decode HEVC, and remuxing the B-frame stream later would clamp its timestamps. `-f` is
-    explicit because the output ends in `.part`. `x265_params` None means the built-in tuning;
-    an empty string means the bare preset."""
+    decode HEVC, and remuxing the B-frame stream later would clamp its timestamps."""
     if x265_params is None:
         tuning = [
             "keyint=300",
@@ -82,7 +82,6 @@ def encode_args(
         x265_params = ":".join(tuning)
 
     return [
-        "-f", "matroska",
         *(["-vf", video_filter] if video_filter else []),
         "-c:v", "libx265",
         "-pix_fmt", "yuv420p10le",
@@ -148,11 +147,18 @@ def build_clip(source: Path, script: str | None, reporter: Reporter):
     return vs.core.bs.VideoSource(str(source), showprogress=False)
 
 
+def kill_on_stop(stop: Event, process: subprocess.Popen) -> None:
+    stop.wait()
+    process.kill()
+    process.wait()
+
+
 def worker(
     source: Path,
     script: str | None,
     ffmpeg_args: list[str],
     queue: multiprocessing.Queue,
+    stop: Event,
 ) -> None:
     import vapoursynth as vs
 
@@ -196,34 +202,30 @@ def worker(
         queue.put(("result", False))
         return
 
-    total_frames = clip.num_frames
+    # Closing stdin is not enough to stop ffmpeg on a cancel, because it first flushes the whole
+    # x265 lookahead, which takes a few minutes on the slow presets and keeps the audio inputs and
+    # the .part open, where the parent's cleanup cannot delete them.
+    threading.Thread(target=kill_on_stop, args=(stop, process), daemon=True).start()
 
-    with reporter.task("ffmpeg", total=total_frames, unit="frames") as ffmpeg_task:
-        # ffmpeg_pipe writes VS frames into ffmpeg's stdin, then parse_ffmpeg_stderr reads ffmpeg's
-        # stderr on the main thread. They must run concurrently to keep both pipes continuously
-        # drained. If stdin is written without draining stderr, ffmpeg's stderr buffer fills up,
-        # ffmpeg stalls, stdin backs up, creating a deadlock.
-        def ffmpeg_pipe() -> None:
+    with (
+        reporter.task("ffmpeg", total=clip.num_frames, unit="frames") as ffmpeg_task,
+        ThreadPoolExecutor(max_workers=1) as executor,
+    ):
+        # stderr is drained on its own thread while this one feeds stdin. A full stderr pipe
+        # stalls ffmpeg, which then stops reading stdin and deadlocks both. VapourSynth stays on
+        # the main thread because of its CUDA and COM contexts.
+        stderr_future = executor.submit(parse_ffmpeg_stderr, process, ffmpeg_task, reporter)
+        try:
             with process.stdin as stdin:
                 clip.output(stdin, y4m=True)
+        except Exception as e:
+            reporter.log("error", f"VapourSynth processing failed: {e}")
+            process.kill()
+            queue.put(("result", False))
+            return
+        stderr_future.result()
 
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            # parse_ffmpeg_stderr runs on a background thread, continuously reading ffmpeg's stderr
-            # while the main thread safely handles VapourSynth (CUDA/COM contexts).
-            stderr_future = executor.submit(parse_ffmpeg_stderr, process, ffmpeg_task, reporter)
-
-            # Blocks until VapourSynth finishes writing all frames.
-            try:
-                ffmpeg_pipe()
-            except Exception as e:
-                reporter.log("error", f"\nVapourSynth processing failed: {e}")
-                process.kill()
-                queue.put(("result", False))
-                return
-
-            stderr_future.result()
-
-        return_code = process.wait()
+    return_code = process.wait()
 
     if return_code != 0:
         reporter.log("error", f"FFmpeg exited with code {return_code}")
@@ -251,13 +253,14 @@ def vapoursynth_filter(
     """
     ctx = multiprocessing.get_context()
     queue = ctx.Queue()
+    stop = ctx.Event()
 
     process = ctx.Process(
         target=worker,
-        args=(source, script, ffmpeg_args, queue),
+        args=(source, script, ffmpeg_args, queue, stop),
     )
     process.start()
-    result = relay_worker(reporter, queue, process)
+    result = relay_worker(reporter, queue, process, stop)
     process.join()
 
     if process.exitcode != 0:

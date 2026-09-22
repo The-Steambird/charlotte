@@ -1,4 +1,5 @@
 import queue
+import threading
 
 import pytest
 
@@ -18,10 +19,10 @@ class SkippingReporter(FakeReporter):
 
 
 class FakeProcess:
-    def __init__(self, alive: int = 10):
+    def __init__(self, alive: int = 10, stubborn: bool = False):
         self.alive = alive
+        self.stubborn = stubborn
         self.terminated = False
-        self.joined = False
 
     def is_alive(self):
         self.alive -= 1
@@ -29,9 +30,15 @@ class FakeProcess:
 
     def terminate(self):
         self.terminated = True
+        self.alive = 0
 
-    def join(self):
-        self.joined = True
+    def join(self, timeout=None):
+        if not self.stubborn:
+            self.alive = 0
+
+
+def relay(reporter, q, process=None):
+    return relay_worker(reporter, q, process or FakeProcess(), threading.Event())
 
 
 def loaded_queue(*messages):
@@ -90,7 +97,7 @@ def test_relay_replays_messages_onto_the_reporter(reporter):
         ("result", True),
     )
 
-    assert relay_worker(reporter, q, FakeProcess()) is True
+    assert relay(reporter, q) is True
     assert reporter.logs == [("info", "filtering")]
     assert reporter.tasks == [("ffmpeg", 100, "frame")]
     assert reporter.progress == [("ffmpeg", 40), ("ffmpeg", 100)]
@@ -99,7 +106,7 @@ def test_relay_replays_messages_onto_the_reporter(reporter):
 def test_relay_stops_at_the_result_leaving_the_rest(reporter):
     q = loaded_queue(("result", False), ("log", "info", "too late"))
 
-    assert relay_worker(reporter, q, FakeProcess()) is False
+    assert relay(reporter, q) is False
     assert reporter.logs == []
 
 
@@ -108,12 +115,12 @@ def test_relay_drains_a_result_the_dying_worker_left_behind(reporter):
     flushes as the process exits."""
     q = loaded_queue(("log", "info", "done"), ("result", True))
 
-    assert relay_worker(reporter, q, FakeProcess(alive=1)) is True
+    assert relay(reporter, q, FakeProcess(alive=1)) is True
     assert reporter.logs == [("info", "done")]
 
 
 def test_relay_returns_none_when_the_worker_sent_no_result(reporter):
-    assert relay_worker(reporter, queue.Queue(), FakeProcess(alive=1)) is None
+    assert relay(reporter, queue.Queue(), FakeProcess(alive=1)) is None
 
 
 def test_relay_survives_an_empty_poll(reporter):
@@ -132,7 +139,7 @@ def test_relay_survives_an_empty_poll(reporter):
     q = SlowQueue()
     q.put(("result", "late"))
 
-    assert relay_worker(reporter, q, FakeProcess()) == "late"
+    assert relay(reporter, q) == "late"
     assert q.polls == 2  # timed out once, then delivered
 
 
@@ -141,14 +148,24 @@ def test_relay_survives_an_empty_poll(reporter):
     [(CancellingReporter, Cancelled), (SkippingReporter, Skipped)],
     ids=["cancel", "skip"],
 )
-def test_relay_stop_terminates_the_worker(stopping, error):
-    process = FakeProcess()
+def test_relay_stop_asks_the_worker_to_kill_its_ffmpeg(stopping, error):
+    """terminate() would orphan the worker's ffmpeg, which keeps encoding for minutes."""
+    process, stop = FakeProcess(), threading.Event()
 
     with pytest.raises(error):
-        relay_worker(stopping(), loaded_queue(("result", True)), process)
+        relay_worker(stopping(), loaded_queue(("result", True)), process, stop)
+
+    assert stop.is_set()
+    assert not process.terminated
+
+
+def test_relay_terminates_a_worker_that_ignores_the_stop():
+    process = FakeProcess(stubborn=True)
+
+    with pytest.raises(Cancelled):
+        relay(CancellingReporter(), loaded_queue(), process)
 
     assert process.terminated
-    assert process.joined
 
 
 def test_relay_closes_open_tasks_on_cancel():
@@ -162,7 +179,7 @@ def test_relay_closes_open_tasks_on_cancel():
     q = loaded_queue(("task_start", "ffmpeg", 100, "frame"), ("result", True))
 
     with pytest.raises(Cancelled):
-        relay_worker(reporter, q, FakeProcess())
+        relay(reporter, q)
 
     assert reporter.tasks == [("ffmpeg", 100, "frame")]
     assert reporter.open_tasks == 0
