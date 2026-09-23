@@ -82,15 +82,19 @@ class Keys:
             self.bootstrap()
 
     def bootstrap(self) -> None:
-        if not self.path.exists():
+        if self.path.exists():
+            self.raw = self.path.read_bytes()
+        else:
             log.info(f"keys.json not found at {self.path}.")
-            upstream_bytes = fetch_upstream_keys()
-            if not upstream_bytes:
+            self.raw = fetch_upstream_keys() or b""
+            if not self.raw:
                 log.error("Failed to fetch keys.json. Keys will be retrieved from the file itself.")
                 return
-            self.path.write_bytes(upstream_bytes)
+            try:
+                self.path.write_bytes(self.raw)
+            except OSError as e:
+                log.warning(f"Failed to save keys.json: {e}")
 
-        self.raw = self.path.read_bytes()
         try:
             self.data = orjson.loads(self.raw)
         except orjson.JSONDecodeError:
