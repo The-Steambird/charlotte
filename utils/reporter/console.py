@@ -21,6 +21,7 @@ from utils.reporter.base import Reporter, Task
 
 STAGE_LABELS = {
     "demux": "Demuxing USM",
+    "crack": "Recovering key",
     "subtitles": "Subtitles",
     "ffmpeg": "Encoding",
     "download": "Downloading update",
