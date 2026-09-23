@@ -51,8 +51,16 @@ jobs:
       - name: Build with PyInstaller
         run: uv run pyinstaller charlotte.spec
 
+      # If pyproject.toml version tag doesn't match the release, stop it.
       - name: Smoke test
-        run: dist/charlotte-cli.exe --version
+        run: |
+          $reported = "$(dist/charlotte-cli.exe --version)".Trim()
+          Write-Host $reported
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          if ("${{ github.ref }}".StartsWith("refs/tags/") -and $reported -ne "Charlotte ${{ github.ref_name }}.") {
+            Write-Host "::error::The engine reports '$reported' but the tag is ${{ github.ref_name }}. Bump pyproject.toml, move the tag onto that commit and re-run."
+            exit 1
+          }
 
       # ---- MonsieurVerite bundle -----
 
