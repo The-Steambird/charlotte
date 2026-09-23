@@ -21,10 +21,10 @@
 
 **[Click here to download latest version](https://github.com/The-Steambird/charlotte/releases/download/1.0.0/charlotte-1.0.0.zip)**
 
-**Version 7.1 changed the encryption and I haven't found a way to crack, so for now the only way is to wait until I play the Archon Quest to packet sniff and get the key.**
+**Version 7.1 changed the encryption and I haven't found a way to crack. Even if a key is available, due to the new structure, it's not usable yet.**
 
 Charlotte is a Genshin Impact utility that losslessly decrypts `.usm` cutscene files into playable
-`.mkv` videos, covering all known cutscenes from versions 1.0 through 7.1. Charlotte is also able to
+`.mkv` videos, covering all known cutscenes from versions 1.0 through 7.0. Charlotte is also able to
 retrieve keys directly from USM file itself, although an explicitly defined key is still preferred
 for processing speed.
 
