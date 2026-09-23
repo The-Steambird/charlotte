@@ -1347,6 +1347,46 @@
                     ]
                 }
             ]
+        },
+        {
+            "version": "7.1",
+            "videoGroups": [
+                {
+                    "parentQuestId": "7017",
+                    "videos": [
+                        "Cs_ZD_AQ70171401_UR_Boy",
+                        "Cs_ZD_AQ70171401_UR_Girl"
+                    ]
+                },
+                {
+                    "parentQuestId": "7019",
+                    "videos": [
+                        "Cs_ZD_AQ70190901_HE"
+                    ]
+                },
+                {
+                    "parentQuestId": "7020",
+                    "videos": [
+                        "Cs_ZD_AQ70200801_TFR_Boy",
+                        "Cs_ZD_AQ70200801_TFR_Girl",
+                        "Cs_ZD_AQ70201101_RTF_Boy",
+                        "Cs_ZD_AQ70201101_RTF_Girl",
+                        "Cs_ZD_AQ70201201_SLT"
+                    ]
+                },
+                {
+                    "parentQuestId": "40251",
+                    "videos": [
+                        "Cs_LY_EQ4025110_ZY"
+                    ]
+                },
+                {
+                    "parentQuestId": "_reunion_",
+                    "videos": [
+                        "Video_Reunion_71"
+                    ]
+                }
+            ]
         }
     ]
 }
