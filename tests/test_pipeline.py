@@ -191,6 +191,16 @@ def test_missing_key_falls_back_to_cracking(tmp_path, reporter, monkeypatch):
     assert ("job_skipped", {"file": "Cs_Test.usm", "reason": "no_key"}) in reporter.events
 
 
+def test_stream_cipher_is_skipped_even_with_a_key(tmp_path, reporter):
+    header = chunk(b"@SFV", b"@UTF\x00VIDEO_HDRINFO\x00width\x00nonce\x00\x00", data_type=1)
+    usm_file, opts, keys = make_run(tmp_path, chunks=header + chunk(b"@SFV", b"video"))
+
+    process_usm(usm_file, opts, reporter, keys)
+
+    assert last_event(reporter, "job_skipped") == {"file": "Cs_Test.usm", "reason": "unsupported"}
+    assert not (tmp_path / "out" / "Cs_Test").exists()
+
+
 # --- full run: output layout and cleanup ---
 
 

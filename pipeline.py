@@ -13,7 +13,7 @@ from stages.crack import crack_key
 from stages.filter import encode_args, find_vs_script, subtitle_filter, vapoursynth_filter
 from stages.hca import HCA
 from stages.mux import mux, mux_args, track_code
-from stages.usm import USM
+from stages.usm import USM, uses_stream_cipher
 from utils.errors import Cancelled, CharlotteError, Skipped
 from utils.ffmpeg import AUDIO_CODECS
 from utils.languages import SUBTITLES_LANGUAGES
@@ -169,6 +169,14 @@ def process_usm(usm_file: Path, opts: Options, reporter: Reporter, keys: Keys) -
     if opts.skip_existing and final_mkv.exists():
         log.info(f"Skipping {usm_file.name}: output already exists.")
         reporter.event("job_skipped", file=usm_file.name, reason="exists")
+        return
+
+    if uses_stream_cipher(usm_file):
+        log.warning(
+            f"Skipping {usm_file.name}: its video uses the 7.1 encryption, "
+            "which is not supported yet."
+        )
+        reporter.event("job_skipped", file=usm_file.name, reason="unsupported")
         return
 
     key_pair = keys.decryption_key(stem)

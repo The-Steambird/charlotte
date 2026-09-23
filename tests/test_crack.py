@@ -131,6 +131,17 @@ def test_crack_key_declines_a_file_with_no_video(tmp_path, reporter):
     assert "no IVF video stream" in recovery.reason
 
 
+def test_crack_key_declines_the_stream_cipher(tmp_path, reporter):
+    header = chunk(b"@SFV", b"@UTF\x00VIDEO_HDRINFO\x00width\x00nonce\x00\x00", data_type=1)
+    usm_file = tmp_path / "Cs_Test.usm"
+    usm_file.write_bytes(header + chunk(b"@SFV", b"DKIF"))
+
+    recovery = crack_key(usm_file, reporter)
+
+    assert recovery.key is None
+    assert "7.1 encryption" in recovery.reason
+
+
 def test_crack_key_declines_too_little_video(tmp_path, reporter):
     payload = b"DKIF" + bytes(MASK_START + MIN_MASKED)
     usm_file = tmp_path / "Cs_Test.usm"

@@ -1,6 +1,6 @@
 import struct
 
-from contextlib import ExitStack
+from contextlib import ExitStack, closing
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
@@ -75,6 +75,16 @@ def read_chunks(file_path: Path) -> Generator[tuple[ChunkHeader, bytes]]:
             payload = fp.read(payload_size)
             fp.seek(header.padding_size, 1)
             yield header, payload
+
+
+def uses_stream_cipher(file_path: Path) -> bool:
+    """7.1 introduces a new cipher adds a `nonce` column to VIDEO_HDRINFO
+     and the column name sits in the @UTF table's string pool."""
+    with closing(read_chunks(file_path)) as chunks:
+        for header, payload in chunks:
+            if header.signature == b"@SFV":
+                return header.data_type & 0x3 == 1 and b"\x00nonce\x00" in payload
+    return False
 
 
 class USM:

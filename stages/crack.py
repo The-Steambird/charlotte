@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, NamedTuple
 
 import numpy as np
 
-from stages.usm import BLOCK, CIPHER_START, is_masked, read_chunks
+from stages.usm import BLOCK, CIPHER_START, is_masked, read_chunks, uses_stream_cipher
 from utils.logger import log
 
 
@@ -274,6 +274,9 @@ def evaluate(sample: Sample) -> tuple[list[int] | None, str]:
 
 
 def crack_key(usm_file: Path, reporter: Reporter) -> Recovery:
+    if uses_stream_cipher(usm_file):
+        return decline(usm_file, "the video uses the 7.1 encryption, which cannot be cracked")
+
     log.info(f"Recovering decryption key from {usm_file.name}...")
     reason = ""
 
