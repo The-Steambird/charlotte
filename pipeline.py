@@ -1,6 +1,7 @@
 import shutil
 
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -11,7 +12,7 @@ from stages.ass import ASS
 from stages.crack import crack_key
 from stages.filter import encode_args, find_vs_script, subtitle_filter, vapoursynth_filter
 from stages.hca import HCA
-from stages.mux import mux, mux_args
+from stages.mux import mux, mux_args, track_code
 from stages.usm import USM
 from utils.errors import Cancelled, CharlotteError, Skipped
 from utils.ffmpeg import AUDIO_CODECS
@@ -51,21 +52,21 @@ class Options:
 
 def process_audio(
     hca_files: list[Path],
+    audio_files: list[Path],
     key1: bytes,
     key2: bytes,
-    output_path: Path,
     keep_decrypted: bool,
     codec: str,
-) -> list[Path]:
-    def convert_one(hca_file: Path) -> Path:
+) -> None:
+    def convert_one(hca_file: Path, audio_file: Path) -> None:
         hca = HCA(hca_file, key1, key2)
         hca.decrypt()
         if keep_decrypted:
             hca.save()
-        return hca.convert(output_path=output_path, codec=codec)
+        hca.convert(audio_file, codec)
 
     with ThreadPoolExecutor() as executor:
-        return list(executor.map(convert_one, hca_files))
+        list(executor.map(convert_one, hca_files, audio_files))
 
 
 def process_subtitles(stem: str, output_path: Path) -> list[Path]:
@@ -96,15 +97,13 @@ def process_subtitles(stem: str, output_path: Path) -> list[Path]:
 
 
 def encode_video(
-    stem: str,
-    output_path: Path,
+    video: Path,
+    partial_mkv: Path,
+    file_paths: dict[str, list[Path]],
     opts: Options,
     reporter: Reporter,
-    file_paths: dict[str, list[Path]],
-) -> Path | None:
-    """x265 re-encode for -vs and -hs. Writes the complete .mkv as .part until it's known good,
-    because a canceled ffmpeg yields a truncated file that --skip-existing would take for a
-    finished one. Returns .part, or None when there was nothing to encode or the encode failed."""
+) -> bool:
+    stem = video.stem
     script = find_vs_script(stem) if opts.vapoursynth else None
     if opts.vapoursynth and script is None:
         log.warning(f"No VapourSynth script found for {stem}, skipping filter...")
@@ -113,42 +112,31 @@ def encode_video(
 
     burnt_subtitle = None
     if opts.hard_sub:
-        for path in file_paths["ass"]:
-            if path.stem.split("_")[-1] == opts.default_subtitle:
-                burnt_subtitle = path
-                break
+        burnt_subtitle = next(
+            (path for path in file_paths["ass"] if track_code(path) == opts.default_subtitle), None
+        )
         if burnt_subtitle is None:
             log.warning(f"No {opts.default_subtitle} subtitle for {stem}, nothing to burn in.")
         else:
             log.info(f"Burning subtitle: {burnt_subtitle.name}")
 
     if not (script or burnt_subtitle):
-        return None
+        return False
 
-    partial_mkv = output_path / f"{stem}.mkv.part"
-    file_paths.setdefault("vs", []).append(partial_mkv)
     video_filter = subtitle_filter(burnt_subtitle, opts.fonts) if burnt_subtitle else None
     ffmpeg_args = mux_args(
-        output_path,
         partial_mkv,
         encode_args(opts.crf, opts.preset, opts.x265_params, video_filter),
+        file_paths["audio"],
+        [] if burnt_subtitle else file_paths["ass"],
         fonts=opts.fonts,
         default_audio=opts.default_audio,
         default_subtitle=opts.default_subtitle,
-        audio_extension=AUDIO_CODECS[opts.audio_codec][0],
-        subtitles=burnt_subtitle is None,
     )
-    encoded = vapoursynth_filter(
-        source=output_path / f"{stem}.ivf",
-        reporter=reporter,
-        ffmpeg_args=ffmpeg_args,
-        script=script,
-    )
-    if not encoded:
-        log.warning(f"Failed to apply VapourSynth filter for {stem}, skipping...")
-        partial_mkv.unlink(missing_ok=True)
-        return None
-    return partial_mkv
+    if vapoursynth_filter(source=video, reporter=reporter, ffmpeg_args=ffmpeg_args, script=script):
+        return True
+    log.warning(f"Encode failed, falling back to a lossless mux: {stem}")
+    return False
 
 
 def cleanup_files(file_paths: dict[str, list[Path]], output_path: Path) -> None:
@@ -165,6 +153,9 @@ def cleanup_files(file_paths: dict[str, list[Path]], output_path: Path) -> None:
             shutil.rmtree(subs_dir)
     except OSError as e:
         log.error(f"Failed to remove directory {subs_dir.name}: {e}")
+
+    with suppress(OSError):
+        output_path.rmdir()
 
 
 def process_usm(usm_file: Path, opts: Options, reporter: Reporter, keys: Keys) -> None:
@@ -192,19 +183,26 @@ def process_usm(usm_file: Path, opts: Options, reporter: Reporter, keys: Keys) -
 
     key1, key2 = key_pair
     usm = USM(usm_file, key1, key2)
-    output_path = Path(opts.output) / f"{stem}"
+    output_path = Path(opts.output) / stem
     output_path.mkdir(exist_ok=True)
-    mkv = output_path / f"{stem}.mkv"
-    file_paths: dict[str, list[Path]] = {}
+    video = output_path / f"{stem}.ivf"
+    # Both the encode and the mux write here, and only a finished run renames it. A killed
+    # ffmpeg can leave a valid looking truncated file where --skip-existing would mistake as
+    # a finished one.
+    partial_mkv = output_path / f"{stem}.mkv.part"
+    file_paths: dict[str, list[Path]] = {"mkv": [partial_mkv]}
     try:
         usm.demux(output_path=output_path, reporter=reporter, file_paths=file_paths)
         reporter.checkpoint()
 
-        file_paths["audio"] = process_audio(
-            file_paths.get("hca", []),
+        hca_files = file_paths.get("hca", [])
+        extension = AUDIO_CODECS[opts.audio_codec][0]
+        file_paths["audio"] = [hca_file.with_suffix(extension) for hca_file in hca_files]
+        process_audio(
+            hca_files,
+            file_paths["audio"],
             key1,
             key2,
-            output_path,
             keep_decrypted=opts.no_cleanup,
             codec=opts.audio_codec,
         )
@@ -214,31 +212,29 @@ def process_usm(usm_file: Path, opts: Options, reporter: Reporter, keys: Keys) -
         )
         reporter.checkpoint()
 
-        encoded = encode_video(stem, output_path, opts, reporter, file_paths)
-        reporter.checkpoint()
-
-        if encoded:
-            encoded.replace(mkv)
-            log.info(f"Created: {mkv}")
-        else:
+        if not encode_video(video, partial_mkv, file_paths, opts, reporter):
             mux(
-                output_path,
+                video,
+                partial_mkv,
+                file_paths["audio"],
+                file_paths["ass"],
                 fonts=opts.fonts,
                 default_audio=opts.default_audio,
                 default_subtitle=opts.default_subtitle,
-                audio_extension=AUDIO_CODECS[opts.audio_codec][0],
             )
-    except Cancelled, Skipped:
+        reporter.checkpoint()
+    except Cancelled, Skipped, CharlotteError:
         if not opts.no_cleanup:
             cleanup_files(file_paths, output_path)
         raise
 
-    if opts.flat:
-        final_mkv.parent.mkdir(parents=True, exist_ok=True)
-        mkv.replace(final_mkv)
-        if not opts.no_cleanup:
-            shutil.rmtree(output_path, ignore_errors=True)
-    elif not opts.no_cleanup:
+    try:
+        partial_mkv.replace(final_mkv)
+    except OSError as e:
+        raise CharlotteError(f"Failed to move {partial_mkv.name} into place: {e}") from e
+    log.info(f"Created: {final_mkv}")
+
+    if not opts.no_cleanup:
         cleanup_files(file_paths, output_path)
 
     reporter.event(

@@ -197,14 +197,13 @@ def test_missing_key_falls_back_to_cracking(tmp_path, reporter, monkeypatch):
 @pytest.fixture
 def stub_stages(monkeypatch):
     """Everything after demux is stubbed, leaving one audio track and EN plus JP subtitles
-    on disk for the real mux_args to find. The encode writes its .part whether or not it
-    reports `ok`, the way a failing ffmpeg does."""
-    calls = SimpleNamespace(ok=True, encode=None, mux=None)
+    on disk. The encode writes its .part whether or not it reports `ok`, the way a failing
+    ffmpeg does."""
+    calls = SimpleNamespace(ok=True, encode=None, mux=None, mux_error=None)
 
-    def audio(hca_files, *args, **kwargs):
-        flac = hca_files[0].with_suffix(".flac")
-        flac.write_bytes(b"flac")
-        return [flac]
+    def audio(hca_files, audio_files, *args, **kwargs):
+        for path in audio_files:
+            path.write_bytes(b"flac")
 
     def subtitles(stem, output_path):
         (output_path / "subs").mkdir()
@@ -218,9 +217,11 @@ def stub_stages(monkeypatch):
         Path(ffmpeg_args[-1]).write_bytes(b"hevc" if calls.ok else b"trunc")
         return calls.ok
 
-    def mux(output_path, **kwargs):
+    def mux(video, output_file, *args, **kwargs):
         calls.mux = kwargs
-        (output_path / f"{output_path.name}.mkv").write_bytes(b"mkv")
+        output_file.write_bytes(b"mkv")
+        if calls.mux_error:
+            raise calls.mux_error
 
     monkeypatch.setattr(pipeline, "process_audio", audio)
     monkeypatch.setattr(pipeline, "process_subtitles", subtitles)
@@ -244,6 +245,18 @@ def test_run_writes_mkv_and_clears_intermediates(stub_stages, tmp_path, reporter
         "output": str(work_dir / "Cs_Test.mkv"),
         "status": "ok",
     }) in reporter.events  # fmt: skip
+
+
+def test_failure_leaves_no_mkv_and_clears_intermediates(stub_stages, tmp_path, reporter):
+    """A mux that dies mid-write leaves a truncated file behind, and it must not land where
+    --skip-existing would take it for a finished one."""
+    stub_stages.mux_error = CharlotteError("Muxing failed")
+    usm_file, opts, keys = make_run(tmp_path)
+
+    with pytest.raises(CharlotteError):
+        process_usm(usm_file, opts, reporter, keys)
+
+    assert not (tmp_path / "out" / "Cs_Test").exists()
 
 
 def test_no_cleanup_keeps_intermediates(stub_stages, tmp_path, reporter):

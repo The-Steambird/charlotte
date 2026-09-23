@@ -8,25 +8,22 @@ from stages.mux import mux, mux_args
 from utils.errors import CharlotteError
 
 
-def make_output(tmp_path, stem="Cs_Test", channels=("0", "1", "2"), subs=("EN", "JP")):
-    output = tmp_path / stem
-    (output / "subs").mkdir(parents=True)
-    (output / f"{stem}.ivf").write_bytes(b"")
-    for channel in channels:
-        (output / f"{stem}_{channel}.flac").write_bytes(b"")
-    for lang in subs:
-        (output / "subs" / f"{stem}_{lang}.ass").write_bytes(b"")
-    return output
+def make_tracks(tmp_path, stem="Cs_Test", channels=("0", "1", "2"), subs=("EN", "JP")):
+    video = tmp_path / f"{stem}.ivf"
+    video.write_bytes(b"")
+    audio = [tmp_path / f"{stem}_{channel}.flac" for channel in channels]
+    subtitles = [tmp_path / "subs" / f"{stem}_{lang}.ass" for lang in subs]
+    return video, audio, subtitles
 
 
 def test_default_audio_sorted_first_and_flagged(ffmpeg, tmp_path):
-    output = make_output(tmp_path)  # channels: 0=zh, 1=en, 2=ja
-    mux(output, default_audio="ja")
+    video, audio, subs = make_tracks(tmp_path)  # channels: 0=zh, 1=en, 2=ja
+    mux(video, tmp_path / "o.mkv.part", audio, subs, default_audio="ja")
 
     inputs = input_files(ffmpeg.cmd)
     assert inputs[0].endswith("Cs_Test.ivf")
     assert inputs[1].endswith("Cs_Test_2.flac")
-    assert {Path(path).name for path in inputs[2:4]} == {"Cs_Test_0.flac", "Cs_Test_1.flac"}
+    assert [Path(path).name for path in inputs[2:4]] == ["Cs_Test_0.flac", "Cs_Test_1.flac"]
     assert flag_value(ffmpeg.cmd, "-metadata:s:a:0") == "language=ja"
     assert flag_value(ffmpeg.cmd, "-disposition:a:0") == "default"
     assert flag_value(ffmpeg.cmd, "-disposition:a:1") == "0"
@@ -34,8 +31,8 @@ def test_default_audio_sorted_first_and_flagged(ffmpeg, tmp_path):
 
 
 def test_default_subtitle_sorted_first_and_flagged(ffmpeg, tmp_path):
-    output = make_output(tmp_path)
-    mux(output, default_subtitle="JP")
+    video, audio, subs = make_tracks(tmp_path)
+    mux(video, tmp_path / "o.mkv.part", audio, subs, default_subtitle="JP")
 
     subtitle_inputs = [path for path in input_files(ffmpeg.cmd) if path.endswith(".ass")]
     assert subtitle_inputs[0].endswith("Cs_Test_JP.ass")
@@ -48,65 +45,51 @@ def test_default_subtitle_sorted_first_and_flagged(ffmpeg, tmp_path):
 def test_encode_tail_puts_codec_args_between_maps_and_metadata(tmp_path):
     """Video comes in on ffmpeg's stdin ahead of these args, which is why the tail has to
     start with the other inputs, place the codec options after the last -i (before it they
-    would be read as input options) and end with the output."""
-    output = make_output(tmp_path)
-    args = mux_args(output, output / "Cs_Test.mkv.part", ["-c:v", "libx265", "-c:a", "copy"])
+    would be read as input options) and end with the output. The .part name cannot tell
+    ffmpeg which muxer to use."""
+    _, audio, subs = make_tracks(tmp_path)
+    output = tmp_path / "Cs_Test.mkv.part"
+    args = mux_args(output, ["-c:v", "libx265", "-c:a", "copy"], audio, subs)
 
     assert args[0] == "-i"
     assert args.index("-c:v") > max(i for i, flag in enumerate(args) if flag == "-i")
     assert args.index("-c:v") > args.index("-map")
     assert args.index("-c:v") < args.index("-metadata:s:a:0")
-    assert args[-1] == str(output / "Cs_Test.mkv.part")
+    assert args[-3:] == ["-f", "matroska", str(output)]
 
 
 def test_fonts_only_ride_with_subtitle_tracks(tmp_path):
     """The two game fonts are 11 MB each and exist only for the .ass tracks, which is why a
     hard-subbed output (or one whose cutscene has no subtitles) must not carry them."""
     fonts = [tmp_path / "ja-jp.ttf", tmp_path / "zh-cn.ttf"]
-    output = make_output(tmp_path)
-    assert "-attach" not in mux_args(output, output / "o.mkv", [], fonts=fonts, subtitles=False)
-
-    output = make_output(tmp_path, stem="Cs_NoSubs", subs=())
-    assert "-attach" not in mux_args(output, output / "o.mkv", [], fonts=fonts)
-
-
-def test_audio_glob_follows_extension(ffmpeg, tmp_path):
-    output = make_output(tmp_path, channels=())
-    (output / "Cs_Test_2.mka").write_bytes(b"")
-    mux(output, audio_extension=".mka")
-    assert input_files(ffmpeg.cmd)[1].endswith("Cs_Test_2.mka")
+    _, audio, subs = make_tracks(tmp_path)
+    assert "-attach" in mux_args(tmp_path / "o.mkv", [], audio, subs, fonts=fonts)
+    assert "-attach" not in mux_args(tmp_path / "o.mkv", [], audio, [], fonts=fonts)
 
 
 def test_all_streams_mapped(ffmpeg, tmp_path):
-    output = make_output(tmp_path)  # 1 video + 3 audio + 2 subtitles
-    mux(output)
+    video, audio, subs = make_tracks(tmp_path)  # 1 video + 3 audio + 2 subtitles
+    mux(video, tmp_path / "o.mkv.part", audio, subs)
     maps = [value for flag, value in pairwise(ffmpeg.cmd) if flag == "-map"]
     assert maps == ["0", "1", "2", "3", "4", "5"]
-
-
-def test_fonts_attached_when_given(ffmpeg, tmp_path):
-    output = make_output(tmp_path)
-    mux(output, fonts=(tmp_path / "ja-jp.ttf", tmp_path / "zh-cn.ttf"))
-    assert ffmpeg.cmd.count("-attach") == 2
-    assert flag_value(ffmpeg.cmd, "-metadata:s:t:0") == "mimetype=application/x-truetype-font"
 
 
 def test_nostdin_ahead_of_the_first_input(ffmpeg, tmp_path):
     """mux passes nothing on stdin, and without the flag ffmpeg would inherit the GUI's
     command pipe under --json and read a byte off it per keyboard poll."""
-    output = make_output(tmp_path)
-    mux(output)
+    video, audio, subs = make_tracks(tmp_path)
+    mux(video, tmp_path / "o.mkv.part", audio, subs)
     assert ffmpeg.cmd.index("-nostdin") < ffmpeg.cmd.index("-i")
 
 
 def test_missing_video_input_raises(ffmpeg, tmp_path):
-    output = make_output(tmp_path)
-    (output / "Cs_Test.ivf").unlink()
+    video, audio, subs = make_tracks(tmp_path)
+    video.unlink()
     with pytest.raises(CharlotteError, match="input not found"):
-        mux(output)
+        mux(video, tmp_path / "o.mkv.part", audio, subs)
 
 
 def test_no_audio_raises(ffmpeg, tmp_path):
-    output = make_output(tmp_path, channels=())
+    video, _, subs = make_tracks(tmp_path)
     with pytest.raises(CharlotteError, match="No audio files"):
-        mux(output)
+        mux(video, tmp_path / "o.mkv.part", [], subs)

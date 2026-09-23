@@ -10,63 +10,47 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
+def track_code(path: Path) -> str:
+    """Every intermediate's name ends in its channel number or subtitle language."""
+    return path.stem.rpartition("_")[2]
+
+
 def mux_args(
-    output_path: Path,
     output_file: Path,
     codec_args: list[str],
+    audio_files: list[Path],
+    subtitle_files: list[Path],
     fonts: list[Path] | None = None,
     default_audio: str = "ja",
     default_subtitle: str = "EN",
-    audio_extension: str = ".flac",
-    subtitles: bool = True,
 ) -> list[str]:
-    """The caller supplies the video input ahead of these. A hard-subbed video gets no soft
-    subtitle tracks because players that auto-select one would draw it over the burnt
-    subtitle and Matroska has no flag that stops them. The fonts exist for those tracks,
-    which is why they are only attached alongside them."""
-    audio_files = list(output_path.glob(f"*{audio_extension}"))
-    subtitle_files = list(output_path.joinpath("subs").glob("*.ass")) if subtitles else []
-
+    """The caller puts the video input ahead of these. Fonts are only attached with subtitle
+    tracks, and `-f` is needed because the `.part` name does not tell ffmpeg the format."""
     if not audio_files:
         raise CharlotteError("No audio files found to mux.")
 
-    audio_files.sort(
-        key=lambda x: (
-            0
-            if AUDIO_LANGUAGES.get(x.stem.split("_")[-1], ("und", "Unknown"))[0] == default_audio
-            else 1
-        )
-    )
-    subtitle_files.sort(key=lambda x: 0 if x.stem.split("_")[-1] == default_subtitle else 1)
+    audio = [(path, AUDIO_LANGUAGES.get(track_code(path), ("und",))[0]) for path in audio_files]
+    subtitles = [(path, track_code(path)) for path in subtitle_files]
+    audio.sort(key=lambda track: (track[1] != default_audio, track[0].name))
+    subtitles.sort(key=lambda track: (track[1] != default_subtitle, track[0].name))
 
     args = []
-    for audio_file in audio_files:
-        args.extend(["-i", str(audio_file)])
-    for subtitle_file in subtitle_files:
-        args.extend(["-i", str(subtitle_file)])
-
-    args.extend(["-map", "0"])
-    for i in range(len(audio_files)):
-        args.extend(["-map", str(i + 1)])
-    for i in range(len(subtitle_files)):
-        args.extend(["-map", str(i + 1 + len(audio_files))])
+    for path, _ in audio + subtitles:
+        args.extend(["-i", str(path)])
+    for i in range(len(audio) + len(subtitles) + 1):
+        args.extend(["-map", str(i)])
 
     args.extend(codec_args)
 
-    for i, audio_file in enumerate(audio_files):
-        index = audio_file.stem.split("_")[-1]
-        lang = AUDIO_LANGUAGES.get(index, ("und", "Unknown"))[0]
+    for i, (_, lang) in enumerate(audio):
         args.extend([f"-metadata:s:a:{i}", f"language={lang}"])
         args.extend([f"-disposition:a:{i}", "default" if lang == default_audio else "0"])
 
-    for i, subtitle_file in enumerate(subtitle_files):
-        subtitle_lang = subtitle_file.stem.split("_")[-1]
-        lang = get_language(subtitle_lang)
-        args.extend([f"-metadata:s:s:{i}", f"language={lang}"])
-        is_default = subtitle_lang == default_subtitle
-        args.extend([f"-disposition:s:{i}", "default" if is_default else "0"])
+    for i, (_, code) in enumerate(subtitles):
+        args.extend([f"-metadata:s:s:{i}", f"language={get_language(code)}"])
+        args.extend([f"-disposition:s:{i}", "default" if code == default_subtitle else "0"])
 
-    for i, font in enumerate(fonts if subtitle_files and fonts else []):
+    for i, font in enumerate(fonts if subtitles and fonts else []):
         args.extend(
             [
                 "-attach",
@@ -78,37 +62,36 @@ def mux_args(
             ]
         )
 
-    args.append(str(output_file))
+    args.extend(["-f", "matroska", str(output_file)])
     return args
 
 
 def mux(
-    output_path: Path,
+    video: Path,
+    output_file: Path,
+    audio_files: list[Path],
+    subtitle_files: list[Path],
     fonts: list[Path] | None = None,
     default_audio: str = "ja",
     default_subtitle: str = "EN",
-    audio_extension: str = ".flac",
 ) -> None:
-    """Mux the lossless IVF video and the audio into an MKV container using ffmpeg."""
-    input_file = output_path / f"{output_path.stem}.ivf"
-    if not input_file.exists():
-        raise CharlotteError(f"Mux input not found: {input_file.name}")
+    """Mux the lossless IVF video with the audio and subtitle tracks."""
+    if not video.exists():
+        raise CharlotteError(f"Mux input not found: {video.name}")
 
-    output_mkv = output_path / f"{output_path.stem}.mkv"
     args = [
         "-i",
-        str(input_file),
+        str(video),
         *mux_args(
-            output_path,
-            output_mkv,
+            output_file,
             ["-c", "copy"],
+            audio_files,
+            subtitle_files,
             fonts=fonts,
             default_audio=default_audio,
             default_subtitle=default_subtitle,
-            audio_extension=audio_extension,
         ),
     ]
 
-    log.info(f"Muxing: {output_mkv.name}")
+    log.info(f"Muxing: {video.stem}")
     run_ffmpeg(args, "Muxing failed")
-    log.info(f"Created: {output_mkv}")
