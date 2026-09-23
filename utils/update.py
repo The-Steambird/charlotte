@@ -52,26 +52,27 @@ def parse_version(text: str) -> tuple[tuple[int, ...], int, int]:
     return numbers, phase_rank.get(phase, final_rank), number
 
 
-def fetch_latest_release() -> dict | None:
+def fetch_latest_release() -> dict:
     url = "https://api.github.com/repos/The-Steambird/charlotte/releases/latest"
     headers = {
         "User-Agent": f"charlotte/{__version__}",
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
     }
+    log.info("Checking for updates...")
     try:
-        log.info("Checking for updates...")
         response = urllib3.request("GET", url, headers=headers, timeout=10.0)
-        if response.status == 200:
-            return orjson.loads(response.data)
-        log.warning(f"Failed to check for updates: HTTP {response.status}.")
     except urllib3.exceptions.HTTPError as e:
-        log.error(f"Failed to check for updates: GitHub unreachable ({e})")
+        raise CharlotteError(f"GitHub unreachable ({e})") from e
+    if response.status != 200:
+        raise CharlotteError(f"HTTP {response.status}")
+    try:
+        release = orjson.loads(response.data)
     except orjson.JSONDecodeError as e:
-        log.error(f"Failed to check for updates: malformed release data ({e})")
-    except Exception as e:
-        log.error(f"Failed to check for updates: {e}")
-    return None
+        raise CharlotteError(f"malformed release data ({e})") from e
+    if not isinstance(release, dict):
+        raise CharlotteError("malformed release data")
+    return release
 
 
 def asset_download_url(release: dict) -> str | None:
@@ -83,9 +84,10 @@ def asset_download_url(release: dict) -> str | None:
 
 
 def check_for_update() -> UpdateInfo:
-    release = fetch_latest_release()
-    if release is None:
-        return UpdateInfo(current=__version__, reason="network error")
+    try:
+        release = fetch_latest_release()
+    except CharlotteError as e:
+        return UpdateInfo(current=__version__, reason=str(e))
 
     latest = release.get("tag_name")
     if not isinstance(latest, str) or not latest:

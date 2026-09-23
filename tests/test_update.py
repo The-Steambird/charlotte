@@ -78,22 +78,28 @@ def test_not_available_when_current_or_ahead(monkeypatch, tag):
     assert info.reason is None
 
 
+def unreachable():
+    raise CharlotteError("HTTP 503")
+
+
 @pytest.mark.parametrize(
-    "fetched, reason",
+    "fetch, reason",
     [
-        (None, "network error"),
-        ({"html_url": "x"}, "no release tag found"),
-        (release("nightly"), "unrecognized release tag"),
+        (unreachable, "HTTP 503"),
+        (lambda: {"html_url": "x"}, "no release tag found"),
+        (lambda: release("nightly"), "unrecognized release tag"),
     ],
 )
-def test_declined_check_reports_reason(monkeypatch, fetched, reason):
-    monkeypatch.setattr(utils.update, "fetch_latest_release", lambda: fetched)
+def test_declined_check_reports_reason(monkeypatch, fetch, reason):
+    monkeypatch.setattr(utils.update, "fetch_latest_release", fetch)
     assert check_for_update() == UpdateInfo(current=__version__, reason=reason)
 
 
-@pytest.mark.parametrize("fetched", [release("v99.0.0"), None], ids=["available", "failed"])
-def test_event_shape_fixed_regardless_of_outcome(monkeypatch, reporter, fetched):
-    monkeypatch.setattr(utils.update, "fetch_latest_release", lambda: fetched)
+@pytest.mark.parametrize(
+    "fetch", [lambda: release("v99.0.0"), unreachable], ids=["available", "failed"]
+)
+def test_event_shape_fixed_regardless_of_outcome(monkeypatch, reporter, fetch):
+    monkeypatch.setattr(utils.update, "fetch_latest_release", fetch)
     report_update(reporter)
     assert len(reporter.events) == 1
     kind, data = reporter.events[0]
