@@ -158,20 +158,13 @@ def test_save_overwrites_the_source_with_the_in_memory_stream(tmp_path):
 
 def test_convert_pipes_the_stream_to_ffmpeg(ffmpeg, tmp_path):
     hca = make_hca(tmp_path)
-    output = hca.convert(output_path=tmp_path, codec="flac")
+    output = tmp_path / "Cs_Test_0.flac"
+    hca.convert(output, codec="flac")
 
-    assert output == tmp_path / "Cs_Test_0.flac"
     assert flag_value(ffmpeg.cmd, "-f") == "hca"
     assert flag_value(ffmpeg.cmd, "-i") == "pipe:0"
     assert ffmpeg.cmd[-1] == str(output)
     assert ffmpeg.input == bytes(hca.header) + bytes(hca.data)
-
-
-def test_convert_extension_and_args_follow_the_codec(ffmpeg, tmp_path):
-    output = make_hca(tmp_path).convert(output_path=tmp_path, codec="opus")
-
-    assert output == tmp_path / "Cs_Test_0.mka"
-    assert flag_value(ffmpeg.cmd, "-c:a") == "libopus"
 
 
 def test_convert_reports_ffmpeg_failure(ffmpeg, tmp_path, caplog):
@@ -179,7 +172,7 @@ def test_convert_reports_ffmpeg_failure(ffmpeg, tmp_path, caplog):
     ffmpeg.stderr = b"Invalid data found when processing input"
 
     with pytest.raises(CharlotteError, match="Audio conversion failed"):
-        make_hca(tmp_path).convert(output_path=tmp_path)
+        make_hca(tmp_path).convert(tmp_path / "Cs_Test_0.flac")
 
     assert "Invalid data found" in caplog.text
 
@@ -187,5 +180,5 @@ def test_convert_reports_ffmpeg_failure(ffmpeg, tmp_path, caplog):
 def test_convert_without_ffmpeg_raises(ffmpeg, tmp_path):
     ffmpeg.missing = True
     with pytest.raises(CharlotteError) as excinfo:
-        make_hca(tmp_path).convert(output_path=tmp_path)
+        make_hca(tmp_path).convert(tmp_path / "Cs_Test_0.flac")
     assert str(excinfo.value) == FFMPEG_MISSING

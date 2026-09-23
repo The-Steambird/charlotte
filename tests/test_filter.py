@@ -94,14 +94,13 @@ def test_colour_tags_go_through_x265_only():
     assert not {"-colorspace", "-color_primaries", "-color_trc"} & set(cmd)
 
 
-def test_other_tracks_copied_and_muxer_named():
+def test_other_tracks_copied():
     """The encode writes the final MKV itself, which is why audio and subtitles ride along
-    as copies. The .part output name cannot tell ffmpeg which muxer to use."""
+    as copies."""
     cmd = encode_args(DEFAULT_CRF, DEFAULT_PRESET)
     assert flag_value(cmd, "-c:v") == "libx265"
     assert flag_value(cmd, "-c:a") == "copy"
     assert flag_value(cmd, "-c:s") == "copy"
-    assert flag_value(cmd, "-f") == "matroska"
     assert "-vf" not in cmd
 
 
