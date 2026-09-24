@@ -19,7 +19,7 @@
 
 # Charlotte
 
-**[Click here to download latest version](https://github.com/The-Steambird/charlotte/releases/download/1.0.0/charlotte-1.0.0.zip)**
+**[Click here to download latest version](https://github.com/The-Steambird/charlotte/releases/download/1.0.1/charlotte-1.0.1.zip)**
 
 **Version 7.1 changed the encryption and I haven't found a way to crack. Even if a key is available, due to the new structure, it's not usable yet.**
 
