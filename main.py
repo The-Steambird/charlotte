@@ -139,7 +139,7 @@ def demux(
         typer.Option(
             "--preset",
             "-preset",
-            help="x265 preset when the video is re-encoded (--vapoursynth or --hard-sub)."
+            help="x265 preset when the video is re-encoded (--vapoursynth or --hard-sub).",
         ),
     ] = DEFAULT_PRESET,
     x265_params: Annotated[
@@ -147,7 +147,7 @@ def demux(
         typer.Option(
             "--x265-params",
             "-x265",
-            help="Custom x265 parameters (colon-separated). Replaces the built-in tuning."
+            help="Custom x265 parameters (colon-separated). Replaces the built-in tuning.",
         ),
     ] = None,
     json_output: Annotated[
@@ -185,8 +185,13 @@ def demux(
         ),
     ] = False,
     key: Annotated[
-        int | None,
-        typer.Option("--key", "-k", help="Manually supply the decryption key for a single file."),
+        str | None,
+        typer.Option(
+            "--key",
+            "-k",
+            help="Manually supply the decryption key for a single file, as the decimal "
+            "videoKey or, for a 7.1 file, audioKey:aesKey.",
+        ),
     ] = None,
     default_audio: Annotated[
         str,
@@ -259,7 +264,11 @@ def demux(
     if probe:
         probe_keys = Keys(reporter)
         for usm_file in usm_files:
-            probe_usm(usm_file, probe_keys, reporter)
+            try:
+                probe_usm(usm_file, probe_keys, reporter)
+            except (CharlotteError, OSError) as e:
+                log.error(f"Failed to read {usm_file.name}: {e}")
+                reporter.event("error", file=usm_file.name, message=str(e))
         return
 
     log.info(f"Found {len(usm_files)} USM file(s).")
@@ -294,7 +303,7 @@ def demux(
         except Skipped:
             log.info(f"Skipped {usm_file.name} on request.")
             reporter.event("job_skipped", file=usm_file.name, reason="requested")
-        except CharlotteError as e:
+        except (CharlotteError, OSError) as e:
             log.error(f"Failed to process {usm_file.name}: {e}")
             reporter.event("error", file=usm_file.name, message=str(e))
             failures += 1

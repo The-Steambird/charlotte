@@ -15,10 +15,36 @@ import utils.ffmpeg
 from utils.reporter import Reporter, Task
 
 
-def chunk(sig: bytes, payload: bytes, channel: int = 0, data_type: int = 0) -> bytes:
+def chunk(
+    sig: bytes, payload: bytes, channel: int = 0, data_type: int = 0, frame_time: int = 0
+) -> bytes:
     data_size = 0x18 + len(payload)
-    header = struct.pack(">4sIxBHB2xB16x", sig, data_size, 0x18, 0, channel, data_type)
+    header = struct.pack(
+        ">4sIxBHB2xBI12x", sig, data_size, 0x18, 0, channel, data_type, frame_time
+    )
     return header + payload
+
+
+def video_header(nonce: int | None = None) -> bytes:
+    """A VIDEO_HDRINFO chunk, carrying the nonce column 7.1 added when one is given."""
+    columns = [("width", 0x54, struct.pack(">I", 1920))]
+    if nonce is not None:
+        columns.append(("nonce", 0x56, struct.pack(">Q", nonce)))
+
+    strings = b"VIDEO_HDRINFO\x00"
+    schema = b""
+    for name, flags, _ in columns:
+        schema += struct.pack(">BI", flags, len(strings))
+        strings += name.encode() + b"\x00"
+    row = b"".join(value for _, _, value in columns)
+
+    rows_at = 24 + len(schema)
+    strings_at = rows_at + len(row)
+    table = struct.pack(
+        ">HHIIIHHI", 1, rows_at, strings_at, strings_at + len(strings), 0, len(columns),
+        len(row), 1,
+    ) + schema + row + strings  # fmt: skip
+    return chunk(b"@SFV", b"@UTF" + struct.pack(">I", len(table)) + table, data_type=1)
 
 
 def flag_value(cmd, flag):

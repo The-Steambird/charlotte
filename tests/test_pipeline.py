@@ -4,10 +4,12 @@ from types import SimpleNamespace
 import orjson
 import pytest
 
+from Crypto.Cipher import AES
+
 import pipeline
 import resources.keys
 
-from conftest import FakeReporter, chunk, flag_value, forbid_call, input_files
+from conftest import FakeReporter, chunk, flag_value, forbid_call, input_files, video_header
 from pipeline import (
     Options,
     crack_all,
@@ -24,6 +26,7 @@ from utils.errors import Cancelled, CharlotteError, Skipped
 
 KEYS_DATA = {"list": [{"version": "5.3", "videoKey": 111, "videos": ["Cs_A"]}]}
 SRT = "1\n00:00:01,000 --> 00:00:02,000\nHi\n"
+AES_KEY = bytes(range(16))
 
 
 def write_subtitle(stem, lang, text=SRT):
@@ -39,6 +42,12 @@ def make_keys(reporter, monkeypatch, data=None, upstream=None):
     fetch = (lambda: orjson.dumps(upstream)) if upstream is not None else forbid_call
     monkeypatch.setattr(resources.keys, "fetch_upstream_keys", fetch)
     return Keys(reporter)
+
+
+def write_usm(root, stem, chunks=b""):
+    path = root / f"{stem}.usm"
+    path.write_bytes(chunks)
+    return path
 
 
 def last_event(reporter, kind):
@@ -75,7 +84,8 @@ def test_probe_reports_available(tmp_app_root, reporter, monkeypatch):
     write_subtitle("Cs_A", "EN")
     write_subtitle("Cs_A", "JP")
 
-    probe_usm(tmp_app_root / "Cs_A.usm", make_keys(reporter, monkeypatch, KEYS_DATA), reporter)
+    keys = make_keys(reporter, monkeypatch, KEYS_DATA)
+    probe_usm(write_usm(tmp_app_root, "Cs_A"), keys, reporter)
 
     assert last_event(reporter, "probe") == {
         "file": "Cs_A.usm",
@@ -84,6 +94,7 @@ def test_probe_reports_available(tmp_app_root, reporter, monkeypatch):
         "version": "5.3",
         "subtitles": ["EN", "JP"],
         "vs_script": "Cs_A",
+        "stream_cipher": False,
     }
 
 
@@ -91,7 +102,7 @@ def test_probe_reports_missing_when_upstream_has_nothing(tmp_app_root, reporter,
     monkeypatch.setattr(pipeline, "find_vs_script", lambda stem: None)
     keys = make_keys(reporter, monkeypatch, {"list": []}, upstream={"list": []})
 
-    probe_usm(tmp_app_root / "Cs_A.usm", keys, reporter)
+    probe_usm(write_usm(tmp_app_root, "Cs_A"), keys, reporter)
 
     data = last_event(reporter, "probe")
     assert data["key"] is False
@@ -108,7 +119,7 @@ def test_probe_picks_up_an_accepted_upstream_update(tmp_app_root, reporter, monk
     reporter.answer = True
     keys = make_keys(reporter, monkeypatch, {"list": []}, upstream=KEYS_DATA)
 
-    probe_usm(tmp_app_root / "Cs_A.usm", keys, reporter)
+    probe_usm(write_usm(tmp_app_root, "Cs_A"), keys, reporter)
 
     data = last_event(reporter, "probe")
     assert data["key"] is True
@@ -121,11 +132,33 @@ def test_probe_reports_missing_when_the_update_is_declined(tmp_app_root, reporte
     reporter.answer = False
     keys = make_keys(reporter, monkeypatch, {"list": []}, upstream=KEYS_DATA)
 
-    probe_usm(tmp_app_root / "Cs_A.usm", keys, reporter)
+    probe_usm(write_usm(tmp_app_root, "Cs_A"), keys, reporter)
 
     data = last_event(reporter, "probe")
     assert data["key"] is False
     assert data["version"] is None
+
+
+@pytest.mark.parametrize(
+    ("group", "key"),
+    [
+        ({"audioKey": 5, "aesKey": AES_KEY.hex()}, True),
+        ({"videoKey": 111}, False),
+    ],
+)
+def test_probe_of_the_stream_cipher_needs_its_own_keys(
+    tmp_app_root, reporter, monkeypatch, group, key
+):
+    monkeypatch.setattr(pipeline, "find_vs_script", lambda stem: None)
+    keys_data = {"list": [{"version": "7.1", "videoGroups": [group | {"videos": ["Cs_A"]}]}]}
+    keys = make_keys(reporter, monkeypatch, keys_data, upstream=keys_data)
+
+    probe_usm(write_usm(tmp_app_root, "Cs_A", video_header(nonce=1)), keys, reporter)
+
+    data = last_event(reporter, "probe")
+    assert data["key"] is key
+    assert data["stream_cipher"] is True
+    assert reporter.prompts == []
 
 
 def test_probe_remaps_subtitle_stem_only(tmp_app_root, reporter, monkeypatch):
@@ -136,7 +169,7 @@ def test_probe_remaps_subtitle_stem_only(tmp_app_root, reporter, monkeypatch):
     write_subtitle("Cs_DQAQ200211_WanYeXianVideo", "EN")
 
     keys = make_keys(reporter, monkeypatch, {"list": []}, upstream={"list": []})
-    probe_usm(tmp_app_root / "Cs_200211_WanYeXianVideo.usm", keys, reporter)
+    probe_usm(write_usm(tmp_app_root, "Cs_200211_WanYeXianVideo"), keys, reporter)
 
     data = last_event(reporter, "probe")
     assert data["stem"] == "Cs_200211_WanYeXianVideo"
@@ -191,14 +224,45 @@ def test_missing_key_falls_back_to_cracking(tmp_path, reporter, monkeypatch):
     assert ("job_skipped", {"file": "Cs_Test.usm", "reason": "no_key"}) in reporter.events
 
 
-def test_stream_cipher_is_skipped_even_with_a_key(tmp_path, reporter):
-    header = chunk(b"@SFV", b"@UTF\x00VIDEO_HDRINFO\x00width\x00nonce\x00\x00", data_type=1)
-    usm_file, opts, keys = make_run(tmp_path, chunks=header + chunk(b"@SFV", b"video"))
+def test_stream_cipher_without_its_keys_is_skipped(tmp_path, reporter):
+    chunks = video_header(nonce=1) + chunk(b"@SFV", b"video")
+    usm_file, opts, _ = make_run(tmp_path, chunks=chunks)
+    keys = SimpleNamespace(stream_keys=lambda stem: None)
 
     process_usm(usm_file, opts, reporter, keys)
 
-    assert last_event(reporter, "job_skipped") == {"file": "Cs_Test.usm", "reason": "unsupported"}
+    assert last_event(reporter, "job_skipped") == {"file": "Cs_Test.usm", "reason": "no_key"}
     assert not (tmp_path / "out" / "Cs_Test").exists()
+
+
+def test_stream_cipher_decrypts_with_the_keys_of_its_group(
+    stub_stages, tmp_path, reporter, monkeypatch
+):
+    """The nonce comes from the video header and the frame time from each chunk header."""
+    nonce, frame_time = 0x0102030405060708, 0x21
+    key1, key2 = b"key1", b"key2"
+    iv = nonce.to_bytes(8, "big") + frame_time.to_bytes(4, "big") + bytes(4)
+    plain = bytes(range(0x80))
+    cipher = AES.new(AES_KEY, AES.MODE_CTR, nonce=b"", initial_value=iv)
+    encrypted = plain[:0x40] + cipher.encrypt(plain[0x40:])
+    chunks = (
+        video_header(nonce)
+        + chunk(b"@SFV", encrypted, frame_time=frame_time)
+        + chunk(b"@SFA", b"audio")
+    )
+    usm_file, opts, _ = make_run(tmp_path, chunks=chunks, no_cleanup=True)
+    audio_keys = []
+
+    def audio(hca_files, audio_files, key1, key2, **kwargs):
+        audio_keys.append(key1 + key2)
+
+    monkeypatch.setattr(pipeline, "process_audio", audio)
+    keys = SimpleNamespace(stream_keys=lambda stem: (key1, key2, AES_KEY))
+
+    process_usm(usm_file, opts, reporter, keys)
+
+    assert (tmp_path / "out" / "Cs_Test" / "Cs_Test.ivf").read_bytes() == plain
+    assert audio_keys == [key1 + key2]
 
 
 # --- full run: output layout and cleanup ---
@@ -257,13 +321,14 @@ def test_run_writes_mkv_and_clears_intermediates(stub_stages, tmp_path, reporter
     }) in reporter.events  # fmt: skip
 
 
-def test_failure_leaves_no_mkv_and_clears_intermediates(stub_stages, tmp_path, reporter):
+@pytest.mark.parametrize("error", [CharlotteError("Muxing failed"), OSError("disk full")])
+def test_failure_leaves_no_mkv_and_clears_intermediates(stub_stages, tmp_path, reporter, error):
     """A mux that dies mid-write leaves a truncated file behind, and it must not land where
     --skip-existing would take it for a finished one."""
-    stub_stages.mux_error = CharlotteError("Muxing failed")
+    stub_stages.mux_error = error
     usm_file, opts, keys = make_run(tmp_path)
 
-    with pytest.raises(CharlotteError):
+    with pytest.raises(type(error)):
         process_usm(usm_file, opts, reporter, keys)
 
     assert not (tmp_path / "out" / "Cs_Test").exists()

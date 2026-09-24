@@ -18,6 +18,20 @@ GROUPED_KEYS = {
 UPSTREAM_WITH_NEW_KEY = {
     "list": FLAT_KEYS["list"] + [{"videoKey": 333, "videos": ["Cs_New", "Cs_New2"]}]
 }
+AES_HEX = "f9e9e1c5cf3a68deffa0a4d3df665836"
+# audioKey 5 split into the two halves with no filename term added.
+STREAM_KEYS_OF_5 = (bytes([5, 0, 0, 0]), bytes(4), bytes.fromhex(AES_HEX))
+STREAM_KEYS = {
+    "list": [
+        {
+            "version": "7.1",
+            "videoGroups": [
+                {"audioKey": 5, "aesKey": AES_HEX, "videos": ["Cs_Both"]},
+                {"audioKey": 6, "videos": ["Cs_AudioOnly"]},
+            ],
+        }
+    ]
+}
 
 
 def write_keys(root, data):
@@ -62,8 +76,20 @@ def test_local_hit_skips_network(tmp_app_root, reporter, monkeypatch):
 
 def test_manual_key_skips_disk_and_network(reporter, monkeypatch):
     monkeypatch.setattr(resources.keys, "fetch_upstream_keys", forbid_call)
-    assert Keys(reporter, manual_key=42).get("Cs_Anything") == 42
+    assert Keys(reporter, manual_key="42").get("Cs_Anything") == 42
+    stream_keys = Keys(reporter, manual_key=f"5 : {AES_HEX}").stream_keys("Cs_Anything")
+    assert stream_keys == STREAM_KEYS_OF_5
     assert reporter.prompts == []
+
+
+def test_stream_keys_need_both_fields_of_the_group(tmp_app_root, reporter, monkeypatch):
+    write_keys(tmp_app_root, STREAM_KEYS)
+    monkeypatch.setattr(resources.keys, "fetch_upstream_keys", lambda: None)
+
+    keys = Keys(reporter)
+
+    assert keys.stream_keys("Cs_Both") == STREAM_KEYS_OF_5
+    assert keys.stream_keys("Cs_AudioOnly") is None
 
 
 def test_missing_file_and_no_upstream_is_not_fatal(reporter, monkeypatch):

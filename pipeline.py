@@ -2,7 +2,7 @@ import shutil
 
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -13,7 +13,7 @@ from stages.crack import crack_key
 from stages.filter import encode_args, find_vs_script, subtitle_filter, vapoursynth_filter
 from stages.hca import HCA
 from stages.mux import mux, mux_args, track_code
-from stages.usm import USM, uses_stream_cipher
+from stages.usm import USM, video_nonce
 from utils.errors import Cancelled, CharlotteError, Skipped
 from utils.ffmpeg import AUDIO_CODECS
 from utils.languages import SUBTITLES_LANGUAGES
@@ -41,7 +41,7 @@ class Options:
     crf: float
     preset: str
     x265_params: str | None
-    fonts: list[Path] | None = None
+    fonts: list[Path] = field(default_factory=list)
     default_audio: str = "ja"
     default_subtitle: str = "EN"
     audio_codec: str = "flac"
@@ -139,6 +139,18 @@ def encode_video(
     return False
 
 
+def find_keys(
+    usm_file: Path, nonce: int | None, keys: Keys, reporter: Reporter
+) -> tuple[bytes, bytes, bytes | None] | None:
+    """The audio key halves double as the old video mask's key. 7.1+ gets an AES key."""
+    stem = usm_file.stem
+    if nonce is None:
+        key_pair = keys.decryption_key(stem) or crack_usm(usm_file, reporter).key
+        return None if key_pair is None else (*key_pair, None)
+
+    return keys.stream_keys(stem)
+
+
 def cleanup_files(file_paths: dict[str, list[Path]], output_path: Path) -> None:
     for files in file_paths.values():
         for file in files:
@@ -171,26 +183,16 @@ def process_usm(usm_file: Path, opts: Options, reporter: Reporter, keys: Keys) -
         reporter.event("job_skipped", file=usm_file.name, reason="exists")
         return
 
-    if uses_stream_cipher(usm_file):
-        log.warning(
-            f"Skipping {usm_file.name}: its video uses the 7.1 encryption, "
-            "which is not supported yet."
-        )
-        reporter.event("job_skipped", file=usm_file.name, reason="unsupported")
+    nonce = video_nonce(usm_file)
+    found = find_keys(usm_file, nonce, keys, reporter)
+    if found is None:
+        log.warning(f"Could not find decryption keys for {usm_file.name}, skipping...")
+        reporter.event("job_skipped", file=usm_file.name, reason="no_key")
         return
-
-    key_pair = keys.decryption_key(stem)
-    if key_pair is None:
-        # Attempt to find key from USM files directly.
-        key_pair = crack_usm(usm_file, reporter).key
-        if key_pair is None:
-            log.warning(f"Could not find decryption keys for {usm_file.name}, skipping...")
-            reporter.event("job_skipped", file=usm_file.name, reason="no_key")
-            return
     reporter.checkpoint()
 
-    key1, key2 = key_pair
-    usm = USM(usm_file, key1, key2)
+    key1, key2, aes_key = found
+    usm = USM(usm_file, key1, key2, aes_key, nonce)
     output_path = Path(opts.output) / stem
     output_path.mkdir(exist_ok=True)
     video = output_path / f"{stem}.ivf"
@@ -231,7 +233,7 @@ def process_usm(usm_file: Path, opts: Options, reporter: Reporter, keys: Keys) -
                 default_subtitle=opts.default_subtitle,
             )
         reporter.checkpoint()
-    except Cancelled, Skipped, CharlotteError:
+    except Cancelled, Skipped, CharlotteError, OSError:
         if not opts.no_cleanup:
             cleanup_files(file_paths, output_path)
         raise
@@ -292,7 +294,7 @@ def crack_all(usm_files: list[Path], reporter: Reporter) -> None:
             reporter.event("job_skipped", file=usm_file.name, reason="requested")
             failures[usm_file.name] = "skipped"
             continue
-        except CharlotteError as e:
+        except (CharlotteError, OSError) as e:
             log.error(f"Failed to read {usm_file.name}: {e}")
             reporter.event("error", file=usm_file.name, message=str(e))
             failures[usm_file.name] = str(e)
@@ -314,7 +316,8 @@ def crack_all(usm_files: list[Path], reporter: Reporter) -> None:
 def probe_usm(usm_file: Path, keys: Keys, reporter: Reporter) -> None:
     stem = usm_file.stem
     sub_stem = BASENAME_FIXES.get(stem, stem)
-    key = keys.get(stem) is not None
+    stream_cipher = video_nonce(usm_file) is not None
+    key = (keys.stream_keys(stem) if stream_cipher else keys.get(stem)) is not None
     version = find_video_version(keys.data, stem)
     subtitles = [
         lang for lang in SUBTITLES_LANGUAGES if local_subtitle_path(sub_stem, lang).exists()
@@ -334,4 +337,5 @@ def probe_usm(usm_file: Path, keys: Keys, reporter: Reporter) -> None:
         version=version,
         subtitles=subtitles,
         vs_script=vs_script,
+        stream_cipher=stream_cipher,
     )

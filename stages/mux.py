@@ -7,6 +7,7 @@ from utils.logger import log
 
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from pathlib import Path
 
 
@@ -20,7 +21,7 @@ def mux_args(
     codec_args: list[str],
     audio_files: list[Path],
     subtitle_files: list[Path],
-    fonts: list[Path] | None = None,
+    fonts: Sequence[Path] = (),
     default_audio: str = "ja",
     default_subtitle: str = "EN",
 ) -> list[str]:
@@ -50,7 +51,7 @@ def mux_args(
         args.extend([f"-metadata:s:s:{i}", f"language={get_language(code)}"])
         args.extend([f"-disposition:s:{i}", "default" if code == default_subtitle else "0"])
 
-    for i, font in enumerate(fonts if subtitles and fonts else []):
+    for i, font in enumerate(fonts if subtitles else ()):
         args.extend(
             [
                 "-attach",
@@ -71,7 +72,7 @@ def mux(
     output_file: Path,
     audio_files: list[Path],
     subtitle_files: list[Path],
-    fonts: list[Path] | None = None,
+    fonts: Sequence[Path] = (),
     default_audio: str = "ja",
     default_subtitle: str = "EN",
 ) -> None:

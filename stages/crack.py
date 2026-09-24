@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, NamedTuple
 
 import numpy as np
 
-from stages.usm import BLOCK, CIPHER_START, is_masked, read_chunks, uses_stream_cipher
+from stages.usm import BLOCK, CIPHER_START, is_masked, read_chunks, video_nonce
 from utils.logger import log
 
 
@@ -136,7 +136,7 @@ class Stats:
         self.blocks = 0
 
     def add(self, payload: bytes) -> int:
-        rows =(len(payload) - CIPHER_START) // BLOCK
+        rows = (len(payload) - CIPHER_START) // BLOCK
         body = np.frombuffer(payload, dtype=np.uint8, count=rows * BLOCK, offset=CIPHER_START)
         running = np.bitwise_xor.accumulate(body.reshape(rows, BLOCK), axis=0)
         odd = running[1::2]  # plaintext with no key involved
@@ -177,7 +177,7 @@ class Stats:
 
 
 def solve(unigram: np.ndarray, bigram: np.ndarray) -> list[int]:
-    masks =np.zeros((BLOCK, 1), dtype=np.int32)
+    masks = np.zeros((BLOCK, 1), dtype=np.int32)
     scores = np.zeros(1, dtype=np.int64)
 
     for stage in STAGES:
@@ -224,7 +224,7 @@ def decline(usm_file: Path, reason: str) -> Recovery:
 
 
 def collect(usm_file: Path, reporter: Reporter, budget: int) -> Sample:
-    pools =(Stats(), Stats())
+    pools = (Stats(), Stats())
     seen: set[int] = set()  # payload digests, used to deal a repeated frame only once
     first: bytes | None = None
     pool = 0
@@ -241,7 +241,7 @@ def collect(usm_file: Path, reporter: Reporter, budget: int) -> Sample:
             if count % 100 == 0:
                 reporter.checkpoint()
 
-            if header.signature != b"@SFV" or header.data_type & 0x3 != 0:
+            if header.signature != b"@SFV" or not header.is_data:
                 continue
             if first is None:
                 first = payload
@@ -274,8 +274,8 @@ def evaluate(sample: Sample) -> tuple[list[int] | None, str]:
 
 
 def crack_key(usm_file: Path, reporter: Reporter) -> Recovery:
-    if uses_stream_cipher(usm_file):
-        return decline(usm_file, "the video uses the 7.1 encryption, which cannot be cracked")
+    if video_nonce(usm_file) is not None:
+        return decline(usm_file, "the video uses the 7.1 encryption that cannot be cracked")
 
     log.info(f"Recovering decryption key from {usm_file.name}...")
     reason = ""

@@ -1,15 +1,18 @@
 import functools
+import re
 
 from typing import TYPE_CHECKING
 
 import orjson
 import urllib3
 
+from utils.errors import CharlotteError
 from utils.logger import log
 from utils.paths import app_root
 
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
     from utils.reporter import Reporter
@@ -70,8 +73,30 @@ def find_video_version(data: dict, filename: str) -> str | None:
     return found[0].get("version") if found else None
 
 
+def split_key(key: int) -> tuple[bytes, bytes]:
+    key_bytes = key.to_bytes(8, "little")
+    return key_bytes[:4], key_bytes[4:]
+
+
+def parse_stream_keys(audio_key: object, aes_key: object) -> tuple[bytes, bytes, bytes] | None:
+    if not (
+        isinstance(audio_key, int)
+        and 0 <= audio_key < 1 << 56
+        and isinstance(aes_key, str)
+        and re.fullmatch(r"\s*[0-9A-Fa-f]{32}\s*", aes_key)
+    ):
+        return None
+    # 7.1 doesn't use filename anymore so audioKey is used as it is.
+    return *split_key(audio_key), bytes.fromhex(aes_key)
+
+
+def find_stream_keys(data: dict, filename: str) -> tuple[bytes, bytes, bytes] | None:
+    found = find_video(data, filename)
+    return parse_stream_keys(found[1].get("audioKey"), found[1].get("aesKey")) if found else None
+
+
 class Keys:
-    def __init__(self, reporter: Reporter, manual_key: int | None = None):
+    def __init__(self, reporter: Reporter, manual_key: str | None = None):
         self.reporter = reporter
         self.manual_key = manual_key
         self.path = keys_path()
@@ -104,19 +129,37 @@ class Keys:
 
     def get(self, stem: str) -> int | None:
         if self.manual_key is not None:
-            return self.manual_key
+            try:
+                return int(self.manual_key)
+            except ValueError:
+                raise CharlotteError(
+                    f"{stem} uses the old encryption, so --key must be a decimal videoKey."
+                ) from None
 
-        key = find_video_key(self.data, stem)
-        if key is not None:
-            return key
+        return self.find(stem, find_video_key)
+
+    def stream_keys(self, stem: str) -> tuple[bytes, bytes, bytes] | None:
+        if self.manual_key is not None:
+            audio_key, _, aes_key = self.manual_key.partition(":")
+            audio_key = int(audio_key) if audio_key.strip().isdecimal() else None
+            stream_keys = parse_stream_keys(audio_key, aes_key)
+            if stream_keys is None:
+                raise CharlotteError(
+                    f"{stem} uses the 7.1 encryption, so --key must be audioKey:aesKey."
+                )
+            return stream_keys
+
+        return self.find(stem, find_stream_keys)
+
+    def find[T](self, stem: str, lookup: Callable[[dict, str], T | None]) -> T | None:
+        found = lookup(self.data, stem)
+        if found is not None:
+            return found
 
         if self.declined:
             log.info(f"No keys.json entry for {stem}: the update was declined.")
             return None
 
-        return self.key_from_upstream(stem)
-
-    def key_from_upstream(self, stem: str) -> int | None:
         log.info(f"Key for {stem} not found. Checking upstream...")
         upstream_bytes = fetch_upstream_keys()
         if not upstream_bytes:
@@ -132,8 +175,8 @@ class Keys:
             log.error("Error decoding upstream keys.json.")
             return None
 
-        new_key = find_video_key(upstream_data, stem)
-        if new_key is None:
+        found = lookup(upstream_data, stem)
+        if found is None:
             log.info(f"Key for {stem} not found upstream either.")
             return None
 
@@ -153,7 +196,7 @@ class Keys:
 
         self.data = upstream_data
         self.raw = upstream_bytes
-        return new_key
+        return found
 
     def decryption_key(self, stem: str) -> tuple[bytes, bytes] | None:
         key1 = calculate_key_from_filename(stem)
@@ -161,6 +204,4 @@ class Keys:
         if key2 is None:
             return None
 
-        final_key = ((key1 + key2) & 0xFFFFFFFFFFFFFF) or 0x100000000000000
-        key_bytes = final_key.to_bytes(8, byteorder="little")
-        return key_bytes[:4], key_bytes[4:]
+        return split_key(((key1 + key2) & 0xFFFFFFFFFFFFFF) or 0x100000000000000)

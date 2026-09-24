@@ -3,8 +3,10 @@ import struct
 
 import pytest
 
-from conftest import chunk
-from stages.usm import MASK_START, MIN_MASKED, USM
+from Crypto.Cipher import AES
+
+from conftest import chunk, video_header
+from stages.usm import MASK_START, MIN_MASKED, USM, video_nonce
 from utils.errors import CharlotteError
 
 
@@ -58,6 +60,35 @@ def test_decrypt_video_matches_the_reference_chain(tmp_path, size):
 
     assert blocks != payload  # a no-op would satisfy the comparison but not the caller
     assert blocks == reference
+
+
+def test_decrypt_stream_counts_from_the_chunk_iv(tmp_path):
+    """Checked against AES-ECB of the counter blocks rather than a CTR cipher, which would
+    share any mistake in how the IV is laid out."""
+    key = bytes(range(16))
+    usm = USM(tmp_path / "Cs_Test.usm", bytes(4), bytes(4), key, nonce=0x0102030405060708)
+    data = bytearray(MASK_START + 0x20)
+
+    usm.decrypt_stream(data, frame_time=0x0A0B0C0D)
+
+    ecb = AES.new(key, AES.MODE_ECB)
+    iv = bytes.fromhex("0102030405060708" "0a0b0c0d" "00000000")
+    assert data[:MASK_START] == bytes(MASK_START)
+    assert data[MASK_START:] == ecb.encrypt(iv) + ecb.encrypt(iv[:-1] + b"\x01")
+
+
+@pytest.mark.parametrize(
+    ("chunks", "nonce"),
+    [
+        (video_header(nonce=0x3CEFE9EAB8C72E7A) + chunk(b"@SFV", b"video"), 0x3CEFE9EAB8C72E7A),
+        (video_header() + chunk(b"@SFV", b"video"), None),
+        (chunk(b"@SFV", b"video") + video_header(nonce=1), None),
+    ],
+)
+def test_video_nonce_comes_from_the_leading_video_header(tmp_path, chunks, nonce):
+    usm_file = tmp_path / "Cs_Test.usm"
+    usm_file.write_bytes(chunks)
+    assert video_nonce(usm_file) == nonce
 
 
 def test_demux_extracts_streams(tmp_path, out_dir, reporter):

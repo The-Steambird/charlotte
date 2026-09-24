@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, NamedTuple
 
 import numpy as np
 
+from Crypto.Cipher import AES
+
 from utils.errors import CharlotteError
 from utils.logger import log
 
@@ -17,12 +19,12 @@ if TYPE_CHECKING:
     from utils.reporter import Reporter
 
 
-# Every chunk starts with a 32-byte header. The payload begins data_offset bytes past byte 8.
+# A payload starts data_offset bytes past byte 8 of its chunk, and the header already covers
+# the first 0x18 of those.
 HEADER_SIZE = 32
-MIN_DATA_OFFSET = 0x18  # the header itself already covers this much past byte 8
+MIN_DATA_OFFSET = 0x18
 
-# A video payload is masked in two regions. If fewer than MIN_MASKED bytes follow the
-# clear part, the payload is left alone entirely.
+# A video payload under the old mask:
 #
 #   0x00       0x40        0x140                       end
 #    |  clear   |   head    |   chained body ...         |
@@ -44,10 +46,19 @@ class ChunkHeader(NamedTuple):
     padding_size: int
     channel_no: int
     data_type: int
+    frame_time: int
 
     @classmethod
     def from_bytes(cls, raw: bytes) -> ChunkHeader:
-        return cls._make(struct.unpack(">4s I x B H B 2x B 16x", raw))
+        return cls._make(struct.unpack(">4s I x B H B 2x B I 12x", raw))
+
+    @property
+    def is_data(self) -> bool:
+        return self.data_type & 0x3 == 0
+
+    @property
+    def is_header(self) -> bool:
+        return self.data_type & 0x3 == 1
 
 
 def read_chunks(file_path: Path) -> Generator[tuple[ChunkHeader, bytes]]:
@@ -65,10 +76,9 @@ def read_chunks(file_path: Path) -> Generator[tuple[ChunkHeader, bytes]]:
                 raise CharlotteError(f"Corrupt USM chunk: {file_path.name}")
 
             fp.seek(header.data_offset - MIN_DATA_OFFSET, 1)
-            # The payload size is checked before the read because read() allocates the
-            # declared size up front, and a corrupt size could ask for 4 GB. A short read
-            # would also just end the walk and leave a truncated .ivf behind as if it
-            # were whole.
+            # Checked before reading because read() allocates the declared size up front and
+            # a corrupt one could ask for 4 GB. A short read would also end the walk quietly
+            # and leave a truncated .ivf that looks whole.
             if payload_size > file_size - fp.tell():
                 raise CharlotteError(f"Truncated USM chunk: {file_path.name}")
 
@@ -77,21 +87,68 @@ def read_chunks(file_path: Path) -> Generator[tuple[ChunkHeader, bytes]]:
             yield header, payload
 
 
-def uses_stream_cipher(file_path: Path) -> bool:
-    """7.1 introduces a new cipher adds a `nonce` column to VIDEO_HDRINFO
-     and the column name sits in the @UTF table's string pool."""
+# Strings (0xA) and data (0xB) stay raw bytes because nothing reads them.
+UTF_TYPES = {
+    0: "B", 1: "b", 2: "H", 3: "h", 4: "I", 5: "i",
+    6: "Q", 7: "q", 8: "f", 9: "d", 0xA: "4s", 0xB: "8s",
+}  # fmt: skip
+UTF_ZERO, UTF_CONSTANT, UTF_PER_ROW = 0x10, 0x30, 0x50
+
+
+def read_utf(payload: bytes) -> dict:
+    """The first row of an @UTF table, which is the only row a stream header has."""
+    table = payload[8 : 8 + struct.unpack_from(">I", payload, 4)[0]]
+    row_at, strings_at, _, _, columns = struct.unpack_from(">HIIIH", table, 2)
+
+    row = {}
+    at = 24
+    for _ in range(columns):
+        flags, name_at = struct.unpack_from(">BI", table, at)
+        at += 5
+        form = ">" + UTF_TYPES[flags & 0x0F]
+        storage = flags & 0xF0
+        value = None
+        if storage == UTF_ZERO:
+            value = 0
+        elif storage == UTF_CONSTANT:
+            value = struct.unpack_from(form, table, at)[0]
+            at += struct.calcsize(form)
+        elif storage == UTF_PER_ROW:
+            value = struct.unpack_from(form, table, row_at)[0]
+            row_at += struct.calcsize(form)
+        name_at += strings_at
+        row[table[name_at : table.index(b"\x00", name_at)].decode()] = value
+    return row
+
+
+def video_nonce(file_path: Path) -> int | None:
+    """None means the file predates 7.1 and uses the old mask."""
     with closing(read_chunks(file_path)) as chunks:
         for header, payload in chunks:
             if header.signature == b"@SFV":
-                return header.data_type & 0x3 == 1 and b"\x00nonce\x00" in payload
-    return False
+                if not header.is_header:
+                    return None
+                try:
+                    return read_utf(payload).get("nonce")
+                except (struct.error, KeyError, ValueError) as e:
+                    raise CharlotteError(f"Corrupt video header: {file_path.name}") from e
+    return None
 
 
 class USM:
-    def __init__(self, file_path: Path, key1: bytes, key2: bytes):
+    def __init__(
+        self,
+        file_path: Path,
+        key1: bytes,
+        key2: bytes,
+        aes_key: bytes | None = None,
+        nonce: int | None = None,
+    ):
         self.file_path = Path(file_path)
         self.video_mask1 = self.build_mask(key1, key2)
         self.video_mask2 = bytes(b ^ 0xFF for b in self.video_mask1)
+        self.aes_key = aes_key
+        self.nonce = nonce
 
     @staticmethod
     def build_mask(key1: bytes, key2: bytes) -> bytes:
@@ -133,15 +190,12 @@ class USM:
         return bytes(m)
 
     def decrypt_video(self, data: bytearray) -> None:
-        """Unmask a video payload in place.
-
-        The mask resets to plaintext ^ video_mask2 after every block, which collapses
-        against the running XOR of the ciphertext blocks:
+        """The mask resets to plaintext ^ video_mask2 after every block, which collapses
+        against the running XOR of the ciphertext blocks. stages/crack.py relies on the same
+        identity:
 
             even block:  plaintext = running ^ video_mask2
             odd block:   plaintext = running
-
-        stages/crack.py relies on the same identity.
         """
         if not is_masked(len(data)):
             return
@@ -167,6 +221,11 @@ class USM:
         head = buf[MASK_START:CIPHER_START].reshape(-1, BLOCK)
         later = buf[CIPHER_START : CIPHER_START + HEAD_SIZE].reshape(-1, BLOCK)
         head ^= mask1 ^ np.bitwise_xor.accumulate(later, axis=0)
+
+    def decrypt_stream(self, data: bytearray, frame_time: int) -> None:
+        iv = struct.pack(">QI4x", self.nonce, frame_time)
+        cipher = AES.new(self.aes_key, AES.MODE_CTR, nonce=b"", initial_value=iv)
+        data[MASK_START:] = cipher.decrypt(data[MASK_START:])
 
     def demux(
         self,
@@ -194,12 +253,14 @@ class USM:
                 streams[path].write(payload)
 
             for chunks, (header, data) in enumerate(read_chunks(self.file_path), start=1):
-                payload_type = header.data_type & 0x3
-                if header.signature == b"@SFV" and payload_type == 0:
+                if header.signature == b"@SFV" and header.is_data:
                     buffer = bytearray(data)
-                    self.decrypt_video(buffer)
+                    if self.aes_key is None:
+                        self.decrypt_video(buffer)
+                    else:
+                        self.decrypt_stream(buffer, header.frame_time)
                     write_to(f"{base_name}.ivf", "ivf", buffer)
-                elif header.signature == b"@SFA" and payload_type == 0:
+                elif header.signature == b"@SFA" and header.is_data:
                     write_to(f"{base_name}_{header.channel_no}.hca", "hca", data)
                 elif header.signature not in known:
                     known.add(header.signature)  # warn once per signature
