@@ -1352,6 +1352,8 @@
             "version": "7.1",
             "videoGroups": [
                 {
+                    "audioKey": 5281416956962385,
+                    "aesKey": "f9e9e1c5cf3a68deffa0a4d3df665836",
                     "parentQuestId": "7017",
                     "videos": [
                         "Cs_ZD_AQ70171401_UR_Boy",
@@ -1359,12 +1361,16 @@
                     ]
                 },
                 {
+                    "audioKey": 5351726569916101,
+                    "aesKey": "c97ebd42d0795cde582b754bd54ab46c",
                     "parentQuestId": "7019",
                     "videos": [
                         "Cs_ZD_AQ70190901_HE"
                     ]
                 },
                 {
+                    "audioKey": 1330754440416212,
+                    "aesKey": "f5ac17ffe4b4b430553ae073eb8a8a1d",
                     "parentQuestId": "7020",
                     "videos": [
                         "Cs_ZD_AQ70200801_TFR_Boy",
@@ -1375,12 +1381,14 @@
                     ]
                 },
                 {
+                    "audioKey": 3958569438854401,
                     "parentQuestId": "40251",
                     "videos": [
                         "Cs_LY_EQ4025110_ZY"
                     ]
                 },
                 {
+                    "audioKey": 1869975058887509,
                     "parentQuestId": "_reunion_",
                     "videos": [
                         "Video_Reunion_71"
