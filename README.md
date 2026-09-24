@@ -19,12 +19,10 @@
 
 # Charlotte
 
-**[Click here to download latest version](https://github.com/The-Steambird/charlotte/releases/download/1.0.1/charlotte-1.0.1.zip)**
-
-**Version 7.1 changed the encryption and I haven't found a way to crack. Even if a key is available, due to the new structure, it's not usable yet.**
+**[Click here to download latest version](https://github.com/The-Steambird/charlotte/releases/download/1.1.0/charlotte-1.1.0.zip)**
 
 Charlotte is a Genshin Impact utility that losslessly decrypts `.usm` cutscene files into playable
-`.mkv` videos, covering all known cutscenes from versions 1.0 through 7.0. Charlotte is also able to
+`.mkv` videos, covering all known cutscenes from versions 1.0 through 7.1. Charlotte is also able to
 retrieve keys directly from USM file itself, although an explicitly defined key is still preferred
 for processing speed.
 
@@ -36,7 +34,8 @@ VapourSynth processing, and a GUI. Also credits
 to [UsmDiviner](https://github.com/Senkin219/UsmDiviner) for inspiring me with the key guessing
 algorithm.
 
-If you have missing keys, pull requests are welcome.
+Note that since version 7.1, Hoyo changed the encryption format of the USM files, so cracking is no
+longer possible. If you have missing keys, pull requests are welcome.
 
 Disclaimer: This tool is purely for educational purpose and aims to archive already released game
 content.
@@ -60,6 +59,7 @@ content.
 - Built-in self updater
 
 ## Roadmap
+
 - Support for Honkai: Star Rail
 
 I should also mention that the VapourSynth filters are extremely heavy on CPU and GPU (to a lesser
@@ -71,9 +71,11 @@ degree), so it's recommended to have a powerful machine for optimal performance.
    the [latest release](https://github.com/The-Steambird/charlotte/releases/latest) and unzip it.
 2. Launch `charlotte-gui.exe`
 3. Click `Open folder` and locate `.usm` files at:
+
 ```
 [Game Directory]\Genshin Impact game\GenshinImpact_Data\StreamingAssets\VideoAssets\StandaloneWindows64
 ```
+
 4. Click `OK`, hit `Start`, sit back and enjoy.
 
 For various other options, check settings (top right, the cogwheel icon).
