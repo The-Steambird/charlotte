@@ -189,7 +189,7 @@ def test_split_half_rejects_disagreeing_noise():
         (left if i % 2 == 0 else right).add(bytes(CIPHER_START) + body)
 
     used = (left.blocks + right.blocks) * BLOCK
-    mask, reason = evaluate(Sample(left, right, b"DKIF", used))
+    mask, reason = evaluate(Sample(left, right, True, used))
 
     assert mask is None
     assert "disagree" in reason

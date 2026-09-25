@@ -7,12 +7,13 @@ import struct
 import pytest
 
 from conftest import flag_value
+from resources.keys import DecryptionKey
 from stages.hca import HCA, crc16
 from utils.errors import CharlotteError
 from utils.ffmpeg import FFMPEG_MISSING
 
 
-KEY1, KEY2 = bytes([0x11, 0x22, 0x33, 0x44]), bytes([0x55, 0x66, 0x77, 0x00])
+KEY = DecryptionKey(bytes([0x11, 0x22, 0x33, 0x44]), bytes([0x55, 0x66, 0x77, 0x00]))
 
 # Chunks carry no length of their own, and these are the strides read_header walks by.
 CHUNK_SIZES = {b"fmt\x00": 16, b"comp": 16, b"ciph": 6}
@@ -55,7 +56,7 @@ def write_hca(tmp_path, blob: bytes, name: str = "Cs_Test_0.hca"):
 
 
 def make_hca(tmp_path, name: str = "Cs_Test_0.hca") -> HCA:
-    return HCA(write_hca(tmp_path, hca_bytes(), name), KEY1, KEY2)
+    return HCA(write_hca(tmp_path, hca_bytes(), name), KEY)
 
 
 # --- checksum ---
@@ -74,7 +75,7 @@ def test_header_fields_parsed(tmp_path):
     """This is the positive control for the rejections below, because a builder producing
     nonsense would still make all of them pass."""
     path = write_hca(tmp_path, hca_bytes(ciph_type=0x38, block_size=0x40, block_count=3))
-    hca = HCA(path, KEY1, KEY2)
+    hca = HCA(path, KEY)
 
     assert hca.block_count == 3
     assert hca.block_size == 0x40
@@ -84,7 +85,7 @@ def test_header_fields_parsed(tmp_path):
 
 def test_short_file_warns_about_missing_blocks(tmp_path, caplog):
     path = write_hca(tmp_path, hca_bytes(block_size=0x20, block_count=4)[:-0x30])
-    hca = HCA(path, KEY1, KEY2)
+    hca = HCA(path, KEY)
 
     assert len(hca.data) == 0x20 * 4 - 0x30
     assert "declares 4 audio blocks but holds only 2" in caplog.text
@@ -106,7 +107,7 @@ def test_short_file_warns_about_missing_blocks(tmp_path, caplog):
 def test_malformed_header_rejected(tmp_path, blob, match):
     path = write_hca(tmp_path, blob)
     with pytest.raises(CharlotteError, match=match):
-        HCA(path, KEY1, KEY2)
+        HCA(path, KEY)
 
 
 def test_zero_block_size_raises(tmp_path):
@@ -114,7 +115,7 @@ def test_zero_block_size_raises(tmp_path):
     escapes the per-file handler and kills the whole batch."""
     path = write_hca(tmp_path, hca_bytes(block_size=0, block_count=0))
     with pytest.raises(CharlotteError, match="no audio blocks"):
-        HCA(path, KEY1, KEY2)
+        HCA(path, KEY)
 
 
 def test_unknown_cipher_type_raises(tmp_path):
@@ -122,7 +123,7 @@ def test_unknown_cipher_type_raises(tmp_path):
     stream to zeros."""
     path = write_hca(tmp_path, hca_bytes(ciph_type=2))
     with pytest.raises(CharlotteError, match="Invalid cipher type"):
-        HCA(path, KEY1, KEY2)
+        HCA(path, KEY)
 
 
 def test_truncated_header_raises(tmp_path):
@@ -130,7 +131,7 @@ def test_truncated_header_raises(tmp_path):
     rather than leaked."""
     path = write_hca(tmp_path, hca_bytes()[:12])
     with pytest.raises(CharlotteError, match="Corrupt HCA header"):
-        HCA(path, KEY1, KEY2)
+        HCA(path, KEY)
 
 
 # --- save ---
@@ -142,7 +143,7 @@ def test_save_overwrites_the_source_with_the_in_memory_stream(tmp_path):
     body = bytes(range(0x20)) * 4
     original = hca_bytes(ciph_type=0x38, block_count=4, data=body)
     path = write_hca(tmp_path, original)
-    hca = HCA(path, KEY1, KEY2)
+    hca = HCA(path, KEY)
     hca.decrypt()
 
     hca.save()
@@ -150,7 +151,7 @@ def test_save_overwrites_the_source_with_the_in_memory_stream(tmp_path):
     written = path.read_bytes()
     assert written == bytes(hca.header) + bytes(hca.data)
     assert written[len(hca.header) :] != body
-    assert HCA(path, KEY1, KEY2).ciph_type == 0
+    assert HCA(path, KEY).ciph_type == 0
 
 
 # --- convert ---
@@ -172,7 +173,7 @@ def test_convert_reports_ffmpeg_failure(ffmpeg, tmp_path, caplog):
     ffmpeg.stderr = b"Invalid data found when processing input"
 
     with pytest.raises(CharlotteError, match="Audio conversion failed"):
-        make_hca(tmp_path).convert(tmp_path / "Cs_Test_0.flac")
+        make_hca(tmp_path).convert(tmp_path / "Cs_Test_0.flac", codec="flac")
 
     assert "Invalid data found" in caplog.text
 
@@ -180,5 +181,5 @@ def test_convert_reports_ffmpeg_failure(ffmpeg, tmp_path, caplog):
 def test_convert_without_ffmpeg_raises(ffmpeg, tmp_path):
     ffmpeg.missing = True
     with pytest.raises(CharlotteError) as excinfo:
-        make_hca(tmp_path).convert(tmp_path / "Cs_Test_0.flac")
+        make_hca(tmp_path).convert(tmp_path / "Cs_Test_0.flac", codec="flac")
     assert str(excinfo.value) == FFMPEG_MISSING

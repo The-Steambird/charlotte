@@ -1,10 +1,16 @@
 import struct
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from utils.errors import CharlotteError
 from utils.ffmpeg import AUDIO_CODECS, run_ffmpeg
 from utils.logger import log
+
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from resources.keys import DecryptionKey
 
 
 def crc16_table() -> tuple[int, ...]:
@@ -47,21 +53,19 @@ def build_cipher_table(ciph_type: int, key1: bytes, key2: bytes) -> bytearray:
 
     if ciph_type == 0:
         table[:] = range(0x100)
-
     elif ciph_type == 1:
         v = 0
         for i in range(0xFF):
             v = (v * 13 + 11) & 0xFF
-            if v == 0 or v == 0xFF:
+            if v in (0, 0xFF):
                 v = (v * 13 + 11) & 0xFF
             table[i] = v
         table[0] = 0
         table[0xFF] = 0xFF
-
     elif ciph_type == 0x38:
         t1 = bytearray(8)
-        k1 = struct.unpack("<I", key1)[0]
-        k2 = struct.unpack("<I", key2)[0]
+        k1 = int.from_bytes(key1, "little")
+        k2 = int.from_bytes(key2, "little")
 
         if k1 == 0:
             k2 = (k2 - 1) & 0xFFFFFFFF
@@ -107,7 +111,7 @@ def build_cipher_table(ciph_type: int, key1: bytes, key2: bytes) -> bytearray:
         for _ in range(0x100):
             v = (v + 0x11) & 0xFF
             a = t3[v]
-            if a != 0 and a != 0xFF:
+            if a not in (0, 0xFF):
                 table[i_table] = a
                 i_table += 1
 
@@ -118,16 +122,11 @@ def build_cipher_table(ciph_type: int, key1: bytes, key2: bytes) -> bytearray:
 
 
 class HCA:
-    def __init__(self, file_path: Path, key1: bytes | None = None, key2: bytes | None = None):
-        self.file_path = Path(file_path)
-        self.key1 = key1 or bytes(4)
-        self.key2 = key2 or bytes(4)
-        self.block_count = 0
-        self.block_size = 0
+    def __init__(self, file_path: Path, key: DecryptionKey):
+        self.file_path = file_path
+        self.key = key
         self.ciph_type = 0
         self.ciph_offset = 0
-        self.header = bytearray()
-        self.data = bytearray()
         try:
             self.read_header()
         except struct.error as e:
@@ -145,7 +144,7 @@ class HCA:
         if len(blob) < 8:
             raise CharlotteError(f"Invalid HCA file: {self.file_path.name}")
 
-        data_offset = struct.unpack(">H", blob[6:8])[0]
+        data_offset = struct.unpack_from(">H", blob, 6)[0]
         self.header = bytearray(blob[:data_offset])
 
         if not self.match_chunk(0, b"HCA\x00"):
@@ -154,17 +153,17 @@ class HCA:
 
         if not self.match_chunk(offset, b"fmt\x00"):
             raise CharlotteError(f"fmt chunk not found: {self.file_path.name}")
-        self.block_count = struct.unpack(">I", self.header[offset + 8 : offset + 12])[0]
+        self.block_count = struct.unpack_from(">I", self.header, offset + 8)[0]
         offset += 16
 
         if self.match_chunk(offset, b"comp"):
-            self.block_size = struct.unpack(">H", self.header[offset + 4 : offset + 6])[0]
-            offset += 16
+            chunk_size = 16
         elif self.match_chunk(offset, b"dec\x00"):
-            self.block_size = struct.unpack(">H", self.header[offset + 4 : offset + 6])[0]
-            offset += 12
+            chunk_size = 12
         else:
             raise CharlotteError(f"comp/dec chunk not found: {self.file_path.name}")
+        self.block_size = struct.unpack_from(">H", self.header, offset + 4)[0]
+        offset += chunk_size
 
         if self.block_size == 0:
             raise CharlotteError(f"HCA has no audio blocks: {self.file_path.name}")
@@ -176,20 +175,19 @@ class HCA:
         if self.match_chunk(offset, b"loop"):
             offset += 16
         if self.match_chunk(offset, b"ciph"):
-            self.ciph_type = struct.unpack(">H", self.header[offset + 4 : offset + 6])[0]
+            self.ciph_type = struct.unpack_from(">H", self.header, offset + 4)[0]
             if self.ciph_type not in (0, 1, 0x38):
-                raise CharlotteError(f"Invalid cipher type: {self.ciph_type}")
+                raise CharlotteError(f"Invalid cipher type {self.ciph_type}: {self.file_path.name}")
             self.ciph_offset = offset
             offset += 6
         if self.match_chunk(offset, b"rva\x00"):
             offset += 8
         if self.match_chunk(offset, b"comm"):
-            offset += 5
+            offset += 5 + struct.unpack_from(">B", self.header, offset + 4)[0]
         if self.match_chunk(offset, b"pad\x00"):
             offset += 4
 
-        crc = crc16(self.header[:-2])
-        struct.pack_into(">H", self.header, len(self.header) - 2, crc)
+        self.update_header_crc()
 
         expected = self.block_size * self.block_count
         self.data = bytearray(blob[data_offset : data_offset + expected])
@@ -199,17 +197,19 @@ class HCA:
                 f"but holds only {len(self.data) // self.block_size}."
             )
 
+    def update_header_crc(self) -> None:
+        struct.pack_into(">H", self.header, len(self.header) - 2, crc16(self.header[:-2]))
+
     def decrypt(self) -> None:
         if self.ciph_type == 0:
             return
 
-        table = build_cipher_table(self.ciph_type, self.key1, self.key2)
+        table = build_cipher_table(self.ciph_type, self.key.key1, self.key.key2)
         self.data = self.data.translate(table)
 
         self.ciph_type = 0
         struct.pack_into(">H", self.header, self.ciph_offset + 4, 0)
-        crc = crc16(self.header[:-2])
-        struct.pack_into(">H", self.header, len(self.header) - 2, crc)
+        self.update_header_crc()
 
     def save(self) -> None:
         size = self.block_size
@@ -222,6 +222,6 @@ class HCA:
             f.write(self.header)
             f.write(self.data)
 
-    def convert(self, output_file: Path, codec: str = "flac") -> None:
+    def convert(self, output_file: Path, codec: str) -> None:
         args = ["-f", "hca", "-i", "pipe:0", *AUDIO_CODECS[codec][1], str(output_file)]
-        run_ffmpeg(args, "Audio conversion failed", input=b"".join((self.header, self.data)))
+        run_ffmpeg(args, "Audio conversion failed", input=self.header + self.data)

@@ -59,7 +59,7 @@ def process_audio(
     codec: str,
 ) -> None:
     def convert_one(hca_file: Path, audio_file: Path) -> None:
-        hca = HCA(hca_file, key.key1, key.key2)
+        hca = HCA(hca_file, key)
         hca.decrypt()
         if keep_decrypted:
             hca.save()

@@ -54,6 +54,10 @@ class ChunkHeader(NamedTuple):
         return cls._make(struct.unpack(">4s I x B H B 2x B I 12x", raw))
 
     @property
+    def size(self) -> int:
+        return 8 + self.data_size
+
+    @property
     def is_data(self) -> bool:
         return self.data_type & 0x3 == 0
 
@@ -153,33 +157,33 @@ class USM:
         m[0x02] = key1[2]
         m[0x03] = (key1[3] - 0x34) & 0xFF
         m[0x04] = (key2[0] + 0xF9) & 0xFF
-        m[0x05] = (key2[1] ^ 0x13) & 0xFF
+        m[0x05] = key2[1] ^ 0x13
         m[0x06] = (key2[2] + 0x61) & 0xFF
-        m[0x07] = (m[0x00] ^ 0xFF) & 0xFF
+        m[0x07] = m[0x00] ^ 0xFF
         m[0x08] = (m[0x02] + m[0x01]) & 0xFF
         m[0x09] = (m[0x01] - m[0x07]) & 0xFF
-        m[0x0A] = (m[0x02] ^ 0xFF) & 0xFF
-        m[0x0B] = (m[0x01] ^ 0xFF) & 0xFF
+        m[0x0A] = m[0x02] ^ 0xFF
+        m[0x0B] = m[0x01] ^ 0xFF
         m[0x0C] = (m[0x0B] + m[0x09]) & 0xFF
         m[0x0D] = (m[0x08] - m[0x03]) & 0xFF
-        m[0x0E] = (m[0x0D] ^ 0xFF) & 0xFF
+        m[0x0E] = m[0x0D] ^ 0xFF
         m[0x0F] = (m[0x0A] - m[0x0B]) & 0xFF
         m[0x10] = (m[0x08] - m[0x0F]) & 0xFF
-        m[0x11] = (m[0x10] ^ m[0x07]) & 0xFF
-        m[0x12] = (m[0x0F] ^ 0xFF) & 0xFF
-        m[0x13] = (m[0x03] ^ 0x10) & 0xFF
+        m[0x11] = m[0x10] ^ m[0x07]
+        m[0x12] = m[0x0F] ^ 0xFF
+        m[0x13] = m[0x03] ^ 0x10
         m[0x14] = (m[0x04] - 0x32) & 0xFF
         m[0x15] = (m[0x05] + 0xED) & 0xFF
-        m[0x16] = (m[0x06] ^ 0xF3) & 0xFF
+        m[0x16] = m[0x06] ^ 0xF3
         m[0x17] = (m[0x13] - m[0x0F]) & 0xFF
         m[0x18] = (m[0x15] + m[0x07]) & 0xFF
         m[0x19] = (0x21 - m[0x13]) & 0xFF
-        m[0x1A] = (m[0x14] ^ m[0x17]) & 0xFF
+        m[0x1A] = m[0x14] ^ m[0x17]
         m[0x1B] = (m[0x16] + m[0x16]) & 0xFF
         m[0x1C] = (m[0x17] + 0x44) & 0xFF
         m[0x1D] = (m[0x03] + m[0x04]) & 0xFF
         m[0x1E] = (m[0x05] - m[0x16]) & 0xFF
-        m[0x1F] = (m[0x1D] ^ m[0x13]) & 0xFF
+        m[0x1F] = m[0x1D] ^ m[0x13]
 
         return bytes(m)
 
@@ -241,7 +245,7 @@ class USM:
                     created.append(path)
                 streams[path].write(payload)
 
-            for chunks, (header, data) in enumerate(read_chunks(self.file_path), start=1):
+            for count, (header, data) in enumerate(read_chunks(self.file_path), start=1):
                 if header.signature == b"@SFV" and header.is_data:
                     buffer = bytearray(data)
                     if self.nonce is None:
@@ -255,8 +259,8 @@ class USM:
                     known.add(header.signature)  # warn once per signature
                     log.warning(f"Unknown signature {header.signature!r}")
 
-                task.advance(header.data_size + 8)
-                if chunks % 100 == 0:
+                task.advance(header.size)
+                if count % 100 == 0:
                     reporter.checkpoint()
 
             task.set_completed(file_size)

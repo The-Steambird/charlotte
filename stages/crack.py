@@ -27,14 +27,17 @@ if TYPE_CHECKING:
     from utils.reporter import Reporter
 
 
-SAMPLE_STEPS = (10_000_000, 30_000_000)  # combined budget per step, each pool sees half of it
+# Each pool sees half of a step's budget.
+SAMPLE_STEPS = (10_000_000, 30_000_000)
 MIN_SAMPLE_BYTES = 100_000
 BEAM = 50
-WIDE_BEAM = 300  # the 16-bit stage scores too few entries to trust a narrow beam
-BIGRAM_WEIGHT = 25  # total weight shared between the 00,00 and FF,FF terms
-BIGRAM_MIN_HITS = 100  # plaintext pairs needed before measuring how to share it
-BIGRAM_RATIO = (1.0, 5.0)  # clamped so that one lopsided file cannot zero out either term
-BIGRAM_FALLBACK = (10, 4)  # zero/ff weights when there are too few hits to measure
+# The 16-bit stage scores too few entries to trust a narrow beam.
+WIDE_BEAM = 300
+BIGRAM_WEIGHT = 25
+BIGRAM_MIN_HITS = 100
+# The ratio is clamped so that one lopsided file cannot zero out either term.
+BIGRAM_RATIO = (1.0, 5.0)
+BIGRAM_FALLBACK = (10, 4)
 
 
 # These mirror `USM.build_mask` line for line, vectorized over a (32, n) array of
@@ -94,8 +97,8 @@ class Stage(NamedTuple):
     expand: Callable[[np.ndarray, np.ndarray], None]
     span: int
     beam: int
-    entries: tuple[int, ...]  # mask entries this step determines
-    pairs: tuple[int, ...]  # adjacent entry pairs that first become scorable here
+    entries: tuple[int, ...]
+    pairs: tuple[int, ...]
 
 
 def plan_stages() -> list[Stage]:
@@ -126,7 +129,7 @@ STAGES = plan_stages()
 
 class Stats:
     def __init__(self):
-        self.evens: list[np.ndarray] = []  # plaintext ^ video_mask2 rows, counted in tables()
+        self.evens: list[np.ndarray] = []
         self.zero_pairs = 0
         self.ff_pairs = 0
         self.blocks = 0
@@ -135,12 +138,13 @@ class Stats:
         rows = (len(payload) - CIPHER_START) // BLOCK
         body = np.frombuffer(payload, dtype=np.uint8, count=rows * BLOCK, offset=CIPHER_START)
         running = np.bitwise_xor.accumulate(body.reshape(rows, BLOCK), axis=0)
-        odd = running[1::2]  # plaintext with no key involved
         # Counted once in tables(), because a bincount per payload would mostly be zeroing
         # a 65536-wide table.
         self.evens.append(running[0::2])
 
-        # Odd blocks measure this file's 00,00 vs FF,FF split.
+        # Odd blocks are plaintext with no key involved, which lets them measure this file's
+        # 00,00 vs FF,FF split.
+        odd = running[1::2]
         left, right = odd[:, :-1], odd[:, 1:]
         self.zero_pairs += int(np.count_nonzero((left == 0) & (right == 0)))
         self.ff_pairs += int(np.count_nonzero((left == 0xFF) & (right == 0xFF)))
@@ -196,7 +200,7 @@ def solve(unigram: np.ndarray, bigram: np.ndarray) -> list[int]:
 
 def key_from_mask(mask: list[int]) -> DecryptionKey:
     """Invert `USM.build_mask`. Byte 7 is never read by the mask and is always zero
-    anyway, because a real key is only 56 bits (see `Keys.decryption_key`)."""
+    anyway, because a real key is only 56 bits (see `KEY_MASK`)."""
     key1 = bytes([mask[0x00], mask[0x01], mask[0x02], (mask[0x03] + 0x34) & 0xFF])
     key2 = bytes([(mask[0x04] - 0xF9) & 0xFF, mask[0x05] ^ 0x13, (mask[0x06] - 0x61) & 0xFF, 0])
     return DecryptionKey(key1, key2)
@@ -205,7 +209,7 @@ def key_from_mask(mask: list[int]) -> DecryptionKey:
 class Sample(NamedTuple):
     left: Stats
     right: Stats
-    first_payload: bytes | None  # None when the file carries no video
+    ivf: bool
     used: int
 
 
@@ -222,7 +226,7 @@ def decline(usm_file: Path, reason: str) -> Recovery:
 def collect(usm_file: Path, reporter: Reporter, budget: int) -> Sample:
     pools = (Stats(), Stats())
     seen: set[int] = set()  # payload digests, used to deal a repeated frame only once
-    first: bytes | None = None
+    ivf: bool | None = None
     pool = 0
     used = 0
     file_size = usm_file.stat().st_size
@@ -233,27 +237,28 @@ def collect(usm_file: Path, reporter: Reporter, budget: int) -> Sample:
         closing(read_chunks(usm_file)) as chunks,
     ):
         for count, (header, payload) in enumerate(chunks, start=1):
-            task.advance(header.data_size + 8)
+            task.advance(header.size)
             if count % 100 == 0:
                 reporter.checkpoint()
 
             if header.signature != b"@SFV" or not header.is_data:
                 continue
-            if first is None:
-                first = payload
+            if ivf is None:
+                ivf = payload.startswith(b"DKIF")
             if not is_masked(len(payload)):
                 continue
             digest = hash(payload)
-            if digest not in seen:
-                seen.add(digest)
-                used += pools[pool].add(payload)
-                pool ^= 1
-                if used >= budget:
-                    break
+            if digest in seen:
+                continue
+            seen.add(digest)
+            used += pools[pool].add(payload)
+            pool ^= 1
+            if used >= budget:
+                break
 
         task.set_completed(file_size)
 
-    return Sample(pools[0], pools[1], first, used)
+    return Sample(pools[0], pools[1], bool(ivf), used)
 
 
 def evaluate(sample: Sample) -> tuple[list[int] | None, str]:
@@ -278,8 +283,7 @@ def crack_key(usm_file: Path, reporter: Reporter) -> Recovery:
 
     for budget in SAMPLE_STEPS:
         sample = collect(usm_file, reporter, budget)
-        first = sample.first_payload
-        if first is None or first[:4] != b"DKIF":
+        if not sample.ivf:
             return decline(usm_file, "no IVF video stream in this file")
         if sample.used < MIN_SAMPLE_BYTES:
             return decline(usm_file, f"only {sample.used} bytes of encrypted video")
@@ -295,4 +299,4 @@ def crack_key(usm_file: Path, reporter: Reporter) -> Recovery:
 
         log.info(f"{sample.used} bytes were inconclusive, retrying with more video...")
 
-    return decline(usm_file, f"inconclusive - {reason}")
+    return decline(usm_file, f"inconclusive, {reason}")
