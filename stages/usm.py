@@ -127,17 +127,18 @@ def read_utf(payload: bytes) -> dict:
 
 
 def video_nonce(file_path: Path) -> int | None:
-    """None means the file predates 7.1 and uses the old mask."""
+    """None means the file uses old mask in pre-7.1."""
     with closing(read_chunks(file_path)) as chunks:
-        for header, payload in chunks:
-            if header.signature == b"@SFV":
-                if not header.is_header:
-                    return None
-                try:
-                    return read_utf(payload).get("nonce")
-                except (struct.error, KeyError, ValueError) as e:
-                    raise CharlotteError(f"Corrupt video header: {file_path.name}") from e
-    return None
+        video = next((chunk for chunk in chunks if chunk[0].signature == b"@SFV"), None)
+    if video is None:
+        return None
+    header, payload = video
+    if not header.is_header:
+        return None
+    try:
+        return read_utf(payload).get("nonce")
+    except (struct.error, KeyError, ValueError) as e:
+        raise CharlotteError(f"Corrupt video header: {file_path.name}") from e
 
 
 class USM:
