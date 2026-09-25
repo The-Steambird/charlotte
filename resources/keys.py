@@ -13,7 +13,6 @@ from utils.paths import app_root
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from pathlib import Path
 
     from utils.reporter import Reporter
 
