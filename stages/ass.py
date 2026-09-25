@@ -43,12 +43,7 @@ class ASS:
                 continue
 
             # HH:MM:SS,cc -> H:MM:SS.cc
-            start, end = (t.lstrip("-").replace(",", ".") for t in timings)
-            if start.startswith("0"):
-                start = start[1:]
-
-            if end.startswith("0"):
-                end = end[1:]
+            start, end = (t.lstrip("-").replace(",", ".").removeprefix("0") for t in timings)
 
             # Renderers only honor soft breaks (\n) under WrapStyle 2 and draw them as spaces, so
             # we use hard line break instead.
