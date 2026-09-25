@@ -1,14 +1,9 @@
 """Recover a USM decryption key from the file's own video stream.
 
-The chained video mask collapses against the running XOR of the ciphertext blocks
-(see `USM.decrypt_video`):
-
-    even block:  plaintext = running ^ video_mask2
-    odd block:   plaintext = running
-
-Even blocks are a repeating-key XOR against video_mask2, and compressed VP9 has
-enough `00 00` / `FF FF` byte pairs to rank candidates for it. Only 7 key bytes are
-free (see `USM.build_mask`), and a beam search fixes one of them per stage.
+Against the running XOR of the ciphertext, every even block is its plaintext XOR video_mask2
+(see USM.decrypt_video), which makes the even blocks a repeating-key XOR. Compressed VP9 has
+enough 00 00 / FF FF byte pairs to rank candidates for it. Only 7 key bytes are free
+(USM.build_mask), and a beam search fixes one of them per stage.
 
 A key is accepted only when two halves of the video, each built from its own distinct
 payloads, solve to the same 56 bits. Parsing the decrypted output proves nothing
@@ -20,6 +15,7 @@ from typing import TYPE_CHECKING, NamedTuple
 
 import numpy as np
 
+from resources.keys import DecryptionKey
 from stages.usm import BLOCK, CIPHER_START, is_masked, read_chunks, video_nonce
 from utils.logger import log
 
@@ -198,12 +194,12 @@ def solve(unigram: np.ndarray, bigram: np.ndarray) -> list[int]:
     return masks[:, int(np.argmax(scores))].tolist()
 
 
-def split_key(mask: list[int]) -> tuple[bytes, bytes]:
+def key_from_mask(mask: list[int]) -> DecryptionKey:
     """Invert `USM.build_mask`. Byte 7 is never read by the mask and is always zero
     anyway, because a real key is only 56 bits (see `Keys.decryption_key`)."""
     key1 = bytes([mask[0x00], mask[0x01], mask[0x02], (mask[0x03] + 0x34) & 0xFF])
     key2 = bytes([(mask[0x04] - 0xF9) & 0xFF, mask[0x05] ^ 0x13, (mask[0x06] - 0x61) & 0xFF, 0])
-    return key1, key2
+    return DecryptionKey(key1, key2)
 
 
 class Sample(NamedTuple):
@@ -214,7 +210,7 @@ class Sample(NamedTuple):
 
 
 class Recovery(NamedTuple):
-    key: tuple[bytes, bytes] | None
+    key: DecryptionKey | None
     reason: str
 
 
@@ -292,7 +288,7 @@ def crack_key(usm_file: Path, reporter: Reporter) -> Recovery:
         if mask is not None:
             blocks = sample.left.blocks + sample.right.blocks
             log.info(f"Recovered decryption key from {blocks} blocks.")
-            return Recovery(split_key(mask), "")
+            return Recovery(key_from_mask(mask), "")
 
         if sample.used < budget:
             break  # the whole file was already sampled, and more budget adds nothing

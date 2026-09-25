@@ -1,8 +1,12 @@
 import re
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from utils.logger import log
+
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class ASS:
@@ -19,14 +23,13 @@ class ASS:
         (re.compile(r"</font>"), ""),
     )
 
-    def __init__(self, srt_file: str, lang: str | None = None):
-        self.srt_file = Path(srt_file)
-        self.lang = lang
+    def __init__(self, srt_file: Path, lang: str):
+        self.srt_file = srt_file
         self.font = "SDK_JP_Web" if lang == "JP" else "SDK_SC_Web"
         self.dialog_lines: list[str] = []
 
     def parse_srt(self) -> bool:
-        # utf-8-sig: some SRT files carry a BOM which breaks the digit check on the first block.
+        # Some SRT files carry a BOM which breaks the digit check on the first block.
         content = self.srt_file.read_text(encoding="utf-8-sig")
         blocks = re.split(r"\n{2,}", "\n".join(content.splitlines()).strip())
 

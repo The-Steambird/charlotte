@@ -2,11 +2,10 @@ import shutil
 
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
-from dataclasses import dataclass, field
-from pathlib import Path
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from resources.keys import calculate_key_from_filename, find_video_version
+from resources.keys import KEY_MASK, calculate_key_from_filename, find_video_version
 from resources.subtitles import local_subtitle_path
 from stages.ass import ASS
 from stages.crack import crack_key
@@ -21,7 +20,9 @@ from utils.logger import log
 
 
 if TYPE_CHECKING:
-    from resources.keys import Keys
+    from pathlib import Path
+
+    from resources.keys import DecryptionKey, Keys
     from stages.crack import Recovery
     from utils.reporter import Reporter
 
@@ -35,31 +36,30 @@ BASENAME_FIXES = {
 
 @dataclass(frozen=True)
 class Options:
-    output: str
+    output: Path
     no_cleanup: bool
     vapoursynth: bool
     crf: float
     preset: str
     x265_params: str | None
-    fonts: list[Path] = field(default_factory=list)
-    default_audio: str = "ja"
-    default_subtitle: str = "EN"
-    audio_codec: str = "flac"
-    skip_existing: bool = False
-    flat: bool = False
-    hard_sub: bool = False
+    fonts: list[Path]
+    default_audio: str
+    default_subtitle: str
+    audio_codec: str
+    skip_existing: bool
+    flat: bool
+    hard_sub: bool
 
 
 def process_audio(
     hca_files: list[Path],
     audio_files: list[Path],
-    key1: bytes,
-    key2: bytes,
+    key: DecryptionKey,
     keep_decrypted: bool,
     codec: str,
 ) -> None:
     def convert_one(hca_file: Path, audio_file: Path) -> None:
-        hca = HCA(hca_file, key1, key2)
+        hca = HCA(hca_file, key.key1, key.key2)
         hca.decrypt()
         if keep_decrypted:
             hca.save()
@@ -87,8 +87,8 @@ def process_subtitles(stem: str, output_path: Path) -> list[Path]:
                 ass_files.append(ass.convert_to_ass(output_path=output_path))
             elif sub_file.stat().st_size == 0:
                 empty_langs.append(SUBTITLES_LANGUAGES[lang][1])
-        except Exception as e:
-            log.error(f"Error processing subtitle: {e}")
+        except (OSError, UnicodeDecodeError) as e:
+            log.error(f"Failed to convert {sub_file.name}: {e}")
 
     if empty_langs:
         log.info(f"Subtitles empty, skipping: {', '.join(empty_langs)}")
@@ -99,7 +99,8 @@ def process_subtitles(stem: str, output_path: Path) -> list[Path]:
 def encode_video(
     video: Path,
     partial_mkv: Path,
-    file_paths: dict[str, list[Path]],
+    audio_files: list[Path],
+    subtitle_files: list[Path],
     opts: Options,
     reporter: Reporter,
 ) -> bool:
@@ -113,7 +114,7 @@ def encode_video(
     burnt_subtitle = None
     if opts.hard_sub:
         burnt_subtitle = next(
-            (path for path in file_paths["ass"] if track_code(path) == opts.default_subtitle), None
+            (path for path in subtitle_files if track_code(path) == opts.default_subtitle), None
         )
         if burnt_subtitle is None:
             log.warning(f"No {opts.default_subtitle} subtitle for {stem}, nothing to burn in.")
@@ -127,8 +128,8 @@ def encode_video(
     ffmpeg_args = mux_args(
         partial_mkv,
         encode_args(opts.crf, opts.preset, opts.x265_params, video_filter),
-        file_paths["audio"],
-        [] if burnt_subtitle else file_paths["ass"],
+        audio_files,
+        [] if burnt_subtitle else subtitle_files,
         fonts=opts.fonts,
         default_audio=opts.default_audio,
         default_subtitle=opts.default_subtitle,
@@ -141,23 +142,19 @@ def encode_video(
 
 def find_keys(
     usm_file: Path, nonce: int | None, keys: Keys, reporter: Reporter
-) -> tuple[bytes, bytes, bytes | None] | None:
-    """The audio key halves double as the old video mask's key. 7.1+ gets an AES key."""
+) -> DecryptionKey | None:
     stem = usm_file.stem
     if nonce is None:
-        key_pair = keys.decryption_key(stem) or crack_usm(usm_file, reporter).key
-        return None if key_pair is None else (*key_pair, None)
-
+        return keys.decryption_key(stem) or crack_usm(usm_file, reporter).key
     return keys.stream_keys(stem)
 
 
-def cleanup_files(file_paths: dict[str, list[Path]], output_path: Path) -> None:
-    for files in file_paths.values():
-        for file in files:
-            try:
-                file.unlink(missing_ok=True)
-            except OSError as e:
-                log.error(f"Failed to delete {file.name}: {e}")
+def cleanup_files(created: list[Path], output_path: Path) -> None:
+    for file in created:
+        try:
+            file.unlink(missing_ok=True)
+        except OSError as e:
+            log.error(f"Failed to delete {file.name}: {e}")
 
     subs_dir = output_path / "subs"
     try:
@@ -170,64 +167,61 @@ def cleanup_files(file_paths: dict[str, list[Path]], output_path: Path) -> None:
         output_path.rmdir()
 
 
-def process_usm(usm_file: Path, opts: Options, reporter: Reporter, keys: Keys) -> None:
+def process_usm(usm_file: Path, opts: Options, keys: Keys, reporter: Reporter) -> None:
     reporter.checkpoint()
 
     stem = usm_file.stem
     log.info(f"Processing: {usm_file.name}")
     reporter.event("job_start", file=usm_file.name, stem=stem)
 
-    final_mkv = Path(opts.output) / (f"{stem}.mkv" if opts.flat else f"{stem}/{stem}.mkv")
+    final_mkv = opts.output / (f"{stem}.mkv" if opts.flat else f"{stem}/{stem}.mkv")
     if opts.skip_existing and final_mkv.exists():
         log.info(f"Skipping {usm_file.name}: output already exists.")
         reporter.event("job_skipped", file=usm_file.name, reason="exists")
         return
 
     nonce = video_nonce(usm_file)
-    found = find_keys(usm_file, nonce, keys, reporter)
-    if found is None:
+    key = find_keys(usm_file, nonce, keys, reporter)
+    if key is None:
         log.warning(f"Could not find decryption keys for {usm_file.name}, skipping...")
         reporter.event("job_skipped", file=usm_file.name, reason="no_key")
         return
     reporter.checkpoint()
 
-    key1, key2, aes_key = found
-    usm = USM(usm_file, key1, key2, aes_key, nonce)
-    output_path = Path(opts.output) / stem
+    usm = USM(usm_file, key, nonce)
+    output_path = opts.output / stem
     output_path.mkdir(exist_ok=True)
     video = output_path / f"{stem}.ivf"
-    # Both the encode and the mux write here, and only a finished run renames it. A killed
-    # ffmpeg can leave a valid looking truncated file where --skip-existing would mistake as
-    # a finished one.
+    # A killed ffmpeg can leave a broken file that --skip-existing would mistake for a finished one.
     partial_mkv = output_path / f"{stem}.mkv.part"
-    file_paths: dict[str, list[Path]] = {"mkv": [partial_mkv]}
+    created = [partial_mkv]
     try:
-        usm.demux(output_path=output_path, reporter=reporter, file_paths=file_paths)
+        hca_files = usm.demux(output_path=output_path, reporter=reporter, created=created)
         reporter.checkpoint()
 
-        hca_files = file_paths.get("hca", [])
         extension = AUDIO_CODECS[opts.audio_codec][0]
-        file_paths["audio"] = [hca_file.with_suffix(extension) for hca_file in hca_files]
+        audio_files = [hca_file.with_suffix(extension) for hca_file in hca_files]
+        created += audio_files
         process_audio(
             hca_files,
-            file_paths["audio"],
-            key1,
-            key2,
+            audio_files,
+            key,
             keep_decrypted=opts.no_cleanup,
             codec=opts.audio_codec,
         )
-        file_paths["ass"] = process_subtitles(
+        subtitle_files = process_subtitles(
             stem=BASENAME_FIXES.get(stem, stem),
             output_path=output_path,
         )
+        created += subtitle_files
         reporter.checkpoint()
 
-        if not encode_video(video, partial_mkv, file_paths, opts, reporter):
+        if not encode_video(video, partial_mkv, audio_files, subtitle_files, opts, reporter):
             mux(
                 video,
                 partial_mkv,
-                file_paths["audio"],
-                file_paths["ass"],
+                audio_files,
+                subtitle_files,
                 fonts=opts.fonts,
                 default_audio=opts.default_audio,
                 default_subtitle=opts.default_subtitle,
@@ -235,7 +229,7 @@ def process_usm(usm_file: Path, opts: Options, reporter: Reporter, keys: Keys) -
         reporter.checkpoint()
     except Cancelled, Skipped, CharlotteError, OSError:
         if not opts.no_cleanup:
-            cleanup_files(file_paths, output_path)
+            cleanup_files(created, output_path)
         raise
 
     try:
@@ -245,7 +239,7 @@ def process_usm(usm_file: Path, opts: Options, reporter: Reporter, keys: Keys) -
     log.info(f"Created: {final_mkv}")
 
     if not opts.no_cleanup:
-        cleanup_files(file_paths, output_path)
+        cleanup_files(created, output_path)
 
     reporter.event(
         "result",
@@ -256,16 +250,34 @@ def process_usm(usm_file: Path, opts: Options, reporter: Reporter, keys: Keys) -
     )
 
 
+def process_all(usm_files: list[Path], opts: Options, keys: Keys, reporter: Reporter) -> int:
+    failures = 0
+    for usm_file in usm_files:
+        try:
+            process_usm(usm_file, opts, keys, reporter)
+        except Cancelled:
+            log.info(f"Cancelled during {usm_file.name}.")
+            reporter.event("cancelled", file=usm_file.name)
+            break
+        except Skipped:
+            log.info(f"Skipped {usm_file.name} on request.")
+            reporter.event("job_skipped", file=usm_file.name, reason="requested")
+        except (CharlotteError, OSError) as e:
+            log.error(f"Failed to process {usm_file.name}: {e}")
+            reporter.event("error", file=usm_file.name, message=str(e))
+            failures += 1
+    return failures
+
+
 def crack_usm(usm_file: Path, reporter: Reporter) -> Recovery:
     stem = usm_file.stem
     recovery = crack_key(usm_file, reporter)
 
-    key_pair = recovery.key
+    key = recovery.key
     combined = video_key = None
-    if key_pair is not None:
-        key1, key2 = key_pair
-        combined = int.from_bytes(key1 + key2, "little")
-        video_key = (combined - calculate_key_from_filename(stem)) & 0xFFFFFFFFFFFFFF
+    if key is not None:
+        combined = int.from_bytes(key.key1 + key.key2, "little")
+        video_key = (combined - calculate_key_from_filename(stem)) & KEY_MASK
         log.info(f"{usm_file.name}: videoKey={video_key}")
 
     reporter.event(
@@ -339,3 +351,12 @@ def probe_usm(usm_file: Path, keys: Keys, reporter: Reporter) -> None:
         vs_script=vs_script,
         stream_cipher=stream_cipher,
     )
+
+
+def probe_all(usm_files: list[Path], keys: Keys, reporter: Reporter) -> None:
+    for usm_file in usm_files:
+        try:
+            probe_usm(usm_file, keys, reporter)
+        except (CharlotteError, OSError) as e:
+            log.error(f"Failed to read {usm_file.name}: {e}")
+            reporter.event("error", file=usm_file.name, message=str(e))

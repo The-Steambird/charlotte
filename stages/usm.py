@@ -1,7 +1,6 @@
 import struct
 
 from contextlib import ExitStack, closing
-from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
 import numpy as np
@@ -15,7 +14,9 @@ from utils.logger import log
 if TYPE_CHECKING:
     from collections.abc import Generator
     from io import BufferedWriter
+    from pathlib import Path
 
+    from resources.keys import DecryptionKey
     from utils.reporter import Reporter
 
 
@@ -136,18 +137,11 @@ def video_nonce(file_path: Path) -> int | None:
 
 
 class USM:
-    def __init__(
-        self,
-        file_path: Path,
-        key1: bytes,
-        key2: bytes,
-        aes_key: bytes | None = None,
-        nonce: int | None = None,
-    ):
-        self.file_path = Path(file_path)
-        self.video_mask1 = self.build_mask(key1, key2)
+    def __init__(self, file_path: Path, key: DecryptionKey, nonce: int | None = None):
+        self.file_path = file_path
+        self.video_mask1 = self.build_mask(key.key1, key.key2)
         self.video_mask2 = bytes(b ^ 0xFF for b in self.video_mask1)
-        self.aes_key = aes_key
+        self.aes_key = key.aes_key
         self.nonce = nonce
 
     @staticmethod
@@ -227,16 +221,12 @@ class USM:
         cipher = AES.new(self.aes_key, AES.MODE_CTR, nonce=b"", initial_value=iv)
         data[MASK_START:] = cipher.decrypt(data[MASK_START:])
 
-    def demux(
-        self,
-        output_path: Path,
-        reporter: Reporter,
-        file_paths: dict[str, list[Path]] | None = None,
-    ) -> dict[str, list[Path]]:
+    def demux(self, output_path: Path, reporter: Reporter, created: list[Path]) -> list[Path]:
+        """Returns the .hca files. Every file joins `created` as soon as it is opened, which
+        lets the caller clean up after a failure part way through."""
         base_name = self.file_path.stem
+        video = output_path / f"{base_name}.ivf"
         streams: dict[Path, BufferedWriter] = {}
-        if file_paths is None:
-            file_paths = {}
         known = {b"CRID", b"@SFV", b"@SFA", b"@CUE", b"@APP", b"@ALP", b"@SBT"}
         file_size = self.file_path.stat().st_size
 
@@ -245,23 +235,22 @@ class USM:
             ExitStack() as open_streams,
         ):
 
-            def write_to(filename: str, kind: str, payload: bytes) -> None:
-                path = output_path / filename
+            def write_to(path: Path, payload: bytes) -> None:
                 if path not in streams:
                     streams[path] = open_streams.enter_context(open(path, "wb"))
-                    file_paths.setdefault(kind, []).append(path)
+                    created.append(path)
                 streams[path].write(payload)
 
             for chunks, (header, data) in enumerate(read_chunks(self.file_path), start=1):
                 if header.signature == b"@SFV" and header.is_data:
                     buffer = bytearray(data)
-                    if self.aes_key is None:
+                    if self.nonce is None:
                         self.decrypt_video(buffer)
                     else:
                         self.decrypt_stream(buffer, header.frame_time)
-                    write_to(f"{base_name}.ivf", "ivf", buffer)
+                    write_to(video, buffer)
                 elif header.signature == b"@SFA" and header.is_data:
-                    write_to(f"{base_name}_{header.channel_no}.hca", "hca", data)
+                    write_to(output_path / f"{base_name}_{header.channel_no}.hca", data)
                 elif header.signature not in known:
                     known.add(header.signature)  # warn once per signature
                     log.warning(f"Unknown signature {header.signature!r}")
@@ -272,4 +261,4 @@ class USM:
 
             task.set_completed(file_size)
 
-        return file_paths
+        return [path for path in streams if path.suffix == ".hca"]

@@ -21,9 +21,10 @@ def mux_args(
     codec_args: list[str],
     audio_files: list[Path],
     subtitle_files: list[Path],
-    fonts: Sequence[Path] = (),
-    default_audio: str = "ja",
-    default_subtitle: str = "EN",
+    *,
+    fonts: Sequence[Path],
+    default_audio: str,
+    default_subtitle: str,
 ) -> list[str]:
     """The caller puts the video input ahead of these. Fonts are only attached with subtitle
     tracks, and `-f` is needed because the `.part` name does not tell ffmpeg the format."""
@@ -72,9 +73,10 @@ def mux(
     output_file: Path,
     audio_files: list[Path],
     subtitle_files: list[Path],
-    fonts: Sequence[Path] = (),
-    default_audio: str = "ja",
-    default_subtitle: str = "EN",
+    *,
+    fonts: Sequence[Path],
+    default_audio: str,
+    default_subtitle: str,
 ) -> None:
     """Mux the lossless IVF video with the audio and subtitle tracks."""
     if not video.exists():

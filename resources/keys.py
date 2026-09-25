@@ -1,7 +1,7 @@
 import functools
 import re
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 import orjson
 import urllib3
@@ -18,8 +18,19 @@ if TYPE_CHECKING:
     from utils.reporter import Reporter
 
 
-def keys_path() -> Path:
-    return app_root() / "keys.json"
+KEY_MASK = (1 << 56) - 1
+
+
+class DecryptionKey(NamedTuple):
+    """key1 and key2 decrypt both audio + video mask. 7.1+ uses an AES key for the video instead."""
+
+    key1: bytes
+    key2: bytes
+    aes_key: bytes | None = None
+
+
+def wrap_key(value: int) -> int:
+    return (value & KEY_MASK) or 1 << 56
 
 
 def calculate_key_from_filename(filename: str) -> int:
@@ -35,7 +46,7 @@ def calculate_key_from_filename(filename: str) -> int:
     for char in filename:
         sum_val = ord(char) + 3 * sum_val
 
-    return (sum_val & 0xFFFFFFFFFFFFFF) or 0x100000000000000
+    return wrap_key(sum_val)
 
 
 @functools.cache
@@ -50,7 +61,7 @@ def fetch_upstream_keys() -> bytes | None:
             log.info("Successfully fetched keys.json.")
             return response.data
         log.warning(f"HTTP Error {response.status} while fetching keys.json.")
-    except Exception as e:
+    except urllib3.exceptions.HTTPError as e:
         log.error(f"Failed to download keys.json: {e}")
     return None
 
@@ -78,19 +89,20 @@ def split_key(key: int) -> tuple[bytes, bytes]:
     return key_bytes[:4], key_bytes[4:]
 
 
-def parse_stream_keys(audio_key: object, aes_key: object) -> tuple[bytes, bytes, bytes] | None:
+def parse_stream_keys(audio_key: object, aes_key: object) -> DecryptionKey | None:
     if not (
         isinstance(audio_key, int)
-        and 0 <= audio_key < 1 << 56
+        and 0 <= audio_key <= KEY_MASK
         and isinstance(aes_key, str)
         and re.fullmatch(r"\s*[0-9A-Fa-f]{32}\s*", aes_key)
     ):
         return None
     # 7.1 doesn't use filename anymore so audioKey is used as it is.
-    return *split_key(audio_key), bytes.fromhex(aes_key)
+    key1, key2 = split_key(audio_key)
+    return DecryptionKey(key1, key2, bytes.fromhex(aes_key))
 
 
-def find_stream_keys(data: dict, filename: str) -> tuple[bytes, bytes, bytes] | None:
+def find_stream_keys(data: dict, filename: str) -> DecryptionKey | None:
     found = find_video(data, filename)
     return parse_stream_keys(found[1].get("audioKey"), found[1].get("aesKey")) if found else None
 
@@ -99,7 +111,7 @@ class Keys:
     def __init__(self, reporter: Reporter, manual_key: str | None = None):
         self.reporter = reporter
         self.manual_key = manual_key
-        self.path = keys_path()
+        self.path = app_root() / "keys.json"
         self.data: dict = {}
         self.raw = b""
         self.declined = False
@@ -138,7 +150,7 @@ class Keys:
 
         return self.find(stem, find_video_key)
 
-    def stream_keys(self, stem: str) -> tuple[bytes, bytes, bytes] | None:
+    def stream_keys(self, stem: str) -> DecryptionKey | None:
         if self.manual_key is not None:
             audio_key, _, aes_key = self.manual_key.partition(":")
             audio_key = int(audio_key) if audio_key.strip().isdecimal() else None
@@ -151,7 +163,7 @@ class Keys:
 
         return self.find(stem, find_stream_keys)
 
-    def find[T](self, stem: str, lookup: Callable[[dict, str], T | None]) -> T | None:
+    def find(self, stem: str, lookup: Callable[[dict, str], Any]) -> Any:
         found = lookup(self.data, stem)
         if found is not None:
             return found
@@ -198,10 +210,11 @@ class Keys:
         self.raw = upstream_bytes
         return found
 
-    def decryption_key(self, stem: str) -> tuple[bytes, bytes] | None:
+    def decryption_key(self, stem: str) -> DecryptionKey | None:
         key1 = calculate_key_from_filename(stem)
         key2 = self.get(stem)
         if key2 is None:
             return None
 
-        return split_key(((key1 + key2) & 0xFFFFFFFFFFFFFF) or 0x100000000000000)
+        combined = wrap_key(key1 + key2)
+        return DecryptionKey(*split_key(combined))

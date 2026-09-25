@@ -5,12 +5,11 @@ from typing import TYPE_CHECKING, Annotated, NoReturn
 
 import typer
 
-from pipeline import Options, crack_all, probe_usm, process_usm
+from pipeline import Options, crack_all, probe_all, process_all
 from resources.fonts import fetch_font
 from resources.keys import Keys
 from resources.subtitles import sync_subtitles
 from stages.filter import DEFAULT_CRF, DEFAULT_PRESET
-from utils.errors import Cancelled, CharlotteError, Skipped
 from utils.ffmpeg import AUDIO_CODECS
 from utils.languages import AUDIO_LANGUAGES, SUBTITLES_LANGUAGES
 from utils.logger import log
@@ -34,8 +33,6 @@ SUBTITLE_CHOICES = list(SUBTITLES_LANGUAGES)
 
 
 def choice_normalizer(choices: list[str]) -> Callable[[str], str]:
-    """Build the typer callback for a case-insensitive choice flag: it maps whatever the
-    user typed back to the canonical spelling in `choices`, or raises BadParameter."""
     canonical_by_key = {choice.casefold(): choice for choice in choices}
     allowed = ", ".join(choice.lower() for choice in choices)
 
@@ -49,8 +46,6 @@ def choice_normalizer(choices: list[str]) -> Callable[[str], str]:
 
 
 def choice_option(*names: str, help: str, choices: list[str]) -> OptionInfo:
-    """A flag whose value must be one of `choices`, matched case-insensitively and listed
-    lowercase in --help."""
     return typer.Option(
         *names,
         help=help,
@@ -95,7 +90,10 @@ def demux(
         list[Path] | None,
         typer.Argument(help="USM file(s) or directory(ies) containing USM files."),
     ] = None,
-    output: Annotated[str, typer.Option("--output", "-o", help="Output directory.")] = "output",
+    output: Annotated[
+        Path,
+        typer.Option("--output", "-o", help="Output directory."),
+    ] = Path("output"),
     no_cleanup: Annotated[
         bool,
         typer.Option(
@@ -262,19 +260,13 @@ def demux(
         return
 
     if probe:
-        probe_keys = Keys(reporter)
-        for usm_file in usm_files:
-            try:
-                probe_usm(usm_file, probe_keys, reporter)
-            except (CharlotteError, OSError) as e:
-                log.error(f"Failed to read {usm_file.name}: {e}")
-                reporter.event("error", file=usm_file.name, message=str(e))
+        probe_all(usm_files, Keys(reporter), reporter)
         return
 
     log.info(f"Found {len(usm_files)} USM file(s).")
     keys = Keys(reporter, manual_key=key)
 
-    Path(output).mkdir(parents=True, exist_ok=True)
+    output.mkdir(parents=True, exist_ok=True)
     sync_subtitles(reporter)
     opts = Options(
         output=output,
@@ -292,22 +284,7 @@ def demux(
         hard_sub=hard_sub,
     )
 
-    failures = 0
-    for usm_file in usm_files:
-        try:
-            process_usm(usm_file, opts, reporter, keys)
-        except Cancelled:
-            log.info(f"Cancelled during {usm_file.name}.")
-            reporter.event("cancelled", file=usm_file.name)
-            return
-        except Skipped:
-            log.info(f"Skipped {usm_file.name} on request.")
-            reporter.event("job_skipped", file=usm_file.name, reason="requested")
-        except (CharlotteError, OSError) as e:
-            log.error(f"Failed to process {usm_file.name}: {e}")
-            reporter.event("error", file=usm_file.name, message=str(e))
-            failures += 1
-
+    failures = process_all(usm_files, opts, keys, reporter)
     if failures:
         log.warning(f"{failures} of {len(usm_files)} file(s) failed.")
         raise typer.Exit(1)
