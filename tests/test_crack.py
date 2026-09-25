@@ -89,7 +89,7 @@ def test_pair_schedule_covers_every_adjacent_pair_exactly_once():
     assert sorted(scored) == list(range(BLOCK - 1))
 
 
-@pytest.mark.parametrize(("key1", "key2"), key_pairs(12))
+@pytest.mark.parametrize("key1, key2", key_pairs(12))
 def test_expansions_reproduce_build_mask(key1, key2):
     truth = USM.build_mask(key1, key2)
 
@@ -100,7 +100,7 @@ def test_expansions_reproduce_build_mask(key1, key2):
     assert bytes(mask[:, 0].tolist()) == truth
 
 
-@pytest.mark.parametrize(("key1", "key2"), key_pairs(12))
+@pytest.mark.parametrize("key1, key2", key_pairs(12))
 def test_key_from_mask_inverts_build_mask(key1, key2):
     assert key_from_mask(list(USM.build_mask(key1, key2))) == DecryptionKey(key1, key2)
 

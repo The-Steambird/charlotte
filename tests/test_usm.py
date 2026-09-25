@@ -80,7 +80,7 @@ def test_decrypt_stream_counts_from_the_chunk_iv(tmp_path):
 
 
 @pytest.mark.parametrize(
-    ("chunks", "nonce"),
+    "chunks, nonce",
     [
         (video_header(nonce=0x3CEFE9EAB8C72E7A) + chunk(b"@SFV", b"video"), 0x3CEFE9EAB8C72E7A),
         (video_header() + chunk(b"@SFV", b"video"), None),

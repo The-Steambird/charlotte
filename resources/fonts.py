@@ -59,6 +59,11 @@ def fetch_font() -> list[Path]:
         log.info(
             "Subtitles will use the default system font. "
             "To use official fonts, copy the font folder from: "
-            r"Genshin Impact\Genshin Impact game\GenshinImpact_Data\StreamingAssets\MiHoYoSDKRes\HttpServerResources"
+            "Genshin Impact"
+            r"\Genshin Impact game"
+            r"\GenshinImpact_Data"
+            r"\StreamingAssets"
+            r"\MiHoYoSDKRes"
+            r"\HttpServerResources"
         )
     return available

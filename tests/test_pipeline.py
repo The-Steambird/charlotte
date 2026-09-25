@@ -147,7 +147,7 @@ def test_probe_reports_missing_when_the_update_is_declined(tmp_app_root, reporte
 
 
 @pytest.mark.parametrize(
-    ("group", "key"),
+    "group, key",
     [
         ({"audioKey": 5, "aesKey": AES_KEY.hex()}, True),
         ({"videoKey": 111}, False),
