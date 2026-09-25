@@ -60,42 +60,51 @@ src = [".", "tests"]
 
 [tool.ruff.lint]
 select = [
-    "ASYNC", # flake8-async
     "B", # flake8-bugbear
     "C4", # flake8-comprehensions
-    "DTZ", # flake8-datetimez (enforce timezone-aware datetimes)
     "E", # pycodestyle rules
+    "ERA", # (eradicate) commented-out code
     "F", # pyflakes rules
+    "FURB", # (refurb) modernize older idioms
     "I", # isort rules
+    "NPY", # numpy-specific rules (deprecations)
     "PERF", # (perflint) prevent performance anti-patterns
+    "PGH", # pygrep-hooks (noqa comments must name a rule)
     "PLE", # pylint errors
     "PLW", # pylint rules
     "PIE", # flake8-pie (misc. lints for cleaner code)
+    "PT", # flake8-pytest-style
     "RUF", # ruff-specific rules (catch common mistakes)
     "N", # pep8-naming
-    "Q", # flake8-quotes
     "RSE", # flake8-raise (simplify raise statements)
     "RET", # flake8-return (simplify return statements)
+    "S101", # asserts, which the -OO build strips
     "SIM", # flake8-simplify (suggest simpler code)
-    "TCH", # flake8-type-checking
+    "TC", # flake8-type-checking
     "TID", # flake8-tidy-imports
     "T20", # (disallow print statements) keep debugging statements out of the codebase
     "W", # pycodestyle warnings
     "UP", # (pyupgrade) auto-upgrade syntax to newer versions of Python
 ]
 
+# Cancelled and Skipped are control-flow signals like StopIteration, not errors.
+ignore = ["N818"]
+
 extend-safe-fixes = [
-    "TCH", # move import from and to TYPE_CHECKING blocks
+    "TC", # move import from and to TYPE_CHECKING blocks
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.ruff.lint.flake8-pytest-style]
+parametrize-names-type = "csv"
 
 [tool.ruff.lint.isort]
 lines-between-types = 1
 lines-after-imports = 2
 
 [tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
-skip-magic-trailing-comma = false
 line-ending = "lf"
 
 [tool.ruff.lint.pydocstyle]
