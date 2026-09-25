@@ -4,6 +4,7 @@ import resources.keys
 
 from conftest import forbid_call
 from resources.keys import (
+    DecryptionKey,
     Keys,
     calculate_key_from_filename,
     find_video_key,
@@ -20,7 +21,7 @@ UPSTREAM_WITH_NEW_KEY = {
 }
 AES_HEX = "f9e9e1c5cf3a68deffa0a4d3df665836"
 # audioKey 5 split into the two halves with no filename term added.
-STREAM_KEYS_OF_5 = (bytes([5, 0, 0, 0]), bytes(4), bytes.fromhex(AES_HEX))
+STREAM_KEYS_OF_5 = DecryptionKey(bytes([5, 0, 0, 0]), bytes(4), bytes.fromhex(AES_HEX))
 STREAM_KEYS = {
     "list": [
         {
@@ -147,9 +148,9 @@ def test_decryption_key_splits_the_combined_key(tmp_app_root, reporter, monkeypa
     write_keys(tmp_app_root, FLAT_KEYS)
     monkeypatch.setattr(resources.keys, "fetch_upstream_keys", forbid_call)
 
-    key_pair = Keys(reporter).decryption_key("Cs_A")
+    key = Keys(reporter).decryption_key("Cs_A")
 
-    assert key_pair is not None
-    key1, key2 = key_pair
+    assert key is not None
     combined = (calculate_key_from_filename("Cs_A") + 111) & 0xFFFFFFFFFFFFFF
-    assert key1 + key2 == combined.to_bytes(8, "little")
+    assert key.key1 + key.key2 == combined.to_bytes(8, "little")
+    assert key.aes_key is None

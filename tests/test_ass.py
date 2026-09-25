@@ -16,14 +16,14 @@ def write_srt(tmp_path, text, name="Cs_Test_EN.srt"):
     return srt
 
 
-def parse(tmp_path, text, **kwargs) -> ASS:
-    ass = ASS(str(write_srt(tmp_path, text)), **kwargs)
+def parse(tmp_path, text, lang="EN") -> ASS:
+    ass = ASS(write_srt(tmp_path, text), lang)
     assert ass.parse_srt()
     return ass
 
 
-def convert_ass(tmp_path, text, **kwargs):
-    ass = parse(tmp_path, text, **kwargs)
+def convert_ass(tmp_path, text, lang="EN"):
+    ass = parse(tmp_path, text, lang)
     return ass.convert_to_ass(tmp_path / "out").read_text(encoding="utf-8")
 
 
@@ -74,7 +74,7 @@ def test_malformed_blocks_skipped(tmp_path):
 
 
 def test_unparseable_srt_returns_false(tmp_path):
-    ass = ASS(str(write_srt(tmp_path, "garbage\nwith no valid blocks\n")))
+    ass = ASS(write_srt(tmp_path, "garbage\nwith no valid blocks\n"), "EN")
     assert not ass.parse_srt()
 
 

@@ -8,6 +8,9 @@ from stages.mux import mux, mux_args
 from utils.errors import CharlotteError
 
 
+TRACKS = {"fonts": [], "default_audio": "ja", "default_subtitle": "EN"}
+
+
 def make_tracks(tmp_path, stem="Cs_Test", channels=("0", "1", "2"), subs=("EN", "JP")):
     video = tmp_path / f"{stem}.ivf"
     video.write_bytes(b"")
@@ -18,7 +21,7 @@ def make_tracks(tmp_path, stem="Cs_Test", channels=("0", "1", "2"), subs=("EN", 
 
 def test_default_audio_sorted_first_and_flagged(ffmpeg, tmp_path):
     video, audio, subs = make_tracks(tmp_path)  # channels: 0=zh, 1=en, 2=ja
-    mux(video, tmp_path / "o.mkv.part", audio, subs, default_audio="ja")
+    mux(video, tmp_path / "o.mkv.part", audio, subs, **TRACKS)
 
     inputs = input_files(ffmpeg.cmd)
     assert inputs[0].endswith("Cs_Test.ivf")
@@ -32,7 +35,7 @@ def test_default_audio_sorted_first_and_flagged(ffmpeg, tmp_path):
 
 def test_default_subtitle_sorted_first_and_flagged(ffmpeg, tmp_path):
     video, audio, subs = make_tracks(tmp_path)
-    mux(video, tmp_path / "o.mkv.part", audio, subs, default_subtitle="JP")
+    mux(video, tmp_path / "o.mkv.part", audio, subs, **TRACKS | {"default_subtitle": "JP"})
 
     subtitle_inputs = [path for path in input_files(ffmpeg.cmd) if path.endswith(".ass")]
     assert subtitle_inputs[0].endswith("Cs_Test_JP.ass")
@@ -49,7 +52,7 @@ def test_encode_tail_puts_codec_args_between_maps_and_metadata(tmp_path):
     ffmpeg which muxer to use."""
     _, audio, subs = make_tracks(tmp_path)
     output = tmp_path / "Cs_Test.mkv.part"
-    args = mux_args(output, ["-c:v", "libx265", "-c:a", "copy"], audio, subs)
+    args = mux_args(output, ["-c:v", "libx265", "-c:a", "copy"], audio, subs, **TRACKS)
 
     assert args[0] == "-i"
     assert args.index("-c:v") > max(i for i, flag in enumerate(args) if flag == "-i")
@@ -63,13 +66,14 @@ def test_fonts_only_ride_with_subtitle_tracks(tmp_path):
     hard-subbed output (or one whose cutscene has no subtitles) must not carry them."""
     fonts = [tmp_path / "ja-jp.ttf", tmp_path / "zh-cn.ttf"]
     _, audio, subs = make_tracks(tmp_path)
-    assert "-attach" in mux_args(tmp_path / "o.mkv", [], audio, subs, fonts=fonts)
-    assert "-attach" not in mux_args(tmp_path / "o.mkv", [], audio, [], fonts=fonts)
+    tracks = TRACKS | {"fonts": fonts}
+    assert "-attach" in mux_args(tmp_path / "o.mkv", [], audio, subs, **tracks)
+    assert "-attach" not in mux_args(tmp_path / "o.mkv", [], audio, [], **tracks)
 
 
 def test_all_streams_mapped(ffmpeg, tmp_path):
     video, audio, subs = make_tracks(tmp_path)  # 1 video + 3 audio + 2 subtitles
-    mux(video, tmp_path / "o.mkv.part", audio, subs)
+    mux(video, tmp_path / "o.mkv.part", audio, subs, **TRACKS)
     maps = [value for flag, value in pairwise(ffmpeg.cmd) if flag == "-map"]
     assert maps == ["0", "1", "2", "3", "4", "5"]
 
@@ -78,7 +82,7 @@ def test_nostdin_ahead_of_the_first_input(ffmpeg, tmp_path):
     """mux passes nothing on stdin, and without the flag ffmpeg would inherit the GUI's
     command pipe under --json and read a byte off it per keyboard poll."""
     video, audio, subs = make_tracks(tmp_path)
-    mux(video, tmp_path / "o.mkv.part", audio, subs)
+    mux(video, tmp_path / "o.mkv.part", audio, subs, **TRACKS)
     assert ffmpeg.cmd.index("-nostdin") < ffmpeg.cmd.index("-i")
 
 
@@ -86,10 +90,10 @@ def test_missing_video_input_raises(ffmpeg, tmp_path):
     video, audio, subs = make_tracks(tmp_path)
     video.unlink()
     with pytest.raises(CharlotteError, match="input not found"):
-        mux(video, tmp_path / "o.mkv.part", audio, subs)
+        mux(video, tmp_path / "o.mkv.part", audio, subs, **TRACKS)
 
 
 def test_no_audio_raises(ffmpeg, tmp_path):
     video, _, subs = make_tracks(tmp_path)
     with pytest.raises(CharlotteError, match="No audio files"):
-        mux(video, tmp_path / "o.mkv.part", [], subs)
+        mux(video, tmp_path / "o.mkv.part", [], subs, **TRACKS)

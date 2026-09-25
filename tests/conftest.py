@@ -19,9 +19,7 @@ def chunk(
     sig: bytes, payload: bytes, channel: int = 0, data_type: int = 0, frame_time: int = 0
 ) -> bytes:
     data_size = 0x18 + len(payload)
-    header = struct.pack(
-        ">4sIxBHB2xBI12x", sig, data_size, 0x18, 0, channel, data_type, frame_time
-    )
+    header = struct.pack(">4sIxBHB2xBI12x", sig, data_size, 0x18, 0, channel, data_type, frame_time)
     return header + payload
 
 

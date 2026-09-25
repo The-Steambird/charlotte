@@ -18,7 +18,7 @@ from pipeline import (
     process_subtitles,
     process_usm,
 )
-from resources.keys import Keys, calculate_key_from_filename
+from resources.keys import DecryptionKey, Keys, calculate_key_from_filename, split_key
 from resources.subtitles import local_subtitle_path
 from stages.crack import Recovery
 from utils.errors import Cancelled, CharlotteError, Skipped
@@ -59,12 +59,19 @@ def last_event(reporter, kind):
 def make_options(tmp_path, **overrides) -> Options:
     (tmp_path / "out").mkdir(exist_ok=True)
     defaults = {
-        "output": str(tmp_path / "out"),
+        "output": tmp_path / "out",
         "no_cleanup": False,
         "vapoursynth": False,
         "crf": 0.0,
         "preset": "fast",
         "x265_params": None,
+        "fonts": [],
+        "default_audio": "ja",
+        "default_subtitle": "EN",
+        "audio_codec": "flac",
+        "skip_existing": False,
+        "flat": False,
+        "hard_sub": False,
     }
     return Options(**defaults | overrides)
 
@@ -72,7 +79,7 @@ def make_options(tmp_path, **overrides) -> Options:
 def make_run(tmp_path, chunks=None, **overrides):
     usm_file = tmp_path / "Cs_Test.usm"
     usm_file.write_bytes(chunks or chunk(b"@SFV", b"video") + chunk(b"@SFA", b"audio"))
-    keys = SimpleNamespace(decryption_key=lambda stem: (bytes(4), bytes(4)))
+    keys = SimpleNamespace(decryption_key=lambda stem: DecryptionKey(bytes(4), bytes(4)))
     return usm_file, make_options(tmp_path, **overrides), keys
 
 
@@ -202,7 +209,7 @@ def test_stop_mid_demux_cleans_partial_files_unless_nc(tmp_path, error, no_clean
     usm_file, opts, keys = make_run(tmp_path, chunks=past_checkpoint, no_cleanup=no_cleanup)
 
     with pytest.raises(error):
-        process_usm(usm_file, opts, StopDuringDemux(error), keys)
+        process_usm(usm_file, opts, keys, StopDuringDemux(error))
 
     assert (tmp_path / "out" / "Cs_Test" / "Cs_Test_0.hca").exists() is no_cleanup
 
@@ -218,7 +225,7 @@ def test_missing_key_falls_back_to_cracking(tmp_path, reporter, monkeypatch):
     monkeypatch.setattr(resources.keys, "fetch_upstream_keys", lambda: None)
     usm_file, opts, _ = make_run(tmp_path)
 
-    process_usm(usm_file, opts, reporter, Keys(reporter))  # a real Keys that misses everywhere
+    process_usm(usm_file, opts, Keys(reporter), reporter)  # a real Keys that misses everywhere
 
     assert cracked == [usm_file]
     assert ("job_skipped", {"file": "Cs_Test.usm", "reason": "no_key"}) in reporter.events
@@ -229,7 +236,7 @@ def test_stream_cipher_without_its_keys_is_skipped(tmp_path, reporter):
     usm_file, opts, _ = make_run(tmp_path, chunks=chunks)
     keys = SimpleNamespace(stream_keys=lambda stem: None)
 
-    process_usm(usm_file, opts, reporter, keys)
+    process_usm(usm_file, opts, keys, reporter)
 
     assert last_event(reporter, "job_skipped") == {"file": "Cs_Test.usm", "reason": "no_key"}
     assert not (tmp_path / "out" / "Cs_Test").exists()
@@ -253,13 +260,13 @@ def test_stream_cipher_decrypts_with_the_keys_of_its_group(
     usm_file, opts, _ = make_run(tmp_path, chunks=chunks, no_cleanup=True)
     audio_keys = []
 
-    def audio(hca_files, audio_files, key1, key2, **kwargs):
-        audio_keys.append(key1 + key2)
+    def audio(hca_files, audio_files, key, **kwargs):
+        audio_keys.append(key.key1 + key.key2)
 
     monkeypatch.setattr(pipeline, "process_audio", audio)
-    keys = SimpleNamespace(stream_keys=lambda stem: (key1, key2, AES_KEY))
+    keys = SimpleNamespace(stream_keys=lambda stem: DecryptionKey(key1, key2, AES_KEY))
 
-    process_usm(usm_file, opts, reporter, keys)
+    process_usm(usm_file, opts, keys, reporter)
 
     assert (tmp_path / "out" / "Cs_Test" / "Cs_Test.ivf").read_bytes() == plain
     assert audio_keys == [key1 + key2]
@@ -307,7 +314,7 @@ def stub_stages(monkeypatch):
 def test_run_writes_mkv_and_clears_intermediates(stub_stages, tmp_path, reporter):
     usm_file, opts, keys = make_run(tmp_path)
 
-    process_usm(usm_file, opts, reporter, keys)
+    process_usm(usm_file, opts, keys, reporter)
 
     work_dir = tmp_path / "out" / "Cs_Test"
     assert (work_dir / "Cs_Test.mkv").is_file()
@@ -329,7 +336,7 @@ def test_failure_leaves_no_mkv_and_clears_intermediates(stub_stages, tmp_path, r
     usm_file, opts, keys = make_run(tmp_path)
 
     with pytest.raises(type(error)):
-        process_usm(usm_file, opts, reporter, keys)
+        process_usm(usm_file, opts, keys, reporter)
 
     assert not (tmp_path / "out" / "Cs_Test").exists()
 
@@ -337,7 +344,7 @@ def test_failure_leaves_no_mkv_and_clears_intermediates(stub_stages, tmp_path, r
 def test_no_cleanup_keeps_intermediates(stub_stages, tmp_path, reporter):
     usm_file, opts, keys = make_run(tmp_path, no_cleanup=True)
 
-    process_usm(usm_file, opts, reporter, keys)
+    process_usm(usm_file, opts, keys, reporter)
 
     work_dir = tmp_path / "out" / "Cs_Test"
     assert (work_dir / "Cs_Test.ivf").is_file()
@@ -347,7 +354,7 @@ def test_no_cleanup_keeps_intermediates(stub_stages, tmp_path, reporter):
 def test_flat_lifts_the_mkv_and_drops_the_work_dir(stub_stages, tmp_path, reporter):
     usm_file, opts, keys = make_run(tmp_path, flat=True)
 
-    process_usm(usm_file, opts, reporter, keys)
+    process_usm(usm_file, opts, keys, reporter)
 
     assert (tmp_path / "out" / "Cs_Test.mkv").is_file()
     assert not (tmp_path / "out" / "Cs_Test").exists()
@@ -356,7 +363,7 @@ def test_flat_lifts_the_mkv_and_drops_the_work_dir(stub_stages, tmp_path, report
 def test_flat_with_no_cleanup_keeps_the_work_dir(stub_stages, tmp_path, reporter):
     usm_file, opts, keys = make_run(tmp_path, no_cleanup=True, flat=True)
 
-    process_usm(usm_file, opts, reporter, keys)
+    process_usm(usm_file, opts, keys, reporter)
 
     assert (tmp_path / "out" / "Cs_Test.mkv").is_file()
     assert (tmp_path / "out" / "Cs_Test" / "Cs_Test.ivf").is_file()
@@ -374,7 +381,7 @@ def test_skip_existing_stops_before_the_key_lookup(tmp_path, reporter, flat, exi
     existing.parent.mkdir(parents=True, exist_ok=True)
     existing.write_bytes(b"already here")
 
-    process_usm(usm_file, opts, reporter, SimpleNamespace(decryption_key=forbid_call))
+    process_usm(usm_file, opts, SimpleNamespace(decryption_key=forbid_call), reporter)
 
     assert ("job_skipped", {"file": "Cs_Test.usm", "reason": "exists"}) in reporter.events
     assert existing.read_bytes() == b"already here"
@@ -388,7 +395,7 @@ def test_hard_sub_burns_the_default_language_with_no_soft_tracks(stub_stages, tm
     becomes the final .mkv, with no second mux."""
     usm_file, opts, keys = make_run(tmp_path, hard_sub=True, default_subtitle="JP")
 
-    process_usm(usm_file, opts, reporter, keys)
+    process_usm(usm_file, opts, keys, reporter)
 
     work_dir = tmp_path / "out" / "Cs_Test"
     ffmpeg_args = stub_stages.encode["ffmpeg_args"]
@@ -406,7 +413,7 @@ def test_hard_sub_with_vapoursynth_encodes_once(stub_stages, tmp_path, reporter,
     monkeypatch.setattr(pipeline, "find_vs_script", lambda stem: "default")
     usm_file, opts, keys = make_run(tmp_path, hard_sub=True, vapoursynth=True)
 
-    process_usm(usm_file, opts, reporter, keys)
+    process_usm(usm_file, opts, keys, reporter)
 
     assert stub_stages.encode["script"] == "default"
     assert "Cs_Test_EN.ass" in flag_value(stub_stages.encode["ffmpeg_args"], "-vf")
@@ -419,7 +426,7 @@ def test_hard_sub_without_the_default_language_skips_the_encode(
     monkeypatch.setattr(pipeline, "vapoursynth_filter", forbid_call)
     usm_file, opts, keys = make_run(tmp_path, hard_sub=True, default_subtitle="DE")
 
-    process_usm(usm_file, opts, reporter, keys)
+    process_usm(usm_file, opts, keys, reporter)
 
     assert "No DE subtitle" in caplog.text
     assert stub_stages.mux is not None
@@ -431,7 +438,7 @@ def test_failed_encode_falls_back_to_soft_subtitles(stub_stages, tmp_path, repor
     stub_stages.ok = False
     usm_file, opts, keys = make_run(tmp_path, hard_sub=True)
 
-    process_usm(usm_file, opts, reporter, keys)
+    process_usm(usm_file, opts, keys, reporter)
 
     work_dir = tmp_path / "out" / "Cs_Test"
     assert stub_stages.mux is not None
@@ -479,7 +486,7 @@ def test_one_bad_subtitle_does_not_sink_the_rest(tmp_app_root, out_dir, monkeypa
 
     def flaky(sub_file, lang, *args, **kwargs):
         if lang == "DE":
-            raise ValueError("boom")
+            raise OSError("locked")
         return real_ass(sub_file, lang, *args, **kwargs)
 
     monkeypatch.setattr(pipeline, "ASS", flaky)
@@ -487,7 +494,7 @@ def test_one_bad_subtitle_does_not_sink_the_rest(tmp_app_root, out_dir, monkeypa
     ass_files = process_subtitles("Cs_A", out_dir)
 
     assert [path.name for path in ass_files] == ["Cs_A_EN.ass"]
-    assert "Error processing subtitle" in caplog.text
+    assert "Failed to convert Cs_A_DE.srt: locked" in caplog.text
 
 
 # --- key recovery ---
@@ -496,10 +503,8 @@ def test_one_bad_subtitle_does_not_sink_the_rest(tmp_app_root, out_dir, monkeypa
 def test_crack_reports_key_and_video_key(tmp_app_root, reporter, monkeypatch):
     """videoKey is the keys.json half: the combined key minus the filename hash."""
     combined = (calculate_key_from_filename("Cs_A") + 777) & 0xFFFFFFFFFFFFFF
-    key_bytes = combined.to_bytes(8, "little")
-    monkeypatch.setattr(
-        pipeline, "crack_key", lambda f, r: Recovery((key_bytes[:4], key_bytes[4:]), "")
-    )
+    key = DecryptionKey(*split_key(combined))
+    monkeypatch.setattr(pipeline, "crack_key", lambda f, r: Recovery(key, ""))
 
     crack_usm(tmp_app_root / "Cs_A.usm", reporter)
 
@@ -543,7 +548,7 @@ def test_crack_batch_carries_on_past_a_failed_file(
     def crack(usm_file, reporter):
         if usm_file.name == "Cs_Bad.usm":
             raise error
-        return Recovery((bytes(4), bytes(4)), "")
+        return Recovery(DecryptionKey(bytes(4), bytes(4)), "")
 
     monkeypatch.setattr(pipeline, "crack_key", crack)
 

@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from conftest import chunk, video_header
+from resources.keys import DecryptionKey
 from stages.crack import (
     SAMPLE_STEPS,
     STAGES,
@@ -19,8 +20,8 @@ from stages.crack import (
     expand_4,
     expand_5,
     expand_6,
+    key_from_mask,
     solve,
-    split_key,
 )
 from stages.usm import BLOCK, CIPHER_START, MASK_START, MIN_MASKED, USM, is_masked
 
@@ -100,8 +101,8 @@ def test_expansions_reproduce_build_mask(key1, key2):
 
 
 @pytest.mark.parametrize(("key1", "key2"), key_pairs(12))
-def test_split_key_inverts_build_mask(key1, key2):
-    assert split_key(list(USM.build_mask(key1, key2))) == (key1, key2)
+def test_key_from_mask_inverts_build_mask(key1, key2):
+    assert key_from_mask(list(USM.build_mask(key1, key2))) == DecryptionKey(key1, key2)
 
 
 def test_solve_recovers_a_known_key():
@@ -110,7 +111,7 @@ def test_solve_recovers_a_known_key():
     for _ in range(8):
         stats.add(encrypt(video_plaintext(rng, 500), KEY1, KEY2))
 
-    assert split_key(solve(*stats.tables())) == (KEY1, KEY2)
+    assert key_from_mask(solve(*stats.tables())) == DecryptionKey(KEY1, KEY2)
 
 
 def test_crack_key_recovers_from_a_usm(tmp_path, reporter):
@@ -118,7 +119,7 @@ def test_crack_key_recovers_from_a_usm(tmp_path, reporter):
     usm_file = tmp_path / "Cs_Test.usm"
     usm_file.write_bytes(b"".join(video_chunk(rng) for _ in range(8)))
 
-    assert crack_key(usm_file, reporter) == Recovery((KEY1, KEY2), "")
+    assert crack_key(usm_file, reporter) == Recovery(DecryptionKey(KEY1, KEY2), "")
 
 
 def test_crack_key_declines_a_file_with_no_video(tmp_path, reporter):
@@ -197,7 +198,7 @@ def test_split_half_rejects_disagreeing_noise():
 def test_is_masked_matches_decrypt_video(tmp_path):
     """A sampler that disagrees with decrypt_video about which payloads are masked poisons
     the statistics."""
-    usm = USM(tmp_path / "Cs_Test.usm", bytes([1, 2, 3, 4]), bytes([5, 6, 7, 0]))
+    usm = USM(tmp_path / "Cs_Test.usm", DecryptionKey(bytes([1, 2, 3, 4]), bytes([5, 6, 7, 0])))
     threshold = MASK_START + MIN_MASKED
 
     for size in (threshold - 1, threshold, threshold + BLOCK):

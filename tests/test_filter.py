@@ -128,7 +128,7 @@ def test_subtitle_rendered_at_frame_size_only_during_its_cue(tmp_path):
     if not ffmpeg_path().exists():
         pytest.skip("bundled ffmpeg.exe is not present")
     filters = subprocess.run(
-        [str(ffmpeg_path()), "-hide_banner", "-filters"], capture_output=True, text=True
+        [str(ffmpeg_path()), "-hide_banner", "-filters"], capture_output=True, text=True, check=True
     ).stdout
     if " ass " not in filters:
         pytest.skip("bundled ffmpeg was built without libass")
@@ -157,6 +157,7 @@ def test_subtitle_rendered_at_frame_size_only_during_its_cue(tmp_path):
         ],
         input=y4m,
         capture_output=True,
+        check=False,
     )  # fmt: skip
     assert result.returncode == 0, result.stderr.decode(errors="replace")
 

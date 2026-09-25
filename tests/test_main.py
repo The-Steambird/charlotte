@@ -5,6 +5,7 @@ import pytest
 from typer.testing import CliRunner
 
 import main
+import pipeline
 
 from conftest import forbid_call
 from utils.errors import Cancelled, CharlotteError, Skipped
@@ -24,11 +25,11 @@ def make_usm(directory, name="Cs_Test.usm"):
 def pipeline_stub(monkeypatch):
     stub = types.SimpleNamespace(files=[], opts=None)
 
-    def fake_process(usm_file, opts, reporter, keys):
+    def fake_process(usm_file, opts, keys, reporter):
         stub.files.append(usm_file)
         stub.opts = opts
 
-    monkeypatch.setattr(main, "process_usm", fake_process)
+    monkeypatch.setattr(pipeline, "process_usm", fake_process)
     monkeypatch.setattr(main, "Keys", lambda reporter, manual_key=None: None)
     monkeypatch.setattr(main, "sync_subtitles", lambda reporter: None)
     monkeypatch.setattr(main, "fetch_font", lambda: None)
@@ -176,18 +177,30 @@ def test_batch_outcome_of_a_stopped_file(
 ):
     seen = []
 
-    def process(usm_file, opts, reporter, keys):
+    def process(usm_file, opts, keys, reporter):
         seen.append(usm_file.stem)
         if usm_file.name == "Cs_A.usm":
             raise error
 
-    monkeypatch.setattr(main, "process_usm", process)
+    monkeypatch.setattr(pipeline, "process_usm", process)
     files = [make_usm(tmp_path, "Cs_A.usm"), make_usm(tmp_path, "Cs_B.usm")]
     result = runner.invoke(main.app, [*map(str, files), "-o", str(tmp_path / "out"), "--json"])
 
     assert result.exit_code == exit_code
     assert seen == processed
     assert event in result.stdout
+
+
+def test_cancel_after_a_failure_still_exits_1(pipeline_stub, monkeypatch, tmp_path):
+    def process(usm_file, opts, keys, reporter):
+        raise CharlotteError("boom") if usm_file.name == "Cs_A.usm" else Cancelled()
+
+    monkeypatch.setattr(pipeline, "process_usm", process)
+    files = [make_usm(tmp_path, "Cs_A.usm"), make_usm(tmp_path, "Cs_B.usm")]
+    result = runner.invoke(main.app, [*map(str, files), "-o", str(tmp_path / "out"), "--json"])
+
+    assert result.exit_code == 1
+    assert '{"type":"cancelled","file":"Cs_B.usm"}' in result.stdout
 
 
 def test_probe_shares_one_keys_and_carries_on_past_a_failed_file(monkeypatch, tmp_path):
@@ -201,10 +214,10 @@ def test_probe_shares_one_keys_and_carries_on_past_a_failed_file(monkeypatch, tm
         if usm_file.name == "Cs_A.usm":
             raise OSError("locked")
 
-    monkeypatch.setattr(main, "probe_usm", probe)
+    monkeypatch.setattr(pipeline, "probe_usm", probe)
     monkeypatch.setattr(main, "Keys", lambda reporter: keys)
     monkeypatch.setattr(main, "sync_subtitles", forbid_call)
-    monkeypatch.setattr(main, "process_usm", forbid_call)
+    monkeypatch.setattr(pipeline, "process_usm", forbid_call)
 
     files = [make_usm(tmp_path, "Cs_A.usm"), make_usm(tmp_path, "Cs_B.usm")]
     assert runner.invoke(main.app, [*map(str, files), "--probe"]).exit_code == 0
@@ -216,7 +229,7 @@ def test_crack_skips_keys_and_pipeline(monkeypatch, tmp_path):
     monkeypatch.setattr(main, "crack_all", lambda files, reporter: cracked.extend(files))
     monkeypatch.setattr(main, "Keys", forbid_call)
     monkeypatch.setattr(main, "sync_subtitles", forbid_call)
-    monkeypatch.setattr(main, "process_usm", forbid_call)
+    monkeypatch.setattr(pipeline, "process_usm", forbid_call)
 
     usm = make_usm(tmp_path)
     assert runner.invoke(main.app, [str(usm), "--crack"]).exit_code == 0
