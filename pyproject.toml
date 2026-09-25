@@ -10,7 +10,6 @@ dependencies = [
     "numpy>=2.5.3",
     "orjson>=3.12.0",
     "pycryptodome>=3.23.0",
-    "pyinstaller>=6.22.3",
     "typer>=0.27.2",
     "urllib3>=2.8.0",
     "vapoursynth>=80",
@@ -23,7 +22,6 @@ dependencies = [
     "vapoursynth-zsmooth>=0.20.0",
     "vs-placebo>=2.0.4",
     "vsjetpack>=2.2.4",
-    "vsview>=0.11.0",
 ]
 
 [dependency-groups]
@@ -31,6 +29,10 @@ dev = [
     "deptry>=0.25.1",
     "pytest>=9.1.1",
     "ruff>=0.15.22",
+    "vsview>=0.11.0",
+]
+build = [
+    "pyinstaller>=6.22.3",
 ]
 
 [[tool.uv.index]]
@@ -41,11 +43,16 @@ url = "https://jaded-encoding-thaumaturgy.github.io/vs-wheels/simple"
 package = false
 default-groups = [
     "dev",
+    "build",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.deptry]
+known_first_party = ["preview"]
+per_rule_ignores = { DEP003 = ["rich"], DEP004 = ["vsview"] }
 
 [tool.ruff]
 line-length = 100

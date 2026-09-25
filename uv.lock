@@ -37,7 +37,6 @@ dependencies = [
     { name = "numpy" },
     { name = "orjson" },
     { name = "pycryptodome" },
-    { name = "pyinstaller" },
     { name = "typer" },
     { name = "urllib3" },
     { name = "vapoursynth" },
@@ -50,14 +49,17 @@ dependencies = [
     { name = "vapoursynth-zsmooth" },
     { name = "vs-placebo" },
     { name = "vsjetpack" },
-    { name = "vsview" },
 ]
 
 [package.dev-dependencies]
+build = [
+    { name = "pyinstaller" },
+]
 dev = [
     { name = "deptry" },
     { name = "pytest" },
     { name = "ruff" },
+    { name = "vsview" },
 ]
 
 [package.metadata]
@@ -65,7 +67,6 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.5.3" },
     { name = "orjson", specifier = ">=3.12.0" },
     { name = "pycryptodome", specifier = ">=3.23.0" },
-    { name = "pyinstaller", specifier = ">=6.22.3" },
     { name = "typer", specifier = ">=0.27.2" },
     { name = "urllib3", specifier = ">=2.8.0" },
     { name = "vapoursynth", specifier = ">=80" },
@@ -78,14 +79,15 @@ requires-dist = [
     { name = "vapoursynth-zsmooth", specifier = ">=0.20.0" },
     { name = "vs-placebo", specifier = ">=2.0.4" },
     { name = "vsjetpack", specifier = ">=2.2.4" },
-    { name = "vsview", specifier = ">=0.11.0" },
 ]
 
 [package.metadata.requires-dev]
+build = [{ name = "pyinstaller", specifier = ">=6.22.3" }]
 dev = [
     { name = "deptry", specifier = ">=0.25.1" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "ruff", specifier = ">=0.15.22" },
+    { name = "vsview", specifier = ">=0.11.0" },
 ]
 
 [[package]]
