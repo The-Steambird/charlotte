@@ -87,7 +87,7 @@ select = [
     "UP", # (pyupgrade) auto-upgrade syntax to newer versions of Python
 ]
 
-# Cancelled and Skipped are control-flow signals like StopIteration, not errors.
+# Canceled and Skipped are control-flow signals like StopIteration, not errors.
 ignore = ["N818"]
 
 extend-safe-fixes = [
