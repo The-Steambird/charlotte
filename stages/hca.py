@@ -2,6 +2,8 @@ import struct
 
 from typing import TYPE_CHECKING
 
+import numpy as np
+
 from utils.errors import CharlotteError
 from utils.ffmpeg import AUDIO_CODECS, run_ffmpeg
 from utils.logger import log
@@ -27,7 +29,7 @@ def crc16_table() -> tuple[int, ...]:
 CRC16_TABLE = crc16_table()
 
 
-def crc16(data: bytes | bytearray | memoryview) -> int:
+def crc16(data: bytes | bytearray) -> int:
     table = CRC16_TABLE
     crc = 0
     for byte in data:
@@ -212,11 +214,16 @@ class HCA:
         self.update_header_crc()
 
     def save(self) -> None:
-        size = self.block_size
-        view = memoryview(self.data)
-        for offset in range(0, len(self.data) - size + 1, size):
-            crc = crc16(view[offset : offset + size - 2])
-            struct.pack_into(">H", self.data, offset + size - 2, crc)
+        # Computes the CRCs of all blocks together, feeding in byte 0 of every block, then
+        # byte 1, etc.
+        count = len(self.data) // self.block_size
+        blocks = np.frombuffer(self.data, dtype=np.uint8, count=count * self.block_size)
+        blocks = blocks.reshape(count, self.block_size)
+        table = np.array(CRC16_TABLE, dtype=np.uint16)
+        crc = np.zeros(count, dtype=np.uint16)
+        for column in np.ascontiguousarray(blocks[:, :-2].T):
+            crc = (crc << 8) ^ table[(crc >> 8) ^ column]
+        blocks[:, -2:] = crc.astype(">u2").view(np.uint8).reshape(count, 2)
 
         with open(self.file_path, "wb") as f:
             f.write(self.header)

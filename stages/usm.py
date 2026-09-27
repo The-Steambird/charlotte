@@ -199,26 +199,27 @@ class USM:
         if not is_masked(len(data)):
             return
 
-        mask1 = np.frombuffer(self.video_mask1, dtype=np.uint8)
-        mask2 = np.frombuffer(self.video_mask2, dtype=np.uint8)
+        # Word size does not matter for XOR, and uint64 words give numpy 1/8 of the
+        # elements to walk.
+        mask1 = np.frombuffer(self.video_mask1, dtype=np.uint64)
+        mask2 = np.frombuffer(self.video_mask2, dtype=np.uint64)
         buf = np.frombuffer(data, dtype=np.uint8)
         rows = (len(data) - CIPHER_START) // BLOCK
 
-        body = buf[CIPHER_START : CIPHER_START + rows * BLOCK].reshape(rows, BLOCK)
+        body = buf[CIPHER_START : CIPHER_START + rows * BLOCK].reshape(rows, BLOCK).view(np.uint64)
         running = np.bitwise_xor.accumulate(body, axis=0)
         running[0::2] ^= mask2
         body[:] = running
 
-        # A partial last block continues the chain with the mask the last full block
-        # left behind, which is its plaintext ^ video_mask2.
+        # A partial last block takes the next mask in the chain, which is the last full block's
+        # plaintext ^ video_mask2.
         tail = CIPHER_START + rows * BLOCK
         if tail < len(data):
-            buf[tail:] ^= (running[-1] ^ mask2)[: len(data) - tail]
+            buf[tail:] ^= (running[-1] ^ mask2).view(np.uint8)[: len(data) - tail]
 
-        # The head is unmasked last, with video_mask1 accumulated over the decrypted body
-        # blocks that follow it.
-        head = buf[MASK_START:CIPHER_START].reshape(-1, BLOCK)
-        later = buf[CIPHER_START : CIPHER_START + HEAD_SIZE].reshape(-1, BLOCK)
+        # The head goes last because its mask is built from the decrypted body blocks after it.
+        head = buf[MASK_START:CIPHER_START].reshape(-1, BLOCK).view(np.uint64)
+        later = body[: HEAD_SIZE // BLOCK]
         head ^= mask1 ^ np.bitwise_xor.accumulate(later, axis=0)
 
     def decrypt_stream(self, data: bytearray, frame_time: int) -> None:

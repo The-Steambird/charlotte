@@ -111,8 +111,8 @@ def test_malformed_header_rejected(tmp_path, blob, match):
 
 
 def test_zero_block_size_raises(tmp_path):
-    """The C# allows it, but it is the stride save() walks by, and a bare ValueError there
-    escapes the per-file handler and kills the whole batch."""
+    """The C# allows it, but save() divides the stream by it, and a bare ZeroDivisionError
+    there escapes the per-file handler and kills the whole batch."""
     path = write_hca(tmp_path, hca_bytes(block_size=0, block_count=0))
     with pytest.raises(CharlotteError, match="no audio blocks"):
         HCA(path, KEY)
@@ -152,6 +152,19 @@ def test_save_overwrites_the_source_with_the_in_memory_stream(tmp_path):
     assert written == bytes(hca.header) + bytes(hca.data)
     assert written[len(hca.header) :] != body
     assert HCA(path, KEY).ciph_type == 0
+
+
+def test_save_writes_each_block_crc(tmp_path):
+    path = write_hca(tmp_path, hca_bytes(block_count=4, data=bytes(range(0x80))))
+    hca = HCA(path, KEY)
+
+    hca.save()
+
+    data = path.read_bytes()[len(hca.header) :]
+    blocks = [data[offset : offset + 0x20] for offset in range(0, len(data), 0x20)]
+    assert len(blocks) == 4
+    for block in blocks:
+        assert int.from_bytes(block[-2:]) == crc16(block[:-2])
 
 
 # --- convert ---
