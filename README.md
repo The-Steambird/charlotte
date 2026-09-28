@@ -34,8 +34,8 @@ VapourSynth processing, and a GUI. Also credits
 to [UsmDiviner](https://github.com/Senkin219/UsmDiviner) for inspiring me with the key guessing
 algorithm.
 
-Note that since version 7.1, Hoyo changed the encryption format of the USM files, so cracking is no
-longer possible. If you have missing keys, pull requests are welcome.
+Since version 7.1, Hoyo changed the encryption format of the USM files, so cracking is no
+longer possible from this version onwards and only works for pre-7.1. If you have missing keys, pull requests are welcome.
 
 Disclaimer: This tool is purely for educational purpose and aims to archive already released game
 content.
