@@ -1,11 +1,7 @@
 <p align="center">
-  <img width="2100" height="auto" src="https://raw.githubusercontent.com/The-Steambird/charlotte/master/docs/imgs/banner.png" alt="Charlotte banner" />
+  <img width="35%" height="auto" src="https://raw.githubusercontent.com/The-Steambird/charlotte/master/docs/imgs/logo.png" alt="Charlotte logo" />
 </p>
 
-<p style="text-align: center;"><i>Hi there! I'm Charlotte, a journalist with The Steambird~</i></p>
-<p style="text-align: center;"><sub>Art credit: <a href="https://www.pixiv.net/en/artworks/117728570">Kuromitsuri Tomato</a></sub></p>
-
----
 <p style="text-align: center;">
   <a href="https://github.com/The-Steambird/charlotte/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/The-Steambird/charlotte/ci.yml?branch=master&label=ci&logo=githubactions&logoColor=white" alt="CI" /></a>
   <a href="https://github.com/The-Steambird/charlotte/releases/latest"><img src="https://img.shields.io/github/v/release/The-Steambird/charlotte?label=release" alt="Release" /></a>
