@@ -14,9 +14,6 @@ from utils.reporter.base import Reporter, Task
 from utils.version import __version__
 
 
-PROTOCOL_VERSION = 1
-
-
 def pipe_peek(fd: int) -> int | None:
     """Readable bytes waiting on the pipe (0 if none), or None if fd is not a pipe
     (console/file stdin) or the other end hung up."""
@@ -70,7 +67,7 @@ class JsonReporter(Reporter):
             self.pipe_fd = fd if pipe_peek(fd) is not None else None
         except AttributeError, OSError, ValueError:
             self.pipe_fd = None
-        self.emit({"type": "session_start", "protocol": PROTOCOL_VERSION, "version": __version__})
+        self.emit({"type": "session_start", "version": __version__})
 
     def emit(self, event):
         line = orjson.dumps(event).decode("utf-8")

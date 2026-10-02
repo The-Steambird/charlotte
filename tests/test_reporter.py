@@ -5,7 +5,7 @@ import orjson
 import pytest
 
 from utils.errors import Cancelled, Skipped
-from utils.reporter import PROTOCOL_VERSION, JsonReporter
+from utils.reporter import JsonReporter
 from utils.version import __version__
 
 
@@ -33,11 +33,9 @@ def progress_of(reporter):
 # --- event shapes (the contract with the GUI frontend) ---
 
 
-def test_session_start_announces_protocol_and_version():
+def test_session_start_announces_version():
     reporter = make_reporter()
-    assert events_of(reporter) == [
-        {"type": "session_start", "protocol": PROTOCOL_VERSION, "version": __version__}
-    ]
+    assert events_of(reporter) == [{"type": "session_start", "version": __version__}]
 
 
 def test_log_event_shape():
