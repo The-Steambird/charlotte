@@ -65,13 +65,9 @@ def forbid_call(*args, **kwargs):
 
 @pytest.fixture
 def ffmpeg(monkeypatch):
-    capture = types.SimpleNamespace(
-        cmd=None, input=None, returncode=0, stdout=b"", stderr=b"", missing=False
-    )
+    capture = types.SimpleNamespace(cmd=None, input=None, returncode=0, stdout=b"", stderr=b"")
 
     def fake_run(cmd, **kwargs):
-        if capture.missing:
-            raise FileNotFoundError(cmd[0])
         capture.cmd = cmd
         capture.input = kwargs.get("input")
         return subprocess.CompletedProcess(

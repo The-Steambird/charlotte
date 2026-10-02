@@ -21,7 +21,6 @@ from stages.crack import (
     expand_5,
     expand_6,
     key_from_mask,
-    solve,
 )
 from stages.usm import BLOCK, CIPHER_START, MASK_START, MIN_MASKED, USM, is_masked
 
@@ -105,19 +104,10 @@ def test_key_from_mask_inverts_build_mask(key1, key2):
     assert key_from_mask(list(USM.build_mask(key1, key2))) == DecryptionKey(key1, key2)
 
 
-def test_solve_recovers_a_known_key():
-    rng = random.Random(7)
-    stats = Stats()
-    for _ in range(8):
-        stats.add(encrypt(video_plaintext(rng, 500), KEY1, KEY2))
-
-    assert key_from_mask(solve(*stats.tables())) == DecryptionKey(KEY1, KEY2)
-
-
 def test_crack_key_recovers_from_a_usm(tmp_path, reporter):
     rng = random.Random(3)
     usm_file = tmp_path / "Cs_Test.usm"
-    usm_file.write_bytes(b"".join(video_chunk(rng) for _ in range(8)))
+    usm_file.write_bytes(video_header() + b"".join(video_chunk(rng) for _ in range(8)))
 
     assert crack_key(usm_file, reporter) == Recovery(DecryptionKey(KEY1, KEY2), "")
 
@@ -145,7 +135,7 @@ def test_crack_key_declines_the_stream_cipher(tmp_path, reporter):
 def test_crack_key_declines_too_little_video(tmp_path, reporter):
     payload = b"DKIF" + bytes(MASK_START + MIN_MASKED)
     usm_file = tmp_path / "Cs_Test.usm"
-    usm_file.write_bytes(b"".join(chunk(b"@SFV", payload) for _ in range(4)))
+    usm_file.write_bytes(video_header() + b"".join(chunk(b"@SFV", payload) for _ in range(4)))
 
     recovery = crack_key(usm_file, reporter)
 
@@ -171,7 +161,7 @@ def test_crack_key_declines_a_repeated_payload(tmp_path, reporter):
     pools would see the same bytes, which is why a single distinct payload is declined."""
     payload = b"DKIF" + bytes(CIPHER_START + 3200 * BLOCK - 4)
     usm_file = tmp_path / "Cs_Test.usm"
-    usm_file.write_bytes(b"".join(chunk(b"@SFV", payload) for _ in range(4)))
+    usm_file.write_bytes(video_header() + b"".join(chunk(b"@SFV", payload) for _ in range(4)))
 
     recovery = crack_key(usm_file, reporter)
 

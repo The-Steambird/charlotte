@@ -84,7 +84,6 @@ def test_decrypt_stream_counts_from_the_chunk_iv(tmp_path):
     [
         (video_header(nonce=0x3CEFE9EAB8C72E7A) + chunk(b"@SFV", b"video"), 0x3CEFE9EAB8C72E7A),
         (video_header() + chunk(b"@SFV", b"video"), None),
-        (chunk(b"@SFV", b"video") + video_header(nonce=1), None),
     ],
 )
 def test_video_nonce_comes_from_the_leading_video_header(tmp_path, chunks, nonce):

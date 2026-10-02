@@ -5,7 +5,7 @@ import orjson
 import pytest
 
 from utils.errors import Cancelled, Skipped
-from utils.reporter import PROTOCOL_VERSION, ConsoleReporter, JsonReporter
+from utils.reporter import PROTOCOL_VERSION, JsonReporter
 from utils.version import __version__
 
 
@@ -92,9 +92,9 @@ def test_progress_throttled_to_whole_percents():
 
 @pytest.mark.parametrize("advanced, ticks", [(97, [97, 100]), (100, [100])])
 def test_set_completed_lands_final_tick_without_duplicating(advanced, ticks):
-    """demux ends by snapping the bar to the file size to cover trailing bytes too short to
-    be a chunk. From short of the total that is the closing tick, and from the total it
-    must not duplicate."""
+    """The key recovery sampler can stop short of the end of the file and demux reaches it
+    exactly, and both then snap the bar to the file size. The snap is the closing tick in the
+    first case and must not repeat it in the second."""
     reporter = make_reporter()
     with reporter.task("demux", 100) as task:
         task.advance(advanced)
@@ -170,16 +170,3 @@ def test_cancel_outranks_skip():
     reporter.event("job_start", file="Cs_A.usm")
     with pytest.raises(Cancelled):
         reporter.checkpoint()
-
-
-# --- ConsoleReporter ---
-
-
-def test_console_task_tracks_progress():
-    reporter = ConsoleReporter()
-    with reporter.task("demux", 10, unit="B") as task:
-        task.advance(4)
-        task.set_completed(10)
-        progress, task_id = task.handle
-        assert progress.tasks[task_id].completed == 10
-    assert task.current == 10

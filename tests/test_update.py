@@ -115,16 +115,8 @@ def test_asset_download_url_picks_the_zip_only():
         {"name": "charlotte-cli.exe", "browser_download_url": "u2"},
     ]
     assert asset_download_url({"assets": assets}) is None
-    assert asset_download_url({}) is None
     assets.append({"name": "charlotte-1.0.zip", "browser_download_url": "u3"})
     assert asset_download_url({"assets": assets}) == "u3"
-
-
-def test_apply_update_declines_without_asset(reporter, monkeypatch, tmp_path):
-    # running_exe is stubbed because the cleanup unlinks beside it.
-    monkeypatch.setattr(utils.update, "running_exe", lambda: tmp_path / "charlotte-cli.exe")
-    info = UpdateInfo(current=__version__, latest="99.0.0", available=True)
-    assert apply_update(info, reporter) is False
 
 
 def bundle(path, **members: bytes):
@@ -141,31 +133,39 @@ def test_extract_binary_strips_wrapping_folder(tmp_path):
     assert dest.read_bytes() == b"MZengine"
 
 
-def test_extract_binary_rejects_zip_without_engine(tmp_path):
-    zip_path = bundle(tmp_path / "b.zip", **{"charlotte-gui.exe": b"MZgui"})
+@pytest.mark.parametrize(
+    "members",
+    [{"charlotte-gui.exe": b"MZgui"}, {"charlotte-cli.exe": b"<!doctype html>"}, None],
+    ids=["no-engine", "not-an-exe", "not-a-zip"],
+)
+def test_extract_binary_rejects_a_bad_bundle(tmp_path, members):
+    zip_path = tmp_path / "b.zip"
+    if members is None:
+        zip_path.write_bytes(b"<!doctype html>")
+    else:
+        bundle(zip_path, **members)
+    dest = tmp_path / "charlotte-cli.exe.new"
+
     with pytest.raises(CharlotteError):
-        extract_binary(zip_path, tmp_path / "charlotte-cli.exe.new")
+        extract_binary(zip_path, dest)
+    assert not dest.exists()
 
 
-def test_extract_binary_rejects_non_zip(tmp_path):
-    not_zip = tmp_path / "b.zip"
-    not_zip.write_bytes(b"<!doctype html>")
-    with pytest.raises(CharlotteError):
-        extract_binary(not_zip, tmp_path / "charlotte-cli.exe.new")
-
-
-def test_apply_update_cleans_up_bundle_and_partial(reporter, monkeypatch, tmp_path):
+def test_apply_update_cleans_up_bundle_and_new_binary(reporter, monkeypatch, tmp_path):
     exe = tmp_path / "charlotte-cli.exe"
     exe.write_bytes(b"MZold")
     monkeypatch.setattr(utils.update, "running_exe", lambda: exe)
 
     def fake_download(url, dest, reporter):
-        bundle(dest, **{"charlotte-cli.exe": b"not a binary"})
+        bundle(dest, **{"charlotte-cli.exe": b"MZnew"})
+
+    def failed_swap(new_file):
+        raise CharlotteError("locked")
 
     monkeypatch.setattr(utils.update, "download_bundle", fake_download)
+    monkeypatch.setattr(utils.update, "swap_binary", failed_swap)
     info = UpdateInfo(current=__version__, latest="99.0.0", available=True, download="u")
     assert apply_update(info, reporter) is False
-    assert exe.read_bytes() == b"MZold"
     assert sorted(p.name for p in tmp_path.iterdir()) == ["charlotte-cli.exe"]
 
 

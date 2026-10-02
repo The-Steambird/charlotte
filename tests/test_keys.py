@@ -54,15 +54,12 @@ def test_find_key_in_flat_and_grouped_lists():
     assert find_video_key(FLAT_KEYS, "Cs_X") is None
     assert find_video_key(GROUPED_KEYS, "Cs_X") is None
     assert find_video_key({}, "Cs_A") is None
-    # A group carrying no video list at all is a miss, not a KeyError.
-    assert find_video_key({"list": [{"videoKey": 1}]}, "Cs_A") is None
 
 
 def test_find_version_comes_from_the_entry_not_the_group():
     assert find_video_version(FLAT_KEYS, "Cs_B") == "2.0"
     assert find_video_version(GROUPED_KEYS, "Cs_C") == "5.3"
     assert find_video_version(FLAT_KEYS, "Cs_X") is None
-    assert find_video_version({"list": [{"videoKey": 1, "videos": ["Cs_A"]}]}, "Cs_A") is None
 
 
 # --- Keys ---

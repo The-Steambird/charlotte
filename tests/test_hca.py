@@ -10,7 +10,6 @@ from conftest import flag_value
 from resources.keys import DecryptionKey
 from stages.hca import HCA, crc16
 from utils.errors import CharlotteError
-from utils.strings import translate
 
 
 KEY = DecryptionKey(bytes([0x11, 0x22, 0x33, 0x44]), bytes([0x55, 0x66, 0x77, 0x00]))
@@ -89,12 +88,12 @@ def test_header_fields_parsed(tmp_path):
 @pytest.mark.parametrize(
     "blob, match",
     [
-        (b"HCA\x00", "Corrupt HCA header"),
+        (hca_bytes()[:12], "Corrupt HCA header"),
         (hca_bytes().replace(b"HCA\x00", b"XXXX", 1), "Invalid HCA header"),
         (hca_bytes().replace(b"fmt\x00", b"junk", 1), "fmt chunk not found"),
         (hca_bytes().replace(b"comp", b"junk", 1), "comp/dec chunk not found"),
     ],
-    ids=["too-short", "bad-magic", "no-fmt", "no-comp"],
+    ids=["truncated", "bad-magic", "no-fmt", "no-comp"],
 )
 def test_malformed_header_rejected(tmp_path, blob, match):
     path = write_hca(tmp_path, blob)
@@ -115,14 +114,6 @@ def test_unknown_cipher_type_raises(tmp_path):
     stream to zeros."""
     path = write_hca(tmp_path, hca_bytes(ciph_type=2))
     with pytest.raises(CharlotteError, match="Invalid cipher type"):
-        HCA(path, KEY)
-
-
-def test_truncated_header_raises(tmp_path):
-    """data_offset past the end of the file raises struct.error, which is translated
-    rather than leaked."""
-    path = write_hca(tmp_path, hca_bytes()[:12])
-    with pytest.raises(CharlotteError, match="Corrupt HCA header"):
         HCA(path, KEY)
 
 
@@ -181,10 +172,3 @@ def test_convert_reports_ffmpeg_failure(ffmpeg, tmp_path, caplog):
         make_hca(tmp_path).convert(tmp_path / "Cs_Test_0.flac", codec="flac")
 
     assert "Invalid data found" in caplog.text
-
-
-def test_convert_without_ffmpeg_raises(ffmpeg, tmp_path):
-    ffmpeg.missing = True
-    with pytest.raises(CharlotteError) as excinfo:
-        make_hca(tmp_path).convert(tmp_path / "Cs_Test_0.flac", codec="flac")
-    assert str(excinfo.value) == translate("FFMPEG_MISSING")

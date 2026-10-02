@@ -62,10 +62,6 @@ class ChunkHeader(NamedTuple):
     def is_data(self) -> bool:
         return self.data_type & 0x3 == 0
 
-    @property
-    def is_header(self) -> bool:
-        return self.data_type & 0x3 == 1
-
 
 def read_chunks(file_path: Path) -> Generator[tuple[ChunkHeader, bytes]]:
     file_size = file_path.stat().st_size
@@ -133,11 +129,8 @@ def video_nonce(file_path: Path) -> int | None:
         video = next((chunk for chunk in chunks if chunk[0].signature == b"@SFV"), None)
     if video is None:
         return None
-    header, payload = video
-    if not header.is_header:
-        return None
     try:
-        return read_utf(payload).get("nonce")
+        return read_utf(video[1]).get("nonce")
     except (struct.error, KeyError, ValueError) as e:
         raise CharlotteError(translate("VIDEO_HEADER_CORRUPT", name=file_path.name)) from e
 

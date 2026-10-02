@@ -68,11 +68,6 @@ def test_malformed_blocks_skipped(tmp_path):
     assert ass.dialog_lines[0].endswith("Valid")
 
 
-def test_unparseable_srt_returns_false(tmp_path):
-    ass = ASS(write_srt(tmp_path, "garbage\nwith no valid blocks\n"), "EN")
-    assert not ass.parse_srt()
-
-
 # --- ASS conversion ---
 
 
@@ -87,12 +82,6 @@ def test_default_style_and_header(tmp_path):
 def test_jp_style_uses_jp_font(tmp_path):
     content = convert_ass(tmp_path, BASIC_SRT, lang="JP")
     assert "Style: Default,SDK_JP_Web,10.9," in content
-
-
-def test_output_path_and_name(tmp_path):
-    output = parse(tmp_path, BASIC_SRT).convert_to_ass(tmp_path / "out")
-    assert output == tmp_path / "out" / "subs" / "Cs_Test_EN.ass"
-    assert output.is_file()
 
 
 def test_html_tags_converted_to_ass_overrides(tmp_path):

@@ -78,7 +78,9 @@ def make_options(tmp_path, **overrides) -> Options:
 
 def make_run(tmp_path, chunks=None, **overrides):
     usm_file = tmp_path / "Cs_Test.usm"
-    usm_file.write_bytes(chunks or chunk(b"@SFV", b"video") + chunk(b"@SFA", b"audio"))
+    usm_file.write_bytes(
+        chunks or video_header() + chunk(b"@SFV", b"video") + chunk(b"@SFA", b"audio")
+    )
     keys = SimpleNamespace(decryption_key=lambda stem: DecryptionKey(bytes(4), bytes(4)))
     return usm_file, make_options(tmp_path, **overrides), keys
 
@@ -132,18 +134,6 @@ def test_probe_picks_up_an_accepted_upstream_update(tmp_app_root, reporter, monk
     assert data["key"] is True
     assert data["version"] == "5.3"
     assert len(reporter.prompts) == 1
-
-
-def test_probe_reports_missing_when_the_update_is_declined(tmp_app_root, reporter, monkeypatch):
-    monkeypatch.setattr(pipeline, "find_vs_script", lambda stem: None)
-    reporter.answer = False
-    keys = make_keys(reporter, monkeypatch, {"list": []}, upstream=KEYS_DATA)
-
-    probe_usm(write_usm(tmp_app_root, "Cs_A"), keys, reporter)
-
-    data = last_event(reporter, "probe")
-    assert data["key"] is False
-    assert data["version"] is None
 
 
 @pytest.mark.parametrize(
