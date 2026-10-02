@@ -10,7 +10,7 @@ from conftest import flag_value
 from resources.keys import DecryptionKey
 from stages.hca import HCA, crc16
 from utils.errors import CharlotteError
-from utils.ffmpeg import FFMPEG_MISSING
+from utils.strings import translate
 
 
 KEY = DecryptionKey(bytes([0x11, 0x22, 0x33, 0x44]), bytes([0x55, 0x66, 0x77, 0x00]))
@@ -195,4 +195,4 @@ def test_convert_without_ffmpeg_raises(ffmpeg, tmp_path):
     ffmpeg.missing = True
     with pytest.raises(CharlotteError) as excinfo:
         make_hca(tmp_path).convert(tmp_path / "Cs_Test_0.flac", codec="flac")
-    assert str(excinfo.value) == FFMPEG_MISSING
+    assert str(excinfo.value) == translate("FFMPEG_MISSING")

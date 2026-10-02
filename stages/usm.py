@@ -9,6 +9,7 @@ from Crypto.Cipher import AES
 
 from utils.errors import CharlotteError
 from utils.logger import log
+from utils.strings import translate
 
 
 if TYPE_CHECKING:
@@ -78,14 +79,14 @@ def read_chunks(file_path: Path) -> Generator[tuple[ChunkHeader, bytes]]:
             payload_size = header.data_size - header.data_offset - header.padding_size
             # A data_offset inside the header would seek back and re-parse it as chunks.
             if payload_size < 0 or header.data_offset < MIN_DATA_OFFSET:
-                raise CharlotteError(f"Corrupt USM chunk: {file_path.name}")
+                raise CharlotteError(translate("USM_CHUNK_CORRUPT", name=file_path.name))
 
             fp.seek(header.data_offset - MIN_DATA_OFFSET, 1)
             # Checked before reading because read() allocates the declared size up front and
             # a corrupt one could ask for 4 GB. A short read would also end the walk quietly
             # and leave a truncated .ivf that looks whole.
             if payload_size > file_size - fp.tell():
-                raise CharlotteError(f"Truncated USM chunk: {file_path.name}")
+                raise CharlotteError(translate("USM_CHUNK_TRUNCATED", name=file_path.name))
 
             payload = fp.read(payload_size)
             fp.seek(header.padding_size, 1)
@@ -138,7 +139,7 @@ def video_nonce(file_path: Path) -> int | None:
     try:
         return read_utf(payload).get("nonce")
     except (struct.error, KeyError, ValueError) as e:
-        raise CharlotteError(f"Corrupt video header: {file_path.name}") from e
+        raise CharlotteError(translate("VIDEO_HEADER_CORRUPT", name=file_path.name)) from e
 
 
 class USM:

@@ -18,6 +18,7 @@ import numpy as np
 from resources.keys import DecryptionKey
 from stages.usm import BLOCK, CIPHER_START, is_masked, read_chunks, video_nonce
 from utils.logger import log
+from utils.strings import translate
 
 
 if TYPE_CHECKING:
@@ -265,18 +266,18 @@ def evaluate(sample: Sample) -> tuple[list[int] | None, str]:
     if not sample.right.blocks:
         # A placeholder asset loops one frame, which is dealt once and leaves nothing to
         # confirm it against.
-        return None, "only one distinct video payload, so there is no second half to confirm it"
+        return None, translate("CRACK_ONE_PAYLOAD")
 
     left = solve(*sample.left.tables())
     right = solve(*sample.right.tables())
     if left != right:
-        return None, f"independent halves of the video disagree ({sample.used} bytes sampled)"
+        return None, translate("CRACK_HALVES_DISAGREE", size=sample.used)
     return left, ""
 
 
 def crack_key(usm_file: Path, reporter: Reporter) -> Recovery:
     if video_nonce(usm_file) is not None:
-        return decline(usm_file, "the video uses the 7.1 encryption that cannot be cracked")
+        return decline(usm_file, translate("CRACK_STREAM_CIPHER"))
 
     log.info(f"Recovering decryption key from {usm_file.name}...")
     reason = ""
@@ -284,9 +285,9 @@ def crack_key(usm_file: Path, reporter: Reporter) -> Recovery:
     for budget in SAMPLE_STEPS:
         sample = collect(usm_file, reporter, budget)
         if not sample.ivf:
-            return decline(usm_file, "no IVF video stream in this file")
+            return decline(usm_file, translate("CRACK_NO_VIDEO"))
         if sample.used < MIN_SAMPLE_BYTES:
-            return decline(usm_file, f"only {sample.used} bytes of encrypted video")
+            return decline(usm_file, translate("CRACK_TOO_LITTLE_VIDEO", size=sample.used))
 
         mask, reason = evaluate(sample)
         if mask is not None:
@@ -297,6 +298,6 @@ def crack_key(usm_file: Path, reporter: Reporter) -> Recovery:
         if sample.used < budget:
             break  # the whole file was already sampled, and more budget adds nothing
 
-        log.info(f"{sample.used} bytes were inconclusive, retrying with more video...")
+        log.info(f"{sample.used} bytes left the key unconfirmed, retrying with more video...")
 
-    return decline(usm_file, f"inconclusive, {reason}")
+    return decline(usm_file, translate("CRACK_UNCONFIRMED", reason=reason))

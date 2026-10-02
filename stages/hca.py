@@ -7,6 +7,7 @@ import numpy as np
 from utils.errors import CharlotteError
 from utils.ffmpeg import AUDIO_CODECS, run_ffmpeg
 from utils.logger import log
+from utils.strings import translate
 
 
 if TYPE_CHECKING:
@@ -132,7 +133,7 @@ class HCA:
         try:
             self.read_header()
         except struct.error as e:
-            raise CharlotteError(f"Corrupt HCA header: {self.file_path.name}") from e
+            raise CharlotteError(translate("HCA_HEADER_CORRUPT", name=self.file_path.name)) from e
 
     def match_chunk(self, offset: int, tag: bytes) -> bool:
         sig = bytes(b & 0x7F for b in self.header[offset : offset + 4])
@@ -144,17 +145,17 @@ class HCA:
     def read_header(self) -> None:
         blob = self.file_path.read_bytes()
         if len(blob) < 8:
-            raise CharlotteError(f"Invalid HCA file: {self.file_path.name}")
+            raise CharlotteError(translate("HCA_FILE_INVALID", name=self.file_path.name))
 
         data_offset = struct.unpack_from(">H", blob, 6)[0]
         self.header = bytearray(blob[:data_offset])
 
         if not self.match_chunk(0, b"HCA\x00"):
-            raise CharlotteError(f"Invalid HCA header: {self.file_path.name}")
+            raise CharlotteError(translate("HCA_HEADER_INVALID", name=self.file_path.name))
         offset = 8
 
         if not self.match_chunk(offset, b"fmt\x00"):
-            raise CharlotteError(f"fmt chunk not found: {self.file_path.name}")
+            raise CharlotteError(translate("HCA_FMT_MISSING", name=self.file_path.name))
         self.block_count = struct.unpack_from(">I", self.header, offset + 8)[0]
         offset += 16
 
@@ -163,12 +164,12 @@ class HCA:
         elif self.match_chunk(offset, b"dec\x00"):
             chunk_size = 12
         else:
-            raise CharlotteError(f"comp/dec chunk not found: {self.file_path.name}")
+            raise CharlotteError(translate("HCA_COMP_MISSING", name=self.file_path.name))
         self.block_size = struct.unpack_from(">H", self.header, offset + 4)[0]
         offset += chunk_size
 
         if self.block_size == 0:
-            raise CharlotteError(f"HCA has no audio blocks: {self.file_path.name}")
+            raise CharlotteError(translate("HCA_NO_BLOCKS", name=self.file_path.name))
 
         if self.match_chunk(offset, b"vbr\x00"):
             offset += 8
@@ -179,7 +180,9 @@ class HCA:
         if self.match_chunk(offset, b"ciph"):
             self.ciph_type = struct.unpack_from(">H", self.header, offset + 4)[0]
             if self.ciph_type not in (0, 1, 0x38):
-                raise CharlotteError(f"Invalid cipher type {self.ciph_type}: {self.file_path.name}")
+                raise CharlotteError(
+                    translate("HCA_CIPHER_INVALID", type=self.ciph_type, name=self.file_path.name)
+                )
             self.ciph_offset = offset
             offset += 6
         if self.match_chunk(offset, b"rva\x00"):
@@ -231,4 +234,4 @@ class HCA:
 
     def convert(self, output_file: Path, codec: str) -> None:
         args = ["-f", "hca", "-i", "pipe:0", *AUDIO_CODECS[codec][1], str(output_file)]
-        run_ffmpeg(args, "Audio conversion failed", input=self.header + self.data)
+        run_ffmpeg(args, translate("AUDIO_CONVERSION_FAILED"), input=self.header + self.data)

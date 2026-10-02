@@ -17,6 +17,7 @@ from utils.errors import Cancelled, CharlotteError, Skipped
 from utils.ffmpeg import AUDIO_CODECS
 from utils.languages import SUBTITLES_LANGUAGES
 from utils.logger import log
+from utils.strings import translate
 
 
 if TYPE_CHECKING:
@@ -235,7 +236,7 @@ def process_usm(usm_file: Path, opts: Options, keys: Keys, reporter: Reporter) -
     try:
         partial_mkv.replace(final_mkv)
     except OSError as e:
-        raise CharlotteError(f"Failed to move {partial_mkv.name} into place: {e}") from e
+        raise CharlotteError(translate("OUTPUT_MOVE_FAILED", name=partial_mkv.name, error=e)) from e
     log.info(f"Created: {final_mkv}")
 
     if not opts.no_cleanup:

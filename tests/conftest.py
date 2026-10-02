@@ -1,4 +1,5 @@
 import contextlib
+import os
 import struct
 import subprocess
 import types
@@ -13,6 +14,11 @@ import resources.subtitles
 import utils.ffmpeg
 
 from utils.reporter import Reporter, Task
+
+
+# The tests expect English on any machine. This is set at import and not in a fixture, because
+# importing main translates its help texts before any fixture runs.
+os.environ["CHARLOTTE_LANG"] = "en-US"
 
 
 def chunk(

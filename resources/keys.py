@@ -9,6 +9,7 @@ import urllib3
 from utils.errors import CharlotteError
 from utils.logger import log
 from utils.paths import app_root
+from utils.strings import translate
 
 
 if TYPE_CHECKING:
@@ -143,9 +144,7 @@ class Keys:
             try:
                 return int(self.manual_key)
             except ValueError:
-                raise CharlotteError(
-                    f"{stem} uses the old encryption, so --key must be a decimal videoKey."
-                ) from None
+                raise CharlotteError(translate("KEY_NOT_VIDEO_KEY", stem=stem)) from None
 
         return self.find(stem, find_video_key)
 
@@ -155,9 +154,7 @@ class Keys:
             audio_key = int(audio_key) if audio_key.strip().isdecimal() else None
             stream_keys = parse_stream_keys(audio_key, aes_key)
             if stream_keys is None:
-                raise CharlotteError(
-                    f"{stem} uses the 7.1 encryption, so --key must be audioKey:aesKey."
-                )
+                raise CharlotteError(translate("KEY_NOT_STREAM_KEYS", stem=stem))
             return stream_keys
 
         return self.find(stem, find_stream_keys)
@@ -191,10 +188,7 @@ class Keys:
             log.info(f"Key for {stem} not found upstream either.")
             return None
 
-        overwrite_prompt = self.reporter.ask(
-            "Some local keys are missing, but an updated key list is available. Update now?",
-            default=False,
-        )
+        overwrite_prompt = self.reporter.ask(translate("KEYS_UPDATE_PROMPT"), default=False)
         if not overwrite_prompt:
             self.declined = True
             log.info(f"No keys.json entry for {stem}: the update was declined.")

@@ -50,6 +50,8 @@ class JsonReporter(Reporter):
 
     def __init__(self, out=None, stdin=None):
         self.out = force_utf8(out if out is not None else sys.stdout)
+        # The GUI reads the log on stderr as UTF-8, and a pipe on Windows defaults to cp1252.
+        force_utf8(sys.stderr)
         self.stdin = stdin if stdin is not None else sys.stdin
         self.question_counter = count()
         self.cancelled = False

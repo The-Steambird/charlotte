@@ -250,4 +250,5 @@ mkvmerge.exe
 /.agents
 CLAUDE.md
 *.json
+!/lang/*.json
 /test/

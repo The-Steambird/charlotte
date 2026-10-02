@@ -8,9 +8,10 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
 
-from utils.ffmpeg import FFMPEG_MISSING, ffmpeg_path
+from utils.ffmpeg import ffmpeg_path
 from utils.paths import bundle_root
 from utils.reporter import QueueReporter, Reporter, relay_worker
+from utils.strings import translate
 
 
 if TYPE_CHECKING:
@@ -142,7 +143,7 @@ def build_clip(source: Path, script: str | None, reporter: Reporter):
     import vapoursynth as vs
 
     if script:
-        reporter.log("info", f"Applying VapourSynth filter: vs/{script}.py")
+        reporter.log("info", translate("VS_FILTER_APPLYING", script=f"vs/{script}.py"))
         return importlib.import_module(f"vs.{script}").filter_chain(source)
     return vs.core.bs.VideoSource(str(source), showprogress=False)
 
@@ -174,7 +175,7 @@ def worker(
     try:
         clip = build_clip(source, script, reporter)
     except Exception as e:
-        reporter.log("warning", f"Error building the VapourSynth clip for {source.stem}: {e}")
+        reporter.log("warning", translate("VS_CLIP_FAILED", stem=source.stem, error=e))
         queue.put(("result", False))
         return
 
@@ -198,7 +199,7 @@ def worker(
             stderr=subprocess.PIPE,
         )
     except FileNotFoundError:
-        reporter.log("error", FFMPEG_MISSING)
+        reporter.log("error", translate("FFMPEG_MISSING"))
         queue.put(("result", False))
         return
 
@@ -219,7 +220,7 @@ def worker(
             with process.stdin as stdin:
                 clip.output(stdin, y4m=True)
         except Exception as e:
-            reporter.log("error", f"VapourSynth processing failed: {e}")
+            reporter.log("error", translate("VS_PROCESSING_FAILED", error=e))
             process.kill()
             queue.put(("result", False))
             return
@@ -228,7 +229,7 @@ def worker(
     return_code = process.wait()
 
     if return_code != 0:
-        reporter.log("error", f"FFmpeg exited with code {return_code}")
+        reporter.log("error", translate("FFMPEG_EXITED", code=return_code))
         queue.put(("result", False))
         return
 
@@ -264,6 +265,6 @@ def vapoursynth_filter(
     process.join()
 
     if process.exitcode != 0:
-        reporter.log("error", f"VapourSynth worker exited with code {process.exitcode}")
+        reporter.log("error", translate("VS_WORKER_EXITED", code=process.exitcode))
         return False
     return bool(result)

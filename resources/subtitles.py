@@ -9,6 +9,7 @@ import urllib3
 from utils.errors import CharlotteError
 from utils.logger import log
 from utils.paths import app_root
+from utils.strings import translate
 
 
 if TYPE_CHECKING:
@@ -60,30 +61,30 @@ def latest_commit() -> str:
     try:
         response = urllib3.request("GET", SUBTITLE_COMMITS_URL, timeout=10.0)
     except urllib3.exceptions.HTTPError as e:
-        raise CharlotteError(f"Failed to check for subtitle updates: {e}") from e
+        raise CharlotteError(translate("SUBTITLE_CHECK_FAILED", error=e)) from e
 
     if response.status != 200:
-        raise CharlotteError(f"Failed to check for subtitle updates: HTTP {response.status}.")
+        raise CharlotteError(translate("SUBTITLE_CHECK_FAILED", error=f"HTTP {response.status}"))
 
     try:
         return orjson.loads(response.data)[0]["id"]
     except ValueError, KeyError, IndexError:
-        raise CharlotteError("Unknown response from subtitle upstream.") from None
+        raise CharlotteError(translate("SUBTITLE_RESPONSE_UNKNOWN")) from None
 
 
 def fetch_archive() -> zipfile.ZipFile:
     try:
         response = urllib3.request("GET", SUBTITLE_ARCHIVE_URL, timeout=120.0)
     except urllib3.exceptions.HTTPError as e:
-        raise CharlotteError(f"Download failed: {e}") from e
+        raise CharlotteError(translate("SUBTITLE_DOWNLOAD_FAILED", error=e)) from e
 
     if response.status != 200:
-        raise CharlotteError(f"Download failed (HTTP {response.status}).")
+        raise CharlotteError(translate("SUBTITLE_DOWNLOAD_FAILED", error=f"HTTP {response.status}"))
 
     try:
         return zipfile.ZipFile(io.BytesIO(response.data))
     except zipfile.BadZipFile as e:
-        raise CharlotteError("Archive is not a valid zip.") from e
+        raise CharlotteError(translate("SUBTITLE_ARCHIVE_INVALID")) from e
 
 
 def extract_member(archive: zipfile.ZipFile, name: str, target: Path) -> bool:

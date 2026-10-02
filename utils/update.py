@@ -12,6 +12,7 @@ import urllib3
 
 from utils.errors import CharlotteError
 from utils.logger import log
+from utils.strings import translate
 from utils.version import __version__
 
 
@@ -63,15 +64,15 @@ def fetch_latest_release() -> dict:
     try:
         response = urllib3.request("GET", url, headers=headers, timeout=10.0)
     except urllib3.exceptions.HTTPError as e:
-        raise CharlotteError(f"GitHub unreachable ({e})") from e
+        raise CharlotteError(translate("UPDATE_GITHUB_UNREACHABLE", error=e)) from e
     if response.status != 200:
         raise CharlotteError(f"HTTP {response.status}")
     try:
         release = orjson.loads(response.data)
     except orjson.JSONDecodeError as e:
-        raise CharlotteError(f"malformed release data ({e})") from e
+        raise CharlotteError(translate("UPDATE_RELEASE_MALFORMED")) from e
     if not isinstance(release, dict):
-        raise CharlotteError("malformed release data")
+        raise CharlotteError(translate("UPDATE_RELEASE_MALFORMED"))
     return release
 
 
@@ -91,12 +92,12 @@ def check_for_update() -> UpdateInfo:
 
     latest = release.get("tag_name")
     if not isinstance(latest, str) or not latest:
-        return UpdateInfo(current=__version__, reason="no release tag found")
+        return UpdateInfo(current=__version__, reason=translate("UPDATE_NO_TAG"))
     latest = latest.lstrip("vV")
     try:
         available = parse_version(latest) > parse_version(__version__)
     except ValueError:
-        return UpdateInfo(current=__version__, reason="unrecognized release tag")
+        return UpdateInfo(current=__version__, reason=translate("UPDATE_TAG_UNRECOGNIZED"))
 
     return UpdateInfo(
         current=__version__,
@@ -181,19 +182,21 @@ def download_bundle(url: str, dest: Path, reporter: Reporter) -> None:
             "GET", url, headers=headers, preload_content=False, timeout=60.0
         ) as response:
             if response.status != 200:
-                raise CharlotteError(f"Failed to download the update: HTTP {response.status}.")
+                raise CharlotteError(
+                    translate("UPDATE_DOWNLOAD_FAILED", error=f"HTTP {response.status}")
+                )
             stream_to_file(response, dest, reporter)
     except urllib3.exceptions.HTTPError as e:
-        raise CharlotteError(f"Failed to download the update: {e}") from e
+        raise CharlotteError(translate("UPDATE_DOWNLOAD_FAILED", error=e)) from e
     except OSError as e:
-        raise CharlotteError(f"Failed to write the update to disk: {e}") from e
+        raise CharlotteError(translate("UPDATE_WRITE_FAILED", error=e)) from e
 
 
 def engine_member(archive: zipfile.ZipFile) -> str:
     for name in archive.namelist():
         if PurePosixPath(name).name.lower() == "charlotte-cli.exe":
             return name
-    raise CharlotteError("The update bundle has no charlotte-cli.exe inside.")
+    raise CharlotteError(translate("UPDATE_NO_ENGINE"))
 
 
 def extract_binary(bundle: Path, dest: Path) -> None:
@@ -202,11 +205,11 @@ def extract_binary(bundle: Path, dest: Path) -> None:
             member = engine_member(archive)
             dest.write_bytes(archive.read(member))
     except zipfile.BadZipFile as e:
-        raise CharlotteError(f"The update bundle is not a valid zip: {e}") from e
+        raise CharlotteError(translate("UPDATE_ZIP_INVALID", error=e)) from e
     except OSError as e:
-        raise CharlotteError(f"Failed to unpack the update: {e}") from e
+        raise CharlotteError(translate("UPDATE_UNPACK_FAILED", error=e)) from e
     if not looks_like_exe(dest):
-        raise CharlotteError("Downloaded file is not a valid Windows executable.")
+        raise CharlotteError(translate("UPDATE_NOT_EXE"))
 
 
 def swap_binary(new_file: Path) -> None:
@@ -216,7 +219,7 @@ def swap_binary(new_file: Path) -> None:
         stale.unlink(missing_ok=True)
         exe.rename(stale)
     except OSError as e:
-        raise CharlotteError(f"Failed to move the current binary aside: {e}") from e
+        raise CharlotteError(translate("UPDATE_MOVE_ASIDE_FAILED", error=e)) from e
     try:
         new_file.rename(exe)
     except OSError as e:
@@ -225,7 +228,7 @@ def swap_binary(new_file: Path) -> None:
             stale.rename(exe)
         except OSError as rollback_error:
             log.error(f"Rollback failed, restore {stale.name} manually: {rollback_error}")
-        raise CharlotteError(f"Failed to put the new binary in place: {e}") from e
+        raise CharlotteError(translate("UPDATE_SWAP_FAILED", error=e)) from e
 
 
 def apply_update(info: UpdateInfo, reporter: Reporter) -> bool:
@@ -234,7 +237,7 @@ def apply_update(info: UpdateInfo, reporter: Reporter) -> bool:
     new_file = exe.with_name(exe.name + ".new")
     try:
         if info.download is None:
-            raise CharlotteError("The latest release has no .zip asset to download.")
+            raise CharlotteError(translate("UPDATE_NO_ZIP"))
         download_bundle(info.download, bundle, reporter)
         extract_binary(bundle, new_file)
         swap_binary(new_file)
@@ -265,7 +268,9 @@ def run_update(reporter: Reporter, json_mode: bool) -> None:
     if not (info.available and info.latest and is_standalone_exe(json_mode)):
         return
 
-    wants_install = reporter.ask(f"Download and install {info.latest} now?", default=False)
+    wants_install = reporter.ask(
+        translate("UPDATE_INSTALL_PROMPT", version=info.latest), default=False
+    )
     if wants_install and apply_update(info, reporter):
         log.info(f"Upgraded Charlotte from {info.current} to {info.latest}!")
         log.info("Restart Charlotte to use the new version.")
