@@ -10,7 +10,7 @@ a = Analysis(
     datas=[
         ("pyproject.toml", "."),  # utils/version.py reads __version__ out of it at runtime
         ("vs/*.py", "vs"),
-        ("lang/*.json", "lang"),
+        ("locales/*.json", "locales"),
         *collect_data_files(
             "vapoursynth",
             excludes=[

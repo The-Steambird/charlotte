@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from utils.strings import PLACEHOLDER, closest, load
+from utils.strings import LOCALES_DIR, PLACEHOLDER, closest, load
 
 
 ROOT = Path(__file__).parent.parent
@@ -46,7 +46,7 @@ def test_every_lookup_names_an_english_key_with_its_placeholders():
 
 
 def test_translations_keep_the_english_keys_and_placeholders():
-    for path in (ROOT / "lang").glob("*.json"):
+    for path in LOCALES_DIR.glob("*.json"):
         language = path.stem
         for key, text in load(language).items():
             if text:

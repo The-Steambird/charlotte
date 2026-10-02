@@ -8,7 +8,7 @@ import orjson
 from utils.paths import bundle_root
 
 
-LANG_DIR = bundle_root() / "lang"
+LOCALES_DIR = bundle_root() / "locales"
 PLACEHOLDER = re.compile(r"{([a-z][a-z0-9_]*)}")
 CHINESE_SCRIPTS = {
     "zh-cn": "zh-hans",
@@ -20,7 +20,7 @@ CHINESE_SCRIPTS = {
 
 
 def load(language: str) -> dict[str, str]:
-    path = LANG_DIR / f"{language}.json"
+    path = LOCALES_DIR / f"{language}.json"
     return orjson.loads(path.read_bytes())
 
 
@@ -57,7 +57,7 @@ def display_language() -> str:
 def strings() -> dict[str, str]:
     english = load("en-US")
     requested = os.environ.get("CHARLOTTE_LANG") or display_language()
-    available = sorted(path.stem for path in LANG_DIR.glob("*.json"))
+    available = sorted(path.stem for path in LOCALES_DIR.glob("*.json"))
     language = closest(requested, available)
     if language is None or language == "en-US":
         return english

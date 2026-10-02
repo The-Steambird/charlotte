@@ -1,6 +1,6 @@
 preserve_hierarchy: true
 files:
-  - source: /lang/en-US.json
+  - source: /locales/en-US.json
     dest: /cli.json
-    translation: /lang/%locale%.json
+    translation: /locales/%locale%.json
     skip_untranslated_strings: true
