@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 
 class ASS:
-    timing = re.compile(r"-?\d\d:\d\d:\d\d,\d\d")
+    timing = re.compile(r"\d\d:\d\d:\d\d,\d\d")
     shadow = r"{\xshad-0.05\yshad-0.05\blur0.5}"
     html_tag_fix = (
         # <b> → {\b1},  <i> → {\i1},  <u> → {\u1}
@@ -43,7 +43,7 @@ class ASS:
                 continue
 
             # HH:MM:SS,cc -> H:MM:SS.cc
-            start, end = (t.lstrip("-").replace(",", ".").removeprefix("0") for t in timings)
+            start, end = (t.replace(",", ".").removeprefix("0") for t in timings)
 
             # Renderers only honor soft breaks (\n) under WrapStyle 2 and draw them as spaces, so
             # we use hard line break instead.

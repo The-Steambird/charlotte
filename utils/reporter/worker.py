@@ -27,9 +27,6 @@ class QueueReporter(Reporter):
     def update_task(self, handle, current, total):
         self.queue.put(("progress", handle, current))
 
-    def ask(self, prompt, *, default=False):
-        raise RuntimeError("the worker process cannot ask questions")
-
 
 def relay_worker(reporter: Reporter, queue, process, stop):
     """Drain the worker's queue onto `reporter` and return its result payload

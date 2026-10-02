@@ -86,7 +86,6 @@ def unreachable():
     "fetch, reason",
     [
         (unreachable, "HTTP 503"),
-        (lambda: {"html_url": "x"}, "no release tag found"),
         (lambda: release("nightly"), "unrecognized release tag"),
     ],
 )

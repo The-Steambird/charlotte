@@ -78,12 +78,6 @@ def test_queue_reporter_ends_the_task_even_on_failure():
     assert list(q.queue)[-1] == ("task_end", "ffmpeg")
 
 
-def test_queue_reporter_cannot_ask():
-    """stdin belongs to the parent, and a prompt from the worker would deadlock."""
-    with pytest.raises(RuntimeError, match="cannot ask questions"):
-        QueueReporter(queue.Queue()).ask("Overwrite?")
-
-
 # --- relay_worker (the consumer, back in the parent) ---
 
 

@@ -1,6 +1,5 @@
 from typing import TYPE_CHECKING
 
-from utils.errors import CharlotteError
 from utils.ffmpeg import run_ffmpeg
 from utils.languages import AUDIO_LANGUAGES, get_language
 from utils.logger import log
@@ -29,9 +28,6 @@ def mux_args(
 ) -> list[str]:
     """The caller puts the video input ahead of these. Fonts are only attached with subtitle
     tracks, and `-f` is needed because the `.part` name does not tell ffmpeg the format."""
-    if not audio_files:
-        raise CharlotteError(translate("MUX_NO_AUDIO"))
-
     audio = [(path, AUDIO_LANGUAGES.get(track_code(path), ("und",))[0]) for path in audio_files]
     subtitles = [(path, track_code(path)) for path in subtitle_files]
     audio.sort(key=lambda track: (track[1] != default_audio, track[0].name))
@@ -80,9 +76,6 @@ def mux(
     default_subtitle: str,
 ) -> None:
     """Mux the lossless IVF video with the audio and subtitle tracks."""
-    if not video.exists():
-        raise CharlotteError(translate("MUX_INPUT_MISSING", name=video.name))
-
     args = [
         "-i",
         str(video),

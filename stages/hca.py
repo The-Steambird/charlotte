@@ -6,7 +6,6 @@ import numpy as np
 
 from utils.errors import CharlotteError
 from utils.ffmpeg import AUDIO_CODECS, run_ffmpeg
-from utils.logger import log
 from utils.strings import translate
 
 
@@ -144,9 +143,6 @@ class HCA:
 
     def read_header(self) -> None:
         blob = self.file_path.read_bytes()
-        if len(blob) < 8:
-            raise CharlotteError(translate("HCA_FILE_INVALID", name=self.file_path.name))
-
         data_offset = struct.unpack_from(">H", blob, 6)[0]
         self.header = bytearray(blob[:data_offset])
 
@@ -193,14 +189,7 @@ class HCA:
             offset += 4
 
         self.update_header_crc()
-
-        expected = self.block_size * self.block_count
-        self.data = bytearray(blob[data_offset : data_offset + expected])
-        if len(self.data) < expected:
-            log.warning(
-                f"{self.file_path.name} declares {self.block_count} audio blocks "
-                f"but holds only {len(self.data) // self.block_size}."
-            )
+        self.data = bytearray(blob[data_offset : data_offset + self.block_size * self.block_count])
 
     def update_header_crc(self) -> None:
         struct.pack_into(">H", self.header, len(self.header) - 2, crc16(self.header[:-2]))

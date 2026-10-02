@@ -68,12 +68,9 @@ def fetch_latest_release() -> dict:
     if response.status != 200:
         raise CharlotteError(f"HTTP {response.status}")
     try:
-        release = orjson.loads(response.data)
+        return orjson.loads(response.data)
     except orjson.JSONDecodeError as e:
         raise CharlotteError(translate("UPDATE_RELEASE_MALFORMED")) from e
-    if not isinstance(release, dict):
-        raise CharlotteError(translate("UPDATE_RELEASE_MALFORMED"))
-    return release
 
 
 def asset_download_url(release: dict) -> str | None:
@@ -90,10 +87,7 @@ def check_for_update() -> UpdateInfo:
     except CharlotteError as e:
         return UpdateInfo(current=__version__, reason=str(e))
 
-    latest = release.get("tag_name")
-    if not isinstance(latest, str) or not latest:
-        return UpdateInfo(current=__version__, reason=translate("UPDATE_NO_TAG"))
-    latest = latest.lstrip("vV")
+    latest = release["tag_name"].lstrip("vV")
     try:
         available = parse_version(latest) > parse_version(__version__)
     except ValueError:
@@ -151,14 +145,6 @@ def clear_stale_binary() -> None:
         log.warning(f"Failed to remove {stale.name}: {e}")
 
 
-def looks_like_exe(path: Path) -> bool:
-    try:
-        with open(path, "rb") as file:
-            return file.read(2) == b"MZ"
-    except OSError:
-        return False
-
-
 def stream_to_file(response: urllib3.BaseHTTPResponse, dest: Path, reporter: Reporter) -> None:
     """Write the streamed response body to `dest`, reporting download progress as it goes."""
     length = response.headers.get("Content-Length")
@@ -202,14 +188,14 @@ def engine_member(archive: zipfile.ZipFile) -> str:
 def extract_binary(bundle: Path, dest: Path) -> None:
     try:
         with zipfile.ZipFile(bundle) as archive:
-            member = engine_member(archive)
-            dest.write_bytes(archive.read(member))
+            binary = archive.read(engine_member(archive))
+        if not binary.startswith(b"MZ"):
+            raise CharlotteError(translate("UPDATE_NOT_EXE"))
+        dest.write_bytes(binary)
     except zipfile.BadZipFile as e:
         raise CharlotteError(translate("UPDATE_ZIP_INVALID", error=e)) from e
     except OSError as e:
         raise CharlotteError(translate("UPDATE_UNPACK_FAILED", error=e)) from e
-    if not looks_like_exe(dest):
-        raise CharlotteError(translate("UPDATE_NOT_EXE"))
 
 
 def swap_binary(new_file: Path) -> None:

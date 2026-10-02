@@ -1,11 +1,8 @@
 from itertools import pairwise
 from pathlib import Path
 
-import pytest
-
 from conftest import flag_value, input_files
 from stages.mux import mux, mux_args
-from utils.errors import CharlotteError
 
 
 TRACKS = {"fonts": [], "default_audio": "ja", "default_subtitle": "EN"}
@@ -84,16 +81,3 @@ def test_nostdin_ahead_of_the_first_input(ffmpeg, tmp_path):
     video, audio, subs = make_tracks(tmp_path)
     mux(video, tmp_path / "o.mkv.part", audio, subs, **TRACKS)
     assert ffmpeg.cmd.index("-nostdin") < ffmpeg.cmd.index("-i")
-
-
-def test_missing_video_input_raises(ffmpeg, tmp_path):
-    video, audio, subs = make_tracks(tmp_path)
-    video.unlink()
-    with pytest.raises(CharlotteError, match="input not found"):
-        mux(video, tmp_path / "o.mkv.part", audio, subs, **TRACKS)
-
-
-def test_no_audio_raises(ffmpeg, tmp_path):
-    video, _, subs = make_tracks(tmp_path)
-    with pytest.raises(CharlotteError, match="No audio files"):
-        mux(video, tmp_path / "o.mkv.part", [], subs, **TRACKS)

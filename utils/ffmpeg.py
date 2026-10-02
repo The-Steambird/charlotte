@@ -30,8 +30,6 @@ def run_ffmpeg(args: list[str], error: str, input: bytes | None = None) -> None:
         raise CharlotteError(translate("FFMPEG_MISSING")) from None
 
     if result.returncode != 0:
-        if result.stdout:
-            log.info(result.stdout.decode("utf-8", errors="replace"))
         if result.stderr:
             log.error(result.stderr.decode("utf-8", errors="replace"))
         raise CharlotteError(translate("FFMPEG_FAILED", error=error, code=result.returncode))

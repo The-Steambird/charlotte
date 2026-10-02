@@ -35,11 +35,6 @@ def test_timing_truncated_to_centiseconds(tmp_path):
     assert ass.dialog_lines == [f"Dialogue: 0,0:00:01.23,0:00:02.34,Default,,0,0,0,,{SHADOW}Hello"]
 
 
-def test_negative_timing_sign_stripped(tmp_path):
-    ass = parse(tmp_path, "1\n-00:00:00,500 --> 00:00:01,500\nHello\n")
-    assert ass.dialog_lines[0].startswith("Dialogue: 0,0:00:00.50,0:00:01.50,")
-
-
 def test_two_line_dialogue_joined(tmp_path):
     """libass and VSFilter render a soft \\n as a space at the default WrapStyle, which is
     why the join is \\N."""

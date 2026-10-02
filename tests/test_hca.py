@@ -83,21 +83,13 @@ def test_header_fields_parsed(tmp_path):
     assert len(hca.data) == 0x40 * 3  # bounded by the declared blocks, not end of file
 
 
-def test_short_file_warns_about_missing_blocks(tmp_path, caplog):
-    path = write_hca(tmp_path, hca_bytes(block_size=0x20, block_count=4)[:-0x30])
-    hca = HCA(path, KEY)
-
-    assert len(hca.data) == 0x20 * 4 - 0x30
-    assert "declares 4 audio blocks but holds only 2" in caplog.text
-
-
 # --- header rejections ---
 
 
 @pytest.mark.parametrize(
     "blob, match",
     [
-        (b"HCA\x00", "Invalid HCA file"),
+        (b"HCA\x00", "Corrupt HCA header"),
         (hca_bytes().replace(b"HCA\x00", b"XXXX", 1), "Invalid HCA header"),
         (hca_bytes().replace(b"fmt\x00", b"junk", 1), "fmt chunk not found"),
         (hca_bytes().replace(b"comp", b"junk", 1), "comp/dec chunk not found"),

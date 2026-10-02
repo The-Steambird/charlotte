@@ -20,10 +20,7 @@ PROTOCOL_VERSION = 1
 def pipe_peek(fd: int) -> int | None:
     """Readable bytes waiting on the pipe (0 if none), or None if fd is not a pipe
     (console/file stdin) or the other end hung up."""
-    try:
-        handle = msvcrt.get_osfhandle(fd)
-    except OSError:
-        return None
+    handle = msvcrt.get_osfhandle(fd)
     available = wintypes.DWORD()
     ok = ctypes.windll.kernel32.PeekNamedPipe(handle, None, 0, None, ctypes.byref(available), None)
     return available.value if ok else None
@@ -32,14 +29,14 @@ def pipe_peek(fd: int) -> int | None:
 def parse_command(line: str | bytes) -> dict | None:
     try:
         cmd = orjson.loads(line)
-    except orjson.JSONDecodeError, TypeError:
+    except orjson.JSONDecodeError:
         return None
     return cmd if isinstance(cmd, dict) else None
 
 
 def force_utf8(stream: Any) -> TextIO:
     """Force a text stream to UTF-8 to prevent UnicodeEncodeError."""
-    with suppress(AttributeError, OSError, ValueError):
+    with suppress(AttributeError):
         stream.reconfigure(encoding="utf-8")
     return stream
 
@@ -123,10 +120,7 @@ class JsonReporter(Reporter):
                 return None
             return self.stdin.readline() or None
         while (raw_line := self.pop_line()) is None:
-            try:
-                chunk = os.read(self.pipe_fd, 4096)
-            except OSError:
-                return None
+            chunk = os.read(self.pipe_fd, 4096)
             if not chunk:
                 return None
             self.stdin_buf += chunk
@@ -185,11 +179,7 @@ class JsonReporter(Reporter):
                 break
             if waiting == 0:  # Nothing waiting
                 break
-            try:
-                self.stdin_buf += os.read(self.pipe_fd, waiting)
-            except OSError:
-                self.pipe_fd = None
-                break
+            self.stdin_buf += os.read(self.pipe_fd, waiting)
         while (raw_line := self.pop_line()) is not None:
             cmd = parse_command(raw_line)
             if cmd is not None:

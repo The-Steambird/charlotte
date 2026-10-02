@@ -191,17 +191,12 @@ def worker(
         *ffmpeg_args,
     ]  # fmt: skip
 
-    try:
-        process = subprocess.Popen(
-            cmd,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-        )
-    except FileNotFoundError:
-        reporter.log("error", translate("FFMPEG_MISSING"))
-        queue.put(("result", False))
-        return
+    process = subprocess.Popen(
+        cmd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+    )
 
     # Closing stdin is not enough to stop ffmpeg on a cancel, because it first flushes the whole
     # x265 lookahead, which takes a few minutes on the slow presets and keeps the audio inputs and

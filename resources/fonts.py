@@ -1,5 +1,5 @@
 import shutil
-import sys
+import winreg
 
 from pathlib import Path
 
@@ -8,18 +8,13 @@ from utils.paths import app_root
 
 
 def game_font_dir() -> Path | None:
-    if sys.platform != "win32":
-        return None
-
     try:
-        import winreg
-
         with winreg.OpenKey(
             winreg.HKEY_LOCAL_MACHINE,
             r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Genshin Impact",
         ) as key:
             install_path, _ = winreg.QueryValueEx(key, "InstallPath")
-    except OSError, ImportError:
+    except OSError:
         return None
 
     font_dir = (

@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 
-if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+if getattr(sys, "frozen", False):
     """
     PyInstaller incorrectly places libvapoursynth.dll at _MEIPASS/ as a detected dependency of
     vapoursynth.pyd. VS's C core uses GetModuleFileName on itself and resolves the plugin
@@ -15,9 +15,6 @@ if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
     plugin path _MEIPASS/vapoursynth/plugins/.
     """
     meipass = Path(sys._MEIPASS)
-
-    dll = meipass / "vapoursynth" / "libvapoursynth.dll"
-    if dll.is_file():
-        ctypes.WinDLL(str(dll))
+    ctypes.WinDLL(str(meipass / "vapoursynth" / "libvapoursynth.dll"))
 
     os.environ["PATH"] = f"{meipass}{os.pathsep}{os.environ.get('PATH', '')}"

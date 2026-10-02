@@ -44,8 +44,7 @@ def sync_marker() -> Path:
 
 def stored_commit() -> str:
     try:
-        data = orjson.loads(sync_marker().read_text())
-        return data.get("commit", "") if isinstance(data, dict) else ""
+        return orjson.loads(sync_marker().read_text()).get("commit", "")
     except OSError, ValueError:
         return ""
 
@@ -87,17 +86,6 @@ def fetch_archive() -> zipfile.ZipFile:
         raise CharlotteError(translate("SUBTITLE_ARCHIVE_INVALID")) from e
 
 
-def extract_member(archive: zipfile.ZipFile, name: str, target: Path) -> bool:
-    try:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        with archive.open(name) as src:
-            target.write_bytes(src.read())
-        return True
-    except OSError as e:
-        log.warning(f"Failed to write {target.name}: {e}")
-        return False
-
-
 def sync_subtitles(reporter: Reporter) -> None:
     """Mirror the upstream Subtitle/ folder into the local cache when the upstream commit differs
     from the one in Subtitle/.sync.json."""
@@ -128,17 +116,15 @@ def sync_subtitles(reporter: Reporter) -> None:
             log.warning("Subtitle archive contained no subtitles, using local cache.")
             return
 
-        written = 0
-        with reporter.task("subtitles", len(targets), unit="file") as task:
-            for name, target in targets:
-                if extract_member(archive, name, target):
-                    written += 1
-                task.advance()
+        try:
+            with reporter.task("subtitles", len(targets), unit="file") as task:
+                for name, target in targets:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(archive.read(name))
+                    task.advance()
+        except OSError as e:
+            log.warning(f"Failed to write subtitles, the next run retries: {e}")
+            return
 
-    # Mark the commit when every file landed. A partial write re-downloads next run.
-    if written == len(targets):
-        write_commit(latest)
-
-    log.info(f"Synced {written} subtitle file(s) into {subtitle_dir()}.")
-    if written < len(targets):
-        log.warning(f"{len(targets) - written} subtitle file(s) failed to write.")
+    write_commit(latest)
+    log.info(f"Synced {len(targets)} subtitle file(s) into {subtitle_dir()}.")
