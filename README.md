@@ -15,7 +15,8 @@
 
 # Charlotte
 
-**[Click here to download latest version](https://github.com/The-Steambird/charlotte/releases/download/1.1.1/charlotte-1.1.1.zip)**
+[<img src="https://raw.githubusercontent.com/The-Steambird/charlotte/master/docs/imgs/download.svg"/>](https://github.com/The-Steambird/charlotte/releases/download/1.1.1/charlotte-1.1.1.zip)
+> Version: 1.1.1 (Released on: September 25th, 2026).
 
 Charlotte is a Genshin Impact utility that losslessly decrypts `.usm` cutscene files into playable
 `.mkv` videos, covering all known cutscenes from versions 1.0 through 7.1. Charlotte is also able to
