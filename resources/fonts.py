@@ -10,16 +10,14 @@ from utils.paths import app_root
 def game_font_dir() -> Path | None:
     try:
         with winreg.OpenKey(
-            winreg.HKEY_LOCAL_MACHINE,
-            r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Genshin Impact",
+            winreg.HKEY_CURRENT_USER, r"Software\Cognosphere\HYP\1_0\hk4e_global"
         ) as key:
-            install_path, _ = winreg.QueryValueEx(key, "InstallPath")
+            install_path, _ = winreg.QueryValueEx(key, "GameInstallPath")
     except OSError:
         return None
 
     font_dir = (
         Path(install_path)
-        / "Genshin Impact game"
         / "GenshinImpact_Data"
         / "StreamingAssets"
         / "MiHoYoSDKRes"
