@@ -11,7 +11,7 @@ from stages.ass import ASS
 from stages.crack import crack_key
 from stages.filter import encode_args, find_vs_script, subtitle_filter, vapoursynth_filter
 from stages.hca import HCA
-from stages.mux import mux, mux_args, track_code
+from stages.mux import mux, mux_args, subset_fonts, track_code
 from stages.usm import USM, video_nonce
 from utils.errors import Cancelled, CharlotteError, Skipped
 from utils.ffmpeg import AUDIO_CODECS
@@ -101,6 +101,7 @@ def encode_video(
     partial_mkv: Path,
     audio_files: list[Path],
     subtitle_files: list[Path],
+    fonts: list[Path],
     opts: Options,
     reporter: Reporter,
 ) -> bool:
@@ -130,7 +131,7 @@ def encode_video(
         encode_args(opts.crf, opts.preset, opts.x265_params, video_filter),
         audio_files,
         [] if burnt_subtitle else subtitle_files,
-        fonts=opts.fonts,
+        fonts=fonts,
         default_audio=opts.default_audio,
         default_subtitle=opts.default_subtitle,
     )
@@ -214,15 +215,18 @@ def process_usm(usm_file: Path, opts: Options, keys: Keys, reporter: Reporter) -
             output_path=output_path,
         )
         created += subtitle_files
+        fonts = (
+            subset_fonts(opts.fonts, subtitle_files, output_path / "subs") if subtitle_files else []
+        )
         reporter.checkpoint()
 
-        if not encode_video(video, partial_mkv, audio_files, subtitle_files, opts, reporter):
+        if not encode_video(video, partial_mkv, audio_files, subtitle_files, fonts, opts, reporter):
             mux(
                 video,
                 partial_mkv,
                 audio_files,
                 subtitle_files,
-                fonts=opts.fonts,
+                fonts=fonts,
                 default_audio=opts.default_audio,
                 default_subtitle=opts.default_subtitle,
             )

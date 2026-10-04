@@ -25,8 +25,7 @@ for processing speed.
 
 This project is heavily inspired by [GI-cutscenes](https://github.com/ToaHartor/GI-cutscenes).
 Charlotte not only rebuilds the workflow at a higher level, it also has various optimizations to the
-decryption algorithm to be significantly more efficient (and even faster than the original
-implementation despite being on Python). Charlotte also add extras with tons of QoLs (see below),
+decryption algorithm to be significantly more efficient. Charlotte also add extras with tons of QoLs (see below),
 VapourSynth processing, and a GUI. Also credits
 to [UsmDiviner](https://github.com/Senkin219/UsmDiviner) for inspiring me with the key guessing
 algorithm.
@@ -49,6 +48,7 @@ content.
 - Near perfect official subtitle styling
 - Key crack for USM files without a key (pre-7.1 only)
 - Subtitle fetched from Dimbreath automatically
+- Font subsetting to save space (~22.5MB per `.mkv`) using only necessary text characters
 - Automatically fetches new video keys
 - Automatically fetches fonts from the game directory
 - VapourSynth pipeline for post-processing quality improvements

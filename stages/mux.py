@@ -1,4 +1,9 @@
+import unicodedata
+
 from typing import TYPE_CHECKING
+
+from fontTools.subset import Subsetter
+from fontTools.ttLib import TTFont
 
 from utils.ffmpeg import run_ffmpeg
 from utils.languages import AUDIO_LANGUAGES, get_language
@@ -14,6 +19,20 @@ if TYPE_CHECKING:
 def track_code(path: Path) -> str:
     """Every intermediate's name ends in its channel number or subtitle language."""
     return path.stem.rpartition("_")[2]
+
+
+def subset_fonts(fonts: Sequence[Path], subtitle_files: list[Path], folder: Path) -> list[Path]:
+    text = "".join(path.read_text(encoding="utf-8") for path in subtitle_files)
+    text += unicodedata.normalize("NFKD", text)
+    subsets = []
+    for font in fonts:
+        with TTFont(font, recalcTimestamp=False) as ttf:
+            subsetter = Subsetter()
+            subsetter.populate(text=text)
+            subsetter.subset(ttf)
+            ttf.save(folder / font.name)
+        subsets.append(folder / font.name)
+    return subsets
 
 
 def mux_args(
