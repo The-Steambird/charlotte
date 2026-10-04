@@ -16,7 +16,7 @@
 # Charlotte
 
 [<img src="https://raw.githubusercontent.com/The-Steambird/charlotte/master/docs/imgs/download.svg"/>](https://github.com/The-Steambird/charlotte/releases/download/1.1.1/charlotte-1.1.1.zip)
-> Version: 1.1.1 (Released on: September 25th, 2026).
+> Version: `1.1.1` (Released on: September 25th, 2026).
 
 Charlotte is a Genshin Impact utility that losslessly decrypts `.usm` cutscene files into playable
 `.mkv` videos, covering all known cutscenes from versions 1.0 through 7.1. Charlotte is also able to
@@ -31,8 +31,7 @@ VapourSynth processing, and a GUI. Also credits
 to [UsmDiviner](https://github.com/Senkin219/UsmDiviner) for inspiring me with the key guessing
 algorithm.
 
-Since version 7.1, Hoyo changed the encryption format of the USM files, so cracking is no
-longer possible from this version onwards and only works for pre-7.1. If you have missing keys, pull requests are welcome.
+
 
 Disclaimer: This tool is purely for educational purpose and aims to archive already released game
 content.
@@ -45,15 +44,20 @@ content.
 ## Features
 
 - Graphical User Interface
-- Losslessly decrypt `.usm` into `.mkv` video with EN, CN, JP, KR audio tracks
-- Significantly improved decryption algorithm compared to GI-cutscenes implementation
-- Key recovery algorithm for USM files without a key
-- Softsub in 15 languages styled to match official cutscene subtitle style and font
-- Automatically syncs subtitle cache (15 languages) from DimBreath
-- Automatically fetches new video keys from upstream and get fonts from the game directory
+- Losslessly decrypt `.usm` into `.mkv` video
+- EN, CN, JP, KR audio tracks + softsub in 15 languages
+- Near perfect official subtitle styling
+- Key crack for USM files without a key (pre-7.1 only)
+- Subtitle fetched from Dimbreath automatically
+- Automatically fetches new video keys
+- Automatically fetches fonts from the game directory
 - VapourSynth pipeline for post-processing quality improvements
 - Bundled lightweight custom FFmpeg build at only ~15MB
 - Built-in self updater
+
+Since version 7.1, Hoyo changed the encryption format of the USM files, so cracking is no
+longer possible from this version onwards and only works for pre-7.1. If you have missing keys, pull
+requests are welcome.
 
 ## Roadmap
 
@@ -62,37 +66,11 @@ content.
 I should also mention that the VapourSynth filters are extremely heavy on CPU and GPU (to a lesser
 degree), so it's recommended to have a powerful machine for optimal performance.
 
-## GUI Quick Start (Windows Binary)
-
-1. Download `charlotte-<version>.zip` from
-   the [latest release](https://github.com/The-Steambird/charlotte/releases/latest) and unzip it.
-2. Launch `charlotte-gui.exe`
-3. Click `Open folder` and locate `.usm` files at:
-
-```
-[Game Directory]\Genshin Impact game\GenshinImpact_Data\StreamingAssets\VideoAssets\StandaloneWindows64
-```
-
-4. Click `OK`, hit `Start`, sit back and enjoy.
-
-For various other options, check settings (top right, the cogwheel icon).
-
-## CLI Quick Start (Windows Binary)
-
-### Prerequisites
-
-1. Download `charlotte-<version>.zip` from
-   the [latest release](https://github.com/The-Steambird/charlotte/releases/latest) and unzip it.
-2. Locate `.usm` files at:
-
-```
-[Game Directory]\Genshin Impact game\GenshinImpact_Data\StreamingAssets\VideoAssets\StandaloneWindows64
-```
-
-Note: the availability of older cutscenes depends on your local game files and resource cleanup
-history.
-
 ### Usage
+
+**Only applicable for CLI.** 
+If you use GUI (recommended), skip this section. The GUI itself should be
+self-explanatory.
 
 ```sh
 charlotte-cli [PATHS...] [OPTIONS]
