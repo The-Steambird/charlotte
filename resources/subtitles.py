@@ -53,7 +53,7 @@ def write_commit(commit: str) -> None:
     try:
         sync_marker().write_bytes(orjson.dumps({"commit": commit}))
     except OSError as e:
-        log.warning(f"Failed to write subtitle sync marker: {e}")
+        log.warning(translate("SUBTITLE_MARKER_FAILED", error=e))
 
 
 def latest_commit() -> str:
@@ -95,10 +95,10 @@ def sync_subtitles(reporter: Reporter) -> None:
             log.debug("Subtitles already up to date.")
             return
 
-        log.info("Subtitle update found, downloading archive from GitLab...")
+        log.info(translate("SUBTITLE_UPDATE_FOUND"))
         archive = fetch_archive()
     except CharlotteError as e:
-        log.warning(f"Skipping subtitle sync: {e}. Using local cache.")
+        log.warning(translate("SUBTITLE_SYNC_SKIPPED", error=e))
         return
 
     with archive:
@@ -113,7 +113,7 @@ def sync_subtitles(reporter: Reporter) -> None:
                 targets.append((name, root / rel))
 
         if not targets:
-            log.warning("Subtitle archive contained no subtitles, using local cache.")
+            log.warning(translate("SUBTITLE_ARCHIVE_EMPTY"))
             return
 
         try:
@@ -123,8 +123,8 @@ def sync_subtitles(reporter: Reporter) -> None:
                     target.write_bytes(archive.read(name))
                     task.advance()
         except OSError as e:
-            log.warning(f"Failed to write subtitles, the next run retries: {e}")
+            log.warning(translate("SUBTITLE_WRITE_FAILED", error=e))
             return
 
     write_commit(latest)
-    log.info(f"Synced {len(targets)} subtitle file(s) into {subtitle_dir()}.")
+    log.info(translate("SUBTITLES_SYNCED", count=len(targets), path=subtitle_dir()))

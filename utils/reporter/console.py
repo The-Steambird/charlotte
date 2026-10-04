@@ -17,14 +17,15 @@ from rich.text import Text
 
 from utils.logger import console, log
 from utils.reporter.base import Reporter, Task
+from utils.strings import translate
 
 
 STAGE_LABELS = {
-    "demux": "Demuxing USM",
-    "crack": "Recovering key",
-    "subtitles": "Subtitles",
-    "ffmpeg": "Encoding",
-    "download": "Downloading update",
+    "demux": translate("STAGE_DEMUX"),
+    "crack": translate("STAGE_CRACK"),
+    "subtitles": translate("STAGE_SUBTITLES"),
+    "ffmpeg": translate("STAGE_FFMPEG"),
+    "download": translate("STAGE_DOWNLOAD"),
 }
 
 

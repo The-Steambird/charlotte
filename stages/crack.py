@@ -220,7 +220,7 @@ class Recovery(NamedTuple):
 
 
 def decline(usm_file: Path, reason: str) -> Recovery:
-    log.warning(f"Could not recover a key for {usm_file.name}: {reason}.")
+    log.warning(translate("CRACK_DECLINED", name=usm_file.name, reason=reason))
     return Recovery(None, reason)
 
 
@@ -279,7 +279,7 @@ def crack_key(usm_file: Path, reporter: Reporter) -> Recovery:
     if video_nonce(usm_file) is not None:
         return decline(usm_file, translate("CRACK_STREAM_CIPHER"))
 
-    log.info(f"Recovering decryption key from {usm_file.name}...")
+    log.info(translate("CRACK_STARTED", name=usm_file.name))
     reason = ""
 
     for budget in SAMPLE_STEPS:
@@ -292,12 +292,12 @@ def crack_key(usm_file: Path, reporter: Reporter) -> Recovery:
         mask, reason = evaluate(sample)
         if mask is not None:
             blocks = sample.left.blocks + sample.right.blocks
-            log.info(f"Recovered decryption key from {blocks} blocks.")
+            log.info(translate("CRACK_RECOVERED", blocks=blocks))
             return Recovery(key_from_mask(mask), "")
 
         if sample.used < budget:
             break  # the whole file was already sampled, and more budget adds nothing
 
-        log.info(f"{sample.used} bytes left the key unconfirmed, retrying with more video...")
+        log.info(translate("CRACK_RETRYING", size=sample.used))
 
     return decline(usm_file, translate("CRACK_UNCONFIRMED", reason=reason))

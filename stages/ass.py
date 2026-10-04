@@ -3,6 +3,7 @@ import re
 from typing import TYPE_CHECKING
 
 from utils.logger import log
+from utils.strings import translate
 
 
 if TYPE_CHECKING:
@@ -55,7 +56,7 @@ class ASS:
 
         if not self.dialog_lines:
             if self.srt_file.stat().st_size != 0:
-                log.warning(f"{self.srt_file} is empty or has incorrect format.")
+                log.warning(translate("SUBTITLE_FORMAT_INVALID", path=self.srt_file))
             return False
 
         return True

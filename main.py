@@ -207,7 +207,7 @@ def demux(
         probe_all(usm_files, Keys(reporter), reporter)
         return
 
-    log.info(f"Found {len(usm_files)} USM file(s).")
+    log.info(translate("FOUND_USM_FILES", count=len(usm_files)))
     keys = Keys(reporter, manual_key=key)
 
     output.mkdir(parents=True, exist_ok=True)
@@ -230,7 +230,7 @@ def demux(
 
     failures = process_all(usm_files, opts, keys, reporter)
     if failures:
-        log.warning(f"{failures} of {len(usm_files)} file(s) failed.")
+        log.warning(translate("FILES_FAILED", failed=failures, total=len(usm_files)))
         raise typer.Exit(1)
 
 

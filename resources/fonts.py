@@ -5,6 +5,7 @@ from pathlib import Path
 
 from utils.logger import log
 from utils.paths import app_root
+from utils.strings import translate
 
 
 def game_font_dir() -> Path | None:
@@ -34,7 +35,7 @@ def fetch_font() -> list[Path]:
     if not missing:
         return fonts
 
-    log.info("Missing font. Attempting to get font from Genshin Impact installation...")
+    log.info(translate("FONTS_MISSING"))
     source_dir = game_font_dir()
     if source_dir is not None:
         try:
@@ -43,20 +44,17 @@ def fetch_font() -> list[Path]:
                 source = source_dir / font.name
                 if source.exists():
                     shutil.copy2(source, font)
-                    log.info(f"Cached {font.name} from game installation.")
+                    log.info(translate("FONT_CACHED", name=font.name))
         except OSError as e:
-            log.warning(f"Failed to copy fonts: {e}")
+            log.warning(translate("FONTS_COPY_FAILED", error=e))
 
     available = [font for font in fonts if font.exists()]
     if len(available) < len(fonts):
         log.info(
-            "Subtitles will use the default system font. "
-            "To use official fonts, copy the font folder from: "
-            "Genshin Impact"
-            r"\Genshin Impact game"
-            r"\GenshinImpact_Data"
-            r"\StreamingAssets"
-            r"\MiHoYoSDKRes"
-            r"\HttpServerResources"
+            translate(
+                "FONTS_FALLBACK",
+                path=r"Genshin Impact\Genshin Impact game\GenshinImpact_Data\StreamingAssets"
+                r"\MiHoYoSDKRes\HttpServerResources",
+            )
         )
     return available

@@ -109,5 +109,5 @@ def mux(
         ),
     ]
 
-    log.info(f"Muxing: {video.stem}")
+    log.info(translate("MUXING", stem=video.stem))
     run_ffmpeg(args, translate("MUX_FAILED"))

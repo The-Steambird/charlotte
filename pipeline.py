@@ -17,6 +17,7 @@ from utils.errors import Cancelled, CharlotteError, Skipped
 from utils.ffmpeg import AUDIO_CODECS
 from utils.languages import SUBTITLES_LANGUAGES
 from utils.logger import log
+from utils.strings import translate
 
 
 if TYPE_CHECKING:
@@ -76,7 +77,7 @@ def process_subtitles(stem: str, output_path: Path) -> list[Path]:
         if sub_path.exists():
             subtitle_files.append((sub_path, lang))
 
-    log.info(f"Found {len(subtitle_files)} subtitle file(s).")
+    log.info(translate("FOUND_SUBTITLES", count=len(subtitle_files)))
 
     ass_files = []
     empty_langs = []
@@ -88,10 +89,10 @@ def process_subtitles(stem: str, output_path: Path) -> list[Path]:
             elif sub_file.stat().st_size == 0:
                 empty_langs.append(SUBTITLES_LANGUAGES[lang][1])
         except (OSError, UnicodeDecodeError) as e:
-            log.error(f"Failed to convert {sub_file.name}: {e}")
+            log.error(translate("SUBTITLE_CONVERT_FAILED", name=sub_file.name, error=e))
 
     if empty_langs:
-        log.info(f"Subtitles empty, skipping: {', '.join(empty_langs)}")
+        log.info(translate("SUBTITLES_EMPTY", languages=", ".join(empty_langs)))
 
     return ass_files
 
@@ -108,9 +109,9 @@ def encode_video(
     stem = video.stem
     script = find_vs_script(stem) if opts.vapoursynth else None
     if opts.vapoursynth and script is None:
-        log.warning(f"No VapourSynth script found for {stem}, skipping filter...")
+        log.warning(translate("VS_SCRIPT_MISSING", stem=stem))
     elif script and script != stem:
-        log.info(f"VapourSynth script for {stem} not found, using {script} instead.")
+        log.info(translate("VS_SCRIPT_FALLBACK", stem=stem, script=script))
 
     burnt_subtitle = None
     if opts.hard_sub:
@@ -118,9 +119,9 @@ def encode_video(
             (path for path in subtitle_files if track_code(path) == opts.default_subtitle), None
         )
         if burnt_subtitle is None:
-            log.warning(f"No {opts.default_subtitle} subtitle for {stem}, nothing to burn in.")
+            log.warning(translate("HARD_SUB_MISSING", language=opts.default_subtitle, stem=stem))
         else:
-            log.info(f"Burning subtitle: {burnt_subtitle.name}")
+            log.info(translate("HARD_SUB_BURNING", name=burnt_subtitle.name))
 
     if not (script or burnt_subtitle):
         return False
@@ -137,7 +138,7 @@ def encode_video(
     )
     if vapoursynth_filter(source=video, reporter=reporter, ffmpeg_args=ffmpeg_args, script=script):
         return True
-    log.warning(f"Encode failed, falling back to a lossless mux: {stem}")
+    log.warning(translate("ENCODE_FALLBACK", stem=stem))
     return False
 
 
@@ -155,14 +156,14 @@ def cleanup_files(created: list[Path], output_path: Path) -> None:
         try:
             file.unlink(missing_ok=True)
         except OSError as e:
-            log.error(f"Failed to delete {file.name}: {e}")
+            log.error(translate("DELETE_FAILED", name=file.name, error=e))
 
     subs_dir = output_path / "subs"
     try:
         if subs_dir.is_dir():
             shutil.rmtree(subs_dir)
     except OSError as e:
-        log.error(f"Failed to remove directory {subs_dir.name}: {e}")
+        log.error(translate("REMOVE_DIRECTORY_FAILED", name=subs_dir.name, error=e))
 
     with suppress(OSError):
         output_path.rmdir()
@@ -172,19 +173,19 @@ def process_usm(usm_file: Path, opts: Options, keys: Keys, reporter: Reporter) -
     reporter.checkpoint()
 
     stem = usm_file.stem
-    log.info(f"Processing: {usm_file.name}")
+    log.info(translate("PROCESSING", name=usm_file.name))
     reporter.event("job_start", file=usm_file.name, stem=stem)
 
     final_mkv = opts.output / (f"{stem}.mkv" if opts.flat else f"{stem}/{stem}.mkv")
     if opts.skip_existing and final_mkv.exists():
-        log.info(f"Skipping {usm_file.name}: output already exists.")
+        log.info(translate("SKIP_EXISTING_OUTPUT", name=usm_file.name))
         reporter.event("job_skipped", file=usm_file.name, reason="exists")
         return
 
     nonce = video_nonce(usm_file)
     key = find_keys(usm_file, nonce, keys, reporter)
     if key is None:
-        log.warning(f"Could not find decryption keys for {usm_file.name}, skipping...")
+        log.warning(translate("NO_KEYS_SKIPPING", name=usm_file.name))
         reporter.event("job_skipped", file=usm_file.name, reason="no_key")
         return
     reporter.checkpoint()
@@ -237,7 +238,7 @@ def process_usm(usm_file: Path, opts: Options, keys: Keys, reporter: Reporter) -
         raise
 
     partial_mkv.replace(final_mkv)
-    log.info(f"Created: {final_mkv}")
+    log.info(translate("CREATED", path=final_mkv))
 
     if not opts.no_cleanup:
         cleanup_files(created, output_path)
@@ -257,14 +258,14 @@ def process_all(usm_files: list[Path], opts: Options, keys: Keys, reporter: Repo
         try:
             process_usm(usm_file, opts, keys, reporter)
         except Cancelled:
-            log.info(f"Cancelled during {usm_file.name}.")
+            log.info(translate("CANCELLED_DURING", name=usm_file.name))
             reporter.event("cancelled", file=usm_file.name)
             break
         except Skipped:
-            log.info(f"Skipped {usm_file.name} on request.")
+            log.info(translate("SKIPPED_ON_REQUEST", name=usm_file.name))
             reporter.event("job_skipped", file=usm_file.name, reason="requested")
         except (CharlotteError, OSError) as e:
-            log.error(f"Failed to process {usm_file.name}: {e}")
+            log.error(translate("PROCESS_FAILED", name=usm_file.name, error=e))
             reporter.event("error", file=usm_file.name, message=str(e))
             failures += 1
     return failures
@@ -299,16 +300,16 @@ def crack_all(usm_files: list[Path], reporter: Reporter) -> None:
         try:
             recovery = crack_usm(usm_file, reporter)
         except Cancelled:
-            log.info(f"Cancelled during {usm_file.name}.")
+            log.info(translate("CANCELLED_DURING", name=usm_file.name))
             reporter.event("cancelled", file=usm_file.name)
             return
         except Skipped:
-            log.info(f"Skipped {usm_file.name} on request.")
+            log.info(translate("SKIPPED_ON_REQUEST", name=usm_file.name))
             reporter.event("job_skipped", file=usm_file.name, reason="requested")
-            failures[usm_file.name] = "skipped"
+            failures[usm_file.name] = translate("CRACK_SKIPPED")
             continue
         except (CharlotteError, OSError) as e:
-            log.error(f"Failed to read {usm_file.name}: {e}")
+            log.error(translate("READ_FAILED", name=usm_file.name, error=e))
             reporter.event("error", file=usm_file.name, message=str(e))
             failures[usm_file.name] = str(e)
             continue
@@ -317,9 +318,9 @@ def crack_all(usm_files: list[Path], reporter: Reporter) -> None:
             failures[usm_file.name] = recovery.reason
 
     recovered = len(usm_files) - len(failures)
-    log.info(f"Recovered {recovered} of {len(usm_files)} key(s).")
+    log.info(translate("CRACK_RECOVERED_COUNT", recovered=recovered, total=len(usm_files)))
     if failures:
-        log.warning(f"{len(failures)} file(s) need a key from another source:")
+        log.warning(translate("CRACK_NEED_OTHER_SOURCE", count=len(failures)))
         for name, reason in failures.items():
             log.warning(f"  {name}: {reason}")
 
@@ -339,8 +340,13 @@ def probe_usm(usm_file: Path, keys: Keys, reporter: Reporter) -> None:
 
     level = log.info if key else log.warning
     level(
-        f"{usm_file.name}: key={'yes' if key else 'MISSING'}, "
-        f"subtitles={','.join(subtitles) or 'none'}, vs={vs_script or 'none'}"
+        translate(
+            "PROBE_RESULT",
+            name=usm_file.name,
+            key=translate("PROBE_KEY_FOUND") if key else translate("PROBE_KEY_MISSING"),
+            subtitles=",".join(subtitles) or translate("PROBE_NONE"),
+            script=vs_script or translate("PROBE_NONE"),
+        )
     )
     reporter.event(
         "probe",
@@ -359,5 +365,5 @@ def probe_all(usm_files: list[Path], keys: Keys, reporter: Reporter) -> None:
         try:
             probe_usm(usm_file, keys, reporter)
         except (CharlotteError, OSError) as e:
-            log.error(f"Failed to read {usm_file.name}: {e}")
+            log.error(translate("READ_FAILED", name=usm_file.name, error=e))
             reporter.event("error", file=usm_file.name, message=str(e))

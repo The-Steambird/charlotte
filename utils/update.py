@@ -60,7 +60,7 @@ def fetch_latest_release() -> dict:
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
     }
-    log.info("Checking for updates...")
+    log.info(translate("UPDATE_CHECKING"))
     try:
         response = urllib3.request("GET", url, headers=headers, timeout=10.0)
     except urllib3.exceptions.HTTPError as e:
@@ -106,12 +106,12 @@ def check_for_update() -> UpdateInfo:
 def report_update(reporter: Reporter) -> UpdateInfo:
     info = check_for_update()
     if info.reason is not None:
-        log.warning(f"Failed to check for updates: {info.reason}.")
+        log.warning(translate("UPDATE_CHECK_FAILED", reason=info.reason))
     elif info.available and info.latest:
         link = f" ({info.url})" if info.url else ""
-        log.info(f"Update available: {info.current} -> {info.latest}{link}")
+        log.info(translate("UPDATE_AVAILABLE", current=info.current, latest=info.latest, link=link))
     else:
-        log.info(f"No updates available. Charlotte {info.current} is up to date.")
+        log.info(translate("UP_TO_DATE", version=info.current))
 
     reporter.event(
         "update",
@@ -142,7 +142,7 @@ def clear_stale_binary() -> None:
     try:
         stale.unlink(missing_ok=True)
     except OSError as e:
-        log.warning(f"Failed to remove {stale.name}: {e}")
+        log.warning(translate("DELETE_FAILED", name=stale.name, error=e))
 
 
 def stream_to_file(response: urllib3.BaseHTTPResponse, dest: Path, reporter: Reporter) -> None:
@@ -213,7 +213,7 @@ def swap_binary(new_file: Path) -> None:
             # Roll back.
             stale.rename(exe)
         except OSError as rollback_error:
-            log.error(f"Rollback failed, restore {stale.name} manually: {rollback_error}")
+            log.error(translate("UPDATE_ROLLBACK_FAILED", name=stale.name, error=rollback_error))
         raise CharlotteError(translate("UPDATE_SWAP_FAILED", error=e)) from e
 
 
@@ -238,7 +238,7 @@ def apply_update(info: UpdateInfo, reporter: Reporter) -> bool:
 
 def pause_before_exit(seconds: int = 5) -> None:
     for remaining in range(seconds, 0, -1):
-        sys.stderr.write(f"\rExiting in {remaining}... (press any key) ")
+        sys.stderr.write(f"\r{translate('EXIT_COUNTDOWN', seconds=remaining)} ")
         sys.stderr.flush()
         for _ in range(10):
             if msvcrt.kbhit():
@@ -258,6 +258,6 @@ def run_update(reporter: Reporter, json_mode: bool) -> None:
         translate("UPDATE_INSTALL_PROMPT", version=info.latest), default=False
     )
     if wants_install and apply_update(info, reporter):
-        log.info(f"Upgraded Charlotte from {info.current} to {info.latest}!")
-        log.info("Restart Charlotte to use the new version.")
+        log.info(translate("UPDATE_UPGRADED", current=info.current, latest=info.latest))
+        log.info(translate("UPDATE_RESTART"))
         pause_before_exit()

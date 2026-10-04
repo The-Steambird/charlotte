@@ -253,7 +253,8 @@ class USM:
                     write_to(output_path / f"{base_name}_{header.channel_no}.hca", data)
                 elif header.signature not in known:
                     known.add(header.signature)  # warn once per signature
-                    log.warning(f"Unknown signature {header.signature!r}")
+                    signature = repr(header.signature)
+                    log.warning(translate("USM_UNKNOWN_SIGNATURE", signature=signature))
 
                 task.advance(header.size)
                 if count % 100 == 0:

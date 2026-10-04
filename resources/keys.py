@@ -55,14 +55,14 @@ def fetch_upstream_keys() -> bytes | None:
         "https://raw.githubusercontent.com/The-Steambird/charlotte/refs/heads/master/keys.json"
     )
     try:
-        log.info("Attempting to fetch keys.json from upstream...")
+        log.info(translate("KEYS_FETCHING"))
         response = urllib3.request("GET", keys_url, timeout=10.0)
         if response.status == 200:
-            log.info("Successfully fetched keys.json.")
+            log.info(translate("KEYS_FETCHED"))
             return response.data
-        log.warning(f"HTTP Error {response.status} while fetching keys.json.")
+        log.warning(translate("KEYS_HTTP_ERROR", status=response.status))
     except urllib3.exceptions.HTTPError as e:
-        log.error(f"Failed to download keys.json: {e}")
+        log.error(translate("KEYS_DOWNLOAD_FAILED", error=e))
     return None
 
 
@@ -122,20 +122,20 @@ class Keys:
         if self.path.exists():
             self.raw = self.path.read_bytes()
         else:
-            log.info(f"keys.json not found at {self.path}.")
+            log.info(translate("KEYS_NOT_FOUND_AT", path=self.path))
             self.raw = fetch_upstream_keys() or b""
             if not self.raw:
-                log.error("Failed to fetch keys.json. Keys will be retrieved from the file itself.")
+                log.error(translate("KEYS_FETCH_FAILED"))
                 return
             try:
                 self.path.write_bytes(self.raw)
             except OSError as e:
-                log.warning(f"Failed to save keys.json: {e}")
+                log.warning(translate("KEYS_SAVE_FAILED", error=e))
 
         try:
             self.data = orjson.loads(self.raw)
         except orjson.JSONDecodeError:
-            log.error("Error decoding local keys.json. Upstream is checked when a key is missing.")
+            log.error(translate("KEYS_LOCAL_INVALID"))
             self.data = {}
             self.raw = b""
 
@@ -165,39 +165,39 @@ class Keys:
             return found
 
         if self.declined:
-            log.info(f"No keys.json entry for {stem}: the update was declined.")
+            log.info(translate("KEYS_UPDATE_DECLINED", stem=stem))
             return None
 
-        log.info(f"Key for {stem} not found. Checking upstream...")
+        log.info(translate("KEY_CHECKING_UPSTREAM", stem=stem))
         upstream_bytes = fetch_upstream_keys()
         if not upstream_bytes:
             return None
 
         if upstream_bytes == self.raw:
-            log.info("Upstream keys.json is identical to local file.")
+            log.info(translate("KEYS_UPSTREAM_IDENTICAL"))
             return None
 
         try:
             upstream_data = orjson.loads(upstream_bytes)
         except orjson.JSONDecodeError:
-            log.error("Error decoding upstream keys.json.")
+            log.error(translate("KEYS_UPSTREAM_INVALID"))
             return None
 
         found = lookup(upstream_data, stem)
         if found is None:
-            log.info(f"Key for {stem} not found upstream either.")
+            log.info(translate("KEY_NOT_UPSTREAM", stem=stem))
             return None
 
         overwrite_prompt = self.reporter.ask(translate("KEYS_UPDATE_PROMPT"), default=False)
         if not overwrite_prompt:
             self.declined = True
-            log.info(f"No keys.json entry for {stem}: the update was declined.")
+            log.info(translate("KEYS_UPDATE_DECLINED", stem=stem))
             return None
 
         try:
             self.path.write_bytes(upstream_bytes)
         except OSError as e:
-            log.warning(f"Failed to save keys.json: {e}")
+            log.warning(translate("KEYS_SAVE_FAILED", error=e))
 
         self.data = upstream_data
         self.raw = upstream_bytes

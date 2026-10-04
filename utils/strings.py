@@ -68,7 +68,7 @@ def strings() -> dict[str, str]:
 
 # The placeholders are filled by a regex rather than str.format, because a translation is outside
 # text and str.format would follow "{error.__class__}" into the value's attributes.
-def translate(key: str, **values: object) -> str:
+def translate(key: str, /, **values: object) -> str:
     def fill(match: re.Match) -> str:
         name = match.group(1)
         if name in values:
