@@ -1,4 +1,5 @@
 import multiprocessing
+import sys
 
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, NoReturn
@@ -14,6 +15,7 @@ from utils.ffmpeg import AUDIO_CODECS
 from utils.languages import AUDIO_LANGUAGES, SUBTITLES_LANGUAGES
 from utils.logger import log
 from utils.reporter import ConsoleReporter, JsonReporter, Reporter
+from utils.reporter.json import force_utf8
 from utils.strings import translate
 from utils.update import clear_stale_binary, run_update
 from utils.version import __version__
@@ -236,4 +238,6 @@ def demux(
 
 if __name__ == "__main__":
     multiprocessing.freeze_support()
+    force_utf8(sys.stdout)
+    force_utf8(sys.stderr)
     app()
