@@ -97,6 +97,14 @@ def process_subtitles(stem: str, output_path: Path) -> list[Path]:
     return ass_files
 
 
+def prepare_subtitles(
+    stem: str, output_path: Path, fonts: list[Path]
+) -> tuple[list[Path], list[Path]]:
+    subtitle_files = process_subtitles(BASENAME_FIXES.get(stem, stem), output_path)
+    subsets = subset_fonts(fonts, subtitle_files, output_path / "subs") if subtitle_files else []
+    return subtitle_files, subsets
+
+
 def encode_video(
     video: Path,
     partial_mkv: Path,
@@ -204,21 +212,19 @@ def process_usm(usm_file: Path, opts: Options, keys: Keys, reporter: Reporter) -
         extension = AUDIO_CODECS[opts.audio_codec][0]
         audio_files = [hca_file.with_suffix(extension) for hca_file in hca_files]
         created += audio_files
-        process_audio(
-            hca_files,
-            audio_files,
-            key,
-            keep_decrypted=opts.no_cleanup,
-            codec=opts.audio_codec,
-        )
-        subtitle_files = process_subtitles(
-            stem=BASENAME_FIXES.get(stem, stem),
-            output_path=output_path,
-        )
+        # Subtitles run during audio conversion as it mostly waits on ffmpeg. During the demux, font
+        # subsetting would hold the GIL and slow the chunk walk.
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            subtitles = executor.submit(prepare_subtitles, stem, output_path, opts.fonts)
+            process_audio(
+                hca_files,
+                audio_files,
+                key,
+                keep_decrypted=opts.no_cleanup,
+                codec=opts.audio_codec,
+            )
+        subtitle_files, fonts = subtitles.result()
         created += subtitle_files
-        fonts = (
-            subset_fonts(opts.fonts, subtitle_files, output_path / "subs") if subtitle_files else []
-        )
         reporter.checkpoint()
 
         if not encode_video(video, partial_mkv, audio_files, subtitle_files, fonts, opts, reporter):
