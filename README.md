@@ -18,16 +18,18 @@
 [<img src="https://raw.githubusercontent.com/The-Steambird/charlotte/master/docs/imgs/download.svg"/>](https://github.com/The-Steambird/charlotte/releases/download/1.2.0/charlotte-1.2.0.zip)
 > Stable build version: `1.2.0` (Released on: October 6th, 2026).
 
+Why Charlotte, you ask? Who else would record all these cutscenes but Teyvat's beloved paparazzi?~
+
 Charlotte is a Genshin Impact utility that losslessly decrypts `.usm` cutscene files into playable
 `.mkv` videos, covering all known cutscenes from versions 1.0 through 7.1. Each video contains all 4
 language audio tracks, subtitles in 15 languages styled to match nearly perfectly with official
 style. There's also an optional [VapourSynth](https://www.vapoursynth.com/about/) filter pass to
-clean up banding and macroblocking introduced by Hoyo's incompetent encoding (mostly banding and
-macro blocking). If you're a fan of high quality picture, rejoice.
+clean up banding and macroblocking introduced by Hoyo's incompetent encoding. If you're a fan of
+high quality picture, rejoice.
 
 <p align="center">
-   <img width="49%" alt="main UI" src="https://github.com/user-attachments/assets/0dbb5334-d0e9-497b-9b40-c7276e4d86b3" />
-   <img width="49%" alt="settings UI" src="https://github.com/user-attachments/assets/aa67118b-7ed5-49b2-8eff-4402208fc46b" />
+   <img width="49%" alt="main UI" src="docs/imgs/main-ui.png" />
+   <img width="49%" alt="settings UI" src="docs/imgs/settings-ui.png" />
 </p>
 
 ## Features
@@ -48,7 +50,9 @@ macro blocking). If you're a fan of high quality picture, rejoice.
 
 ## Getting started
 
-1. Download and extract the `.zip`
+The recommended way to use Charlotte is via GUI. To do so:
+
+1. [Download](https://github.com/The-Steambird/charlotte/releases) and extract the `.zip`
 2. Run `charlotte-gui.exe`
 
 ## Command line
@@ -167,7 +171,7 @@ uv sync
 Run the project:
 
 ```sh
-uv run main.py USM/7.1/Cs_ZD_AQ70200801_TFR_Boy.usm -vs -nc
+uv run main.py USM/7.1/Cs_ZD_AQ70200801_TFR_Boy.usm -nc
 ```
 
 For flag options, refer to the [Options](#options) section.
