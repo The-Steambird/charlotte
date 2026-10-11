@@ -28,7 +28,7 @@ def game_font_dir() -> Path | None:
     return font_dir if font_dir.is_dir() else None
 
 
-def fetch_font() -> list[Path]:
+def fetch_fonts() -> list[Path]:
     font_dir = app_root() / "font"
     fonts = [font_dir / name for name in ("ja-jp.ttf", "zh-cn.ttf")]
     missing = [font for font in fonts if not font.exists()]

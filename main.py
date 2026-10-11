@@ -9,7 +9,7 @@ import typer
 lazy from typer.models import OptionInfo
 
 from pipeline import Options, crack_all, probe_all, process_all
-from resources.fonts import fetch_font
+from resources.fonts import fetch_fonts
 from resources.keys import Keys
 from resources.subtitles import sync_subtitles
 from stages.filter import DEFAULT_CRF, DEFAULT_PRESET
@@ -83,7 +83,7 @@ def collect_files(input_paths: list[Path], reporter: Reporter) -> list[Path]:
 
 
 @app.command()
-def demux(
+def run(
     usm_paths: Annotated[
         list[Path] | None,
         typer.Argument(help=translate("HELP_INPUT")),
@@ -216,7 +216,7 @@ def demux(
         crf=crf,
         preset=preset,
         x265_params=x265_params,
-        fonts=fetch_font(),
+        fonts=fetch_fonts(),
         default_audio=default_audio,
         default_subtitle=default_subtitle,
         audio_codec=audio_codec,

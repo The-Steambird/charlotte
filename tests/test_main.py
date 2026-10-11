@@ -32,7 +32,7 @@ def pipeline_stub(monkeypatch):
     monkeypatch.setattr(pipeline, "process_usm", fake_process)
     monkeypatch.setattr(main, "Keys", lambda reporter, manual_key=None: None)
     monkeypatch.setattr(main, "sync_subtitles", lambda reporter: None)
-    monkeypatch.setattr(main, "fetch_font", lambda: None)
+    monkeypatch.setattr(main, "fetch_fonts", lambda: None)
     return stub
 
 
