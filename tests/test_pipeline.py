@@ -467,10 +467,10 @@ def test_one_bad_subtitle_does_not_sink_the_rest(tmp_app_root, out_dir, monkeypa
     write_subtitle("Cs_A", "EN")
     real_ass = pipeline.ASS
 
-    def flaky(sub_file, lang, *args, **kwargs):
+    def flaky(sub_file, lang):
         if lang == "DE":
             raise OSError("locked")
-        return real_ass(sub_file, lang, *args, **kwargs)
+        return real_ass(sub_file, lang)
 
     monkeypatch.setattr(pipeline, "ASS", flaky)
 

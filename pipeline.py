@@ -82,10 +82,11 @@ def process_subtitles(stem: str, folder: Path) -> list[Path]:
     empty_langs = []
     for sub_file, lang in subtitle_files:
         try:
-            ass = ASS(sub_file, lang)
             if sub_file.stat().st_size == 0:
                 empty_langs.append(SUBTITLES_LANGUAGES[lang][1])
-            elif ass.parse_srt():
+                continue
+            ass = ASS(sub_file, lang)
+            if ass.parse_srt():
                 ass_files.append(ass.convert_to_ass(folder))
             else:
                 log.warning(translate("SUBTITLE_FORMAT_INVALID", path=sub_file))
