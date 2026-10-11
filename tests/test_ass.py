@@ -10,8 +10,8 @@ Hello
 """
 
 
-def write_srt(tmp_path, text, name="Cs_Test_EN.srt"):
-    srt = tmp_path / name
+def write_srt(tmp_path, text):
+    srt = tmp_path / "Cs_Test_EN.srt"
     srt.write_text(text, encoding="utf-8")
     return srt
 

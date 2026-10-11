@@ -127,7 +127,7 @@ def bundle(path, **members: bytes):
 
 
 def test_extract_binary_strips_wrapping_folder(tmp_path):
-    zip_path = bundle(tmp_path / "b.zip", **{"charlotte-1.0/charlotte-cli.exe": b"MZengine"})
+    zip_path = bundle(tmp_path / "b.zip", **{"charlotte/charlotte-cli.exe": b"MZengine"})
     dest = tmp_path / "charlotte-cli.exe.new"
     extract_binary(zip_path, dest)
     assert dest.read_bytes() == b"MZengine"

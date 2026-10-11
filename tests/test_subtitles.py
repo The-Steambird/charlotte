@@ -23,8 +23,8 @@ def make_archive(entries):
     return zipfile.ZipFile(buf)
 
 
-def stub_upstream(monkeypatch, entries, commit="abc123"):
-    monkeypatch.setattr(resources.subtitles, "latest_commit", lambda: commit)
+def stub_upstream(monkeypatch, entries):
+    monkeypatch.setattr(resources.subtitles, "latest_commit", lambda: "abc123")
     monkeypatch.setattr(resources.subtitles, "fetch_archive", lambda: make_archive(entries))
 
 

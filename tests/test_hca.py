@@ -48,14 +48,14 @@ def hca_bytes(
     return bytes(header) + bytes(body)
 
 
-def write_hca(tmp_path, blob: bytes, name: str = "Cs_Test_0.hca"):
-    path = tmp_path / name
+def write_hca(tmp_path, blob: bytes):
+    path = tmp_path / "Cs_Test_0.hca"
     path.write_bytes(blob)
     return path
 
 
-def make_hca(tmp_path, name: str = "Cs_Test_0.hca") -> HCA:
-    return HCA(write_hca(tmp_path, hca_bytes(), name), KEY)
+def make_hca(tmp_path) -> HCA:
+    return HCA(write_hca(tmp_path, hca_bytes()), KEY)
 
 
 # --- checksum ---

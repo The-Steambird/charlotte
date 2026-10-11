@@ -32,30 +32,31 @@ def vs_dir(tmp_path, monkeypatch):
     return scripts
 
 
-def test_find_vs_script_gender_fallback(vs_dir):
-    (vs_dir / "Cs_A_Boy.py").touch()
-    (vs_dir / "Cs_B_Girl.py").touch()
-    assert find_vs_script("Cs_A_Girl") == "Cs_A_Boy"
-    assert find_vs_script("Cs_B_Boy") == "Cs_B_Girl"
-
-
-def test_find_vs_script_prefers_exact_over_counterpart(vs_dir):
-    (vs_dir / "Cs_A_Boy.py").touch()
-    (vs_dir / "Cs_A_Girl.py").touch()
-    assert find_vs_script("Cs_A_Girl") == "Cs_A_Girl"
-
-
-def test_find_vs_script_missing(vs_dir):
-    assert find_vs_script("Cs_A_Boy") is None
-    assert find_vs_script("Cs_NoGender") is None
-
-
-def test_find_vs_script_default_is_last_resort(vs_dir):
-    (vs_dir / "default.py").touch()
-    (vs_dir / "Cs_A_Boy.py").touch()
-    assert find_vs_script("Cs_A_Boy") == "Cs_A_Boy"
-    assert find_vs_script("Cs_A_Girl") == "Cs_A_Boy"
-    assert find_vs_script("Cs_NoGender") == "default"
+@pytest.mark.parametrize(
+    "scripts, stem, expected",
+    [
+        (["Cs_A_Boy"], "Cs_A_Girl", "Cs_A_Boy"),
+        (["Cs_A_Girl"], "Cs_A_Boy", "Cs_A_Girl"),
+        (["Cs_A_Boy", "Cs_A_Girl"], "Cs_A_Girl", "Cs_A_Girl"),
+        (["Cs_A_Boy", "default"], "Cs_A_Girl", "Cs_A_Boy"),
+        (["Cs_A_Boy", "default"], "Cs_NoGender", "default"),
+        ([], "Cs_A_Boy", None),
+        ([], "Cs_NoGender", None),
+    ],
+    ids=[
+        "girl-to-boy",
+        "boy-to-girl",
+        "exact-over-counterpart",
+        "counterpart-over-default",
+        "default-last",
+        "missing",
+        "missing-no-gender",
+    ],
+)
+def test_find_vs_script(vs_dir, scripts, stem, expected):
+    for name in scripts:
+        (vs_dir / f"{name}.py").touch()
+    assert find_vs_script(stem) == expected
 
 
 # --- encode_args ---

@@ -1,19 +1,38 @@
 from itertools import pairwise
 from pathlib import Path
 
+from fontTools.fontBuilder import FontBuilder
+from fontTools.pens.ttGlyphPen import TTGlyphPen
+from fontTools.ttLib import TTFont
+
 from conftest import flag_value, input_files
-from stages.mux import mux, mux_args
+from stages.mux import mux, mux_args, subset_fonts
 
 
 TRACKS = {"fonts": [], "default_audio": "ja", "default_subtitle": "EN"}
 
 
-def make_tracks(tmp_path, stem="Cs_Test", channels=("0", "1", "2"), subs=("EN", "JP")):
-    video = tmp_path / f"{stem}.ivf"
+def make_tracks(tmp_path):
+    video = tmp_path / "Cs_Test.ivf"
     video.write_bytes(b"")
-    audio = [tmp_path / f"{stem}_{channel}.flac" for channel in channels]
-    subtitles = [tmp_path / "subs" / f"{stem}_{lang}.ass" for lang in subs]
+    audio = [tmp_path / f"Cs_Test_{channel}.flac" for channel in ("0", "1", "2")]
+    subtitles = [tmp_path / "subs" / f"Cs_Test_{lang}.ass" for lang in ("EN", "JP")]
     return video, audio, subtitles
+
+
+def build_font(path: Path, text: str) -> None:
+    names = {ord(char): f"uni{ord(char):04X}" for char in text}
+    order = [".notdef", *names.values()]
+    builder = FontBuilder(1000, isTTF=True)
+    builder.setupGlyphOrder(order)
+    builder.setupCharacterMap(names)
+    builder.setupGlyf({name: TTGlyphPen(None).glyph() for name in order})
+    builder.setupHorizontalMetrics(dict.fromkeys(order, (500, 0)))
+    builder.setupHorizontalHeader(ascent=800, descent=-200)
+    builder.setupNameTable({"familyName": "Test", "styleName": "Regular"})
+    builder.setupOS2()
+    builder.setupPost()
+    builder.save(path)
 
 
 def test_default_audio_sorted_first_and_flagged(ffmpeg, tmp_path):
@@ -59,13 +78,29 @@ def test_encode_tail_puts_codec_args_between_maps_and_metadata(tmp_path):
 
 
 def test_fonts_only_ride_with_subtitle_tracks(tmp_path):
-    """The two game fonts are 11 MB each and exist only for the .ass tracks, which is why a
-    hard-subbed output (or one whose cutscene has no subtitles) must not carry them."""
+    """The fonts exist only for the .ass tracks, which is why a hard-subbed output (or one
+    whose cutscene has no subtitles) must not carry them."""
     fonts = [tmp_path / "ja-jp.ttf", tmp_path / "zh-cn.ttf"]
     _, audio, subs = make_tracks(tmp_path)
     tracks = TRACKS | {"fonts": fonts}
     assert "-attach" in mux_args(tmp_path / "o.mkv", [], audio, subs, **tracks)
     assert "-attach" not in mux_args(tmp_path / "o.mkv", [], audio, [], **tracks)
+
+
+def test_font_subset_keeps_what_harfbuzz_splits_thai_into(tmp_path):
+    """The fonts have no shaping tables for Thai, which is why HarfBuzz splits ำ into ํ and า
+    itself and the subset has to keep both."""
+    font = tmp_path / "zh-cn.ttf"
+    build_font(font, "Aำํา")
+    subtitle = tmp_path / "Cs_Test_TH.ass"
+    subtitle.write_text("ำ", encoding="utf-8")
+    folder = tmp_path / "subs"
+    folder.mkdir()
+
+    [subset] = subset_fonts([font], [subtitle], folder)
+
+    with TTFont(subset) as ttf:
+        assert set(ttf.getBestCmap()) == {ord("ำ"), ord("ํ"), ord("า")}
 
 
 def test_all_streams_mapped(ffmpeg, tmp_path):

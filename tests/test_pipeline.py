@@ -267,9 +267,9 @@ def test_stream_cipher_decrypts_with_the_keys_of_its_group(
 
 @pytest.fixture
 def stub_stages(monkeypatch):
-    """Everything after demux is stubbed, leaving one audio track and EN plus JP subtitles
-    on disk. The encode writes its .part whether or not it reports `ok`, the way a failing
-    ffmpeg does."""
+    """Every stage after demux is stubbed apart from the font subsetting, which has no fonts
+    to work on. That leaves one audio track and EN plus JP subtitles on disk. The encode
+    writes its .part whether or not it reports `ok`, the way a failing ffmpeg does."""
     calls = SimpleNamespace(ok=True, encode=None, mux=None, mux_error=None)
 
     def audio(hca_files, audio_files, *args, **kwargs):
@@ -331,8 +331,9 @@ def test_failure_leaves_no_mkv_and_clears_intermediates(stub_stages, tmp_path, r
     assert not (tmp_path / "out" / "Cs_Test").exists()
 
 
-def test_no_cleanup_keeps_intermediates(stub_stages, tmp_path, reporter):
-    usm_file, opts, keys = make_run(tmp_path, no_cleanup=True)
+@pytest.mark.parametrize("flat", [False, True])
+def test_no_cleanup_keeps_intermediates(stub_stages, tmp_path, reporter, flat):
+    usm_file, opts, keys = make_run(tmp_path, no_cleanup=True, flat=flat)
 
     process_usm(usm_file, opts, keys, reporter)
 
@@ -348,15 +349,6 @@ def test_flat_lifts_the_mkv_and_drops_the_work_dir(stub_stages, tmp_path, report
 
     assert (tmp_path / "out" / "Cs_Test.mkv").is_file()
     assert not (tmp_path / "out" / "Cs_Test").exists()
-
-
-def test_flat_with_no_cleanup_keeps_the_work_dir(stub_stages, tmp_path, reporter):
-    usm_file, opts, keys = make_run(tmp_path, no_cleanup=True, flat=True)
-
-    process_usm(usm_file, opts, keys, reporter)
-
-    assert (tmp_path / "out" / "Cs_Test.mkv").is_file()
-    assert (tmp_path / "out" / "Cs_Test" / "Cs_Test.ivf").is_file()
 
 
 @pytest.mark.parametrize(

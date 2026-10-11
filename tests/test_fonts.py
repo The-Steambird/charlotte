@@ -15,10 +15,10 @@ def game_fonts(tmp_path, monkeypatch):
     return game
 
 
-def local_font(tmp_app_root, name, content=b"local"):
+def local_font(tmp_app_root, name):
     path = tmp_app_root / "font" / name
     path.parent.mkdir(exist_ok=True)
-    path.write_bytes(content)
+    path.write_bytes(b"local")
     return path
 
 
