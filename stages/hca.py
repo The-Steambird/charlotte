@@ -48,9 +48,7 @@ def create_table56(key: int) -> bytearray:
 def build_cipher_table(ciph_type: int, key1: bytes, key2: bytes) -> bytearray:
     table = bytearray(0x100)
 
-    if ciph_type == 0:
-        table[:] = range(0x100)
-    elif ciph_type == 1:
+    if ciph_type == 1:
         v = 0
         for i in range(0xFF):
             v = (v * 13 + 11) & 0xFF
