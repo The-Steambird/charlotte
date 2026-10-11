@@ -3,10 +3,9 @@ import msvcrt
 import os
 import sys
 
-from contextlib import contextmanager, suppress
+from contextlib import contextmanager
 from ctypes import wintypes
 from itertools import count
-from typing import Any, TextIO
 
 import orjson
 
@@ -31,19 +30,12 @@ def parse_command(line: str | bytes) -> dict | None:
     return cmd if isinstance(cmd, dict) else None
 
 
-def force_utf8(stream: Any) -> TextIO:
-    """Force a text stream to UTF-8 to prevent UnicodeEncodeError."""
-    with suppress(AttributeError):
-        stream.reconfigure(encoding="utf-8")
-    return stream
-
-
 class JsonReporter(Reporter):
     """NDJSON events on stdout; commands (answers/cancel/skip) read from stdin on demand.
     Regular log go to stderr via the shared console in logger.py, keeping stdout JSON only."""
 
     def __init__(self, out=None, stdin=None):
-        self.out = force_utf8(out if out is not None else sys.stdout)
+        self.out = out if out is not None else sys.stdout
         self.stdin = stdin if stdin is not None else sys.stdin
         self.question_counter = count()
         self.cancelled = False

@@ -50,18 +50,6 @@ def test_custom_event_shape():
     assert events_of(reporter)[-1] == {"type": "job_start", "file": "a.usm", "stem": "a"}
 
 
-def test_non_ascii_payload_not_dropped():
-    """On a cp1252 stdout, UnicodeEncodeError is a ValueError that emit swallows, which is
-    why the stream is forced to UTF-8."""
-    raw = io.BytesIO()
-    stream = io.TextIOWrapper(raw, encoding="cp1252", newline="")
-    reporter = JsonReporter(out=stream, stdin=io.StringIO())
-    reporter.event("update", notes="もふもふとりさん → v2")
-    stream.flush()
-    lines = raw.getvalue().decode("utf-8").splitlines()
-    assert orjson.loads(lines[-1]) == {"type": "update", "notes": "もふもふとりさん → v2"}
-
-
 def test_stage_events_wrap_progress():
     reporter = make_reporter()
     with reporter.task("demux", 4, unit="chunk") as task:

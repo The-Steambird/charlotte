@@ -79,12 +79,12 @@ def video_chunk(rng, blocks: int = 900) -> bytes:
 
 def test_stages_cover_every_mask_entry_exactly_once():
     """A stage that forgets an entry silently drops it from scoring."""
-    covered = [entry for stage in STAGES for entry in stage.entries]
+    covered = [*stage.entries for stage in STAGES]
     assert sorted(covered) == list(range(BLOCK))
 
 
 def test_pair_schedule_covers_every_adjacent_pair_exactly_once():
-    scored = [pair for stage in STAGES for pair in stage.pairs]
+    scored = [*stage.pairs for stage in STAGES]
     assert sorted(scored) == list(range(BLOCK - 1))
 
 
