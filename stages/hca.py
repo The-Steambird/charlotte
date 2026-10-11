@@ -1,18 +1,13 @@
 import struct
 
-from typing import TYPE_CHECKING
+lazy from pathlib import Path
 
-import numpy as np
+lazy import numpy as np
 
 from utils.errors import CharlotteError
 from utils.ffmpeg import AUDIO_CODECS, run_ffmpeg
 from utils.strings import translate
-
-
-if TYPE_CHECKING:
-    from pathlib import Path
-
-    from resources.keys import DecryptionKey
+lazy from resources.keys import DecryptionKey
 
 
 def crc16_table() -> tuple[int, ...]:

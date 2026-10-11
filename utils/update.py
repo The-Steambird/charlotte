@@ -5,19 +5,15 @@ import zipfile
 
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING
 
 import orjson
-import urllib3
+lazy import urllib3
 
 from utils.errors import CharlotteError
 from utils.logger import log
 from utils.strings import translate
 from utils.version import __version__
-
-
-if TYPE_CHECKING:
-    from utils.reporter import Reporter
+lazy from utils.reporter import Reporter
 
 
 @dataclass(frozen=True)

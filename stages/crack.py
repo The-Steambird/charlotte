@@ -11,21 +11,17 @@ because IVF frame lengths are never masked, and the stream parses under any key.
 """
 
 from contextlib import closing
-from typing import TYPE_CHECKING, NamedTuple
+from typing import NamedTuple
+lazy from collections.abc import Callable
+lazy from pathlib import Path
 
-import numpy as np
+lazy import numpy as np
 
 from resources.keys import DecryptionKey
 from stages.usm import BLOCK, CIPHER_START, is_masked, read_chunks, video_nonce
 from utils.logger import log
 from utils.strings import translate
-
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
-    from pathlib import Path
-
-    from utils.reporter import Reporter
+lazy from utils.reporter import Reporter
 
 
 # Each pool sees half of a step's budget.

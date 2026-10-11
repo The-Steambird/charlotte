@@ -2,9 +2,12 @@ import multiprocessing
 import sys
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, NoReturn
+from typing import Annotated, NoReturn
+lazy from collections.abc import Callable
 
 import typer
+
+lazy from typer.models import OptionInfo
 
 from pipeline import Options, crack_all, probe_all, process_all
 from resources.fonts import fetch_font
@@ -19,12 +22,6 @@ from utils.reporter.json import force_utf8
 from utils.strings import translate
 from utils.update import clear_stale_binary, run_update
 from utils.version import __version__
-
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
-    from typer.models import OptionInfo
 
 
 app = typer.Typer(help=translate("APP_HELP"))

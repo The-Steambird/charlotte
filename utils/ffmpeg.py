@@ -1,15 +1,11 @@
 import subprocess
 
-from typing import TYPE_CHECKING
+lazy from pathlib import Path
 
 from utils.errors import CharlotteError
 from utils.logger import log
 from utils.paths import bundle_root
 from utils.strings import translate
-
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 AUDIO_CODECS = {

@@ -1,19 +1,15 @@
 import unicodedata
 
-from typing import TYPE_CHECKING
+lazy from collections.abc import Sequence
+lazy from pathlib import Path
 
-from fontTools.subset import Subsetter
-from fontTools.ttLib import TTFont
+lazy from fontTools.subset import Subsetter
+lazy from fontTools.ttLib import TTFont
 
 from utils.ffmpeg import run_ffmpeg
 from utils.languages import AUDIO_LANGUAGES, get_language
 from utils.logger import log
 from utils.strings import translate
-
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
-    from pathlib import Path
 
 
 def track_code(path: Path) -> str:

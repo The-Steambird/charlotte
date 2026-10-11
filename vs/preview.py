@@ -1,12 +1,8 @@
 import sys
 
-from typing import TYPE_CHECKING
-
 from vstools import core
-
-
-if TYPE_CHECKING:
-    from vapoursynth import VideoNode
+lazy from vapoursynth import VideoNode
+lazy from vsview.api import set_output
 
 
 def previewing() -> bool:
@@ -15,9 +11,6 @@ def previewing() -> bool:
 
 def show(clip: VideoNode, name: str) -> None:
     if previewing():
-        # Keep it out of the pipeline subprocess.
-        from vsview.api import set_output
-
         set_output(clip, name)
 
 

@@ -1,13 +1,9 @@
 import re
 
-from typing import TYPE_CHECKING
+lazy from pathlib import Path
 
 from utils.logger import log
 from utils.strings import translate
-
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 class ASS:

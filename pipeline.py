@@ -3,12 +3,18 @@ import shutil
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+lazy from pathlib import Path
 
-from resources.keys import KEY_MASK, calculate_key_from_filename, find_video_version
+from resources.keys import (
+    KEY_MASK,
+    DecryptionKey,
+    Keys,
+    calculate_key_from_filename,
+    find_video_version,
+)
 from resources.subtitles import local_subtitle_path
 from stages.ass import ASS
-from stages.crack import crack_key
+from stages.crack import Recovery, crack_key
 from stages.filter import encode_args, find_vs_script, subtitle_filter, vapoursynth_filter
 from stages.hca import HCA
 from stages.mux import mux, mux_args, subset_fonts, track_code
@@ -18,14 +24,7 @@ from utils.ffmpeg import AUDIO_CODECS
 from utils.languages import SUBTITLES_LANGUAGES
 from utils.logger import log
 from utils.strings import translate
-
-
-if TYPE_CHECKING:
-    from pathlib import Path
-
-    from resources.keys import DecryptionKey, Keys
-    from stages.crack import Recovery
-    from utils.reporter import Reporter
+lazy from utils.reporter import Reporter
 
 
 BASENAME_FIXES = {

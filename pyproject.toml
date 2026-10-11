@@ -91,10 +91,6 @@ select = [
 # Canceled and Skipped are control-flow signals like StopIteration, not errors.
 ignore = ["N818"]
 
-extend-safe-fixes = [
-    "TC", # move import from and to TYPE_CHECKING blocks
-]
-
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101"]
 

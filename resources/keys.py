@@ -1,21 +1,17 @@
 import functools
 import re
 
-from typing import TYPE_CHECKING, Any, NamedTuple
+from typing import Any, NamedTuple
+lazy from collections.abc import Callable
 
 import orjson
-import urllib3
+lazy import urllib3
 
 from utils.errors import CharlotteError
 from utils.logger import log
 from utils.paths import app_root
 from utils.strings import translate
-
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
-    from utils.reporter import Reporter
+lazy from utils.reporter import Reporter
 
 
 KEY_MASK = (1 << 56) - 1

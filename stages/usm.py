@@ -1,24 +1,20 @@
 import struct
 
 from contextlib import ExitStack, closing
-from typing import TYPE_CHECKING, NamedTuple
+from typing import NamedTuple
+lazy from collections.abc import Generator
+lazy from io import BufferedWriter
+lazy from pathlib import Path
 
-import numpy as np
+lazy import numpy as np
 
-from Crypto.Cipher import AES
+lazy from Crypto.Cipher import AES
 
 from utils.errors import CharlotteError
 from utils.logger import log
 from utils.strings import translate
-
-
-if TYPE_CHECKING:
-    from collections.abc import Generator
-    from io import BufferedWriter
-    from pathlib import Path
-
-    from resources.keys import DecryptionKey
-    from utils.reporter import Reporter
+lazy from resources.keys import DecryptionKey
+lazy from utils.reporter import Reporter
 
 
 # A payload starts data_offset bytes past byte 8 of its chunk, and the header already covers

@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from preview import compare, show
 from vsdeband import deband_detail_mask, placebo_deband
@@ -7,10 +6,8 @@ from vsdenoise import deblock_qed
 from vsjetpack import setup_logging
 from vssource import BestSource
 from vstools import core, finalize_clip, initialize_clip
+lazy from vapoursynth import VideoNode
 
-
-if TYPE_CHECKING:
-    from vapoursynth import VideoNode
 
 setup_logging()
 

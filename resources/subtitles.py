@@ -1,21 +1,16 @@
 import io
 import zipfile
 
-from typing import TYPE_CHECKING
+lazy from pathlib import Path
 
 import orjson
-import urllib3
+lazy import urllib3
 
 from utils.errors import CharlotteError
 from utils.logger import log
 from utils.paths import app_root
 from utils.strings import translate
-
-
-if TYPE_CHECKING:
-    from pathlib import Path
-
-    from utils.reporter import Reporter
+lazy from utils.reporter import Reporter
 
 
 SUBTITLE_ARCHIVE_URL = (

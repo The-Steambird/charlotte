@@ -6,17 +6,15 @@ import sys
 import threading
 
 from concurrent.futures import ThreadPoolExecutor
-from typing import TYPE_CHECKING
+lazy from multiprocessing.synchronize import Event
+lazy from pathlib import Path
+
+lazy import vapoursynth as vs
 
 from utils.ffmpeg import ffmpeg_path
 from utils.paths import bundle_root
 from utils.reporter import QueueReporter, Reporter, relay_worker
 from utils.strings import translate
-
-
-if TYPE_CHECKING:
-    from multiprocessing.synchronize import Event
-    from pathlib import Path
 
 
 DEFAULT_CRF = 13.5
@@ -140,8 +138,6 @@ def find_vs_script(stem: str) -> str | None:
 
 
 def build_clip(source: Path, script: str | None, reporter: Reporter):
-    import vapoursynth as vs
-
     if script:
         reporter.log("info", translate("VS_FILTER_APPLYING", script=f"vs/{script}.py"))
         return importlib.import_module(f"vs.{script}").filter_chain(source)
@@ -161,8 +157,6 @@ def worker(
     queue: multiprocessing.Queue,
     stop: Event,
 ) -> None:
-    import vapoursynth as vs
-
     vs.core.num_threads = min(8, max(1, multiprocessing.cpu_count() // 2))
 
     reporter = QueueReporter(queue)
