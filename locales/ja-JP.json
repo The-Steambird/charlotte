@@ -84,7 +84,7 @@
   "FOUND_SUBTITLES": "{count} 個の字幕ファイルが見つかりました。",
   "SUBTITLE_CONVERT_FAILED": "{name} の変換に失敗しました: {error}",
   "SUBTITLES_EMPTY": "字幕が空のためスキップ: {languages}",
-  "SUBTITLE_FORMAT_INVALID": "{path} は空か、形式が正しくありません。",
+  "SUBTITLE_FORMAT_INVALID": "{path} の形式が正しくありません。",
   "VS_SCRIPT_MISSING": "{stem} の VapourSynth スクリプトが見つからないため、フィルターをスキップします…",
   "VS_SCRIPT_FALLBACK": "{stem} の VapourSynth スクリプトが見つからないため、代わりに {script} を使用します。",
   "HARD_SUB_MISSING": "{stem} には {language} の字幕がないため、焼き込むものがありません。",

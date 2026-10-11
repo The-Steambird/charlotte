@@ -84,7 +84,7 @@
   "FOUND_SUBTITLES": "Найдено файлов субтитров: {count}.",
   "SUBTITLE_CONVERT_FAILED": "Не удалось конвертировать {name}: {error}",
   "SUBTITLES_EMPTY": "Пустые субтитры пропущены: {languages}",
-  "SUBTITLE_FORMAT_INVALID": "Файл {path} пуст или имеет неверный формат.",
+  "SUBTITLE_FORMAT_INVALID": "Файл {path} имеет неверный формат.",
   "VS_SCRIPT_MISSING": "Не найден скрипт VapourSynth для {stem}, фильтр пропущен...",
   "VS_SCRIPT_FALLBACK": "Скрипт VapourSynth для {stem} не найден, вместо него используется {script}.",
   "HARD_SUB_MISSING": "Для {stem} нет субтитров на языке {language}, вшивать нечего.",

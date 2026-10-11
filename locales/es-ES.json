@@ -84,7 +84,7 @@
   "FOUND_SUBTITLES": "Se han encontrado {count} archivo(s) de subtítulos.",
   "SUBTITLE_CONVERT_FAILED": "No se pudo convertir {name}: {error}",
   "SUBTITLES_EMPTY": "Subtítulos vacíos, omitidos: {languages}",
-  "SUBTITLE_FORMAT_INVALID": "{path} está vacío o tiene un formato incorrecto.",
+  "SUBTITLE_FORMAT_INVALID": "{path} tiene un formato incorrecto.",
   "VS_SCRIPT_MISSING": "No se encontró ningún script de VapourSynth para {stem}, se omite el filtro...",
   "VS_SCRIPT_FALLBACK": "No se encontró el script de VapourSynth para {stem}, se usará {script} en su lugar.",
   "HARD_SUB_MISSING": "No hay subtítulos en {language} para {stem}, no hay nada que incrustar.",

@@ -84,7 +84,7 @@
   "FOUND_SUBTITLES": "Found {count} subtitle file(s).",
   "SUBTITLE_CONVERT_FAILED": "Failed to convert {name}: {error}",
   "SUBTITLES_EMPTY": "Subtitles empty, skipping: {languages}",
-  "SUBTITLE_FORMAT_INVALID": "{path} is empty or has incorrect format.",
+  "SUBTITLE_FORMAT_INVALID": "{path} has an incorrect format.",
   "VS_SCRIPT_MISSING": "No VapourSynth script found for {stem}, skipping filter...",
   "VS_SCRIPT_FALLBACK": "VapourSynth script for {stem} not found, using {script} instead.",
   "HARD_SUB_MISSING": "No {language} subtitle for {stem}, nothing to burn in.",

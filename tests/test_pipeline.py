@@ -452,12 +452,13 @@ def test_empty_subtitle_named_not_converted(tmp_app_root, out_dir, caplog):
     assert "Subtitles empty, skipping: English" in caplog.text
 
 
-def test_unparseable_subtitle_skipped_quietly(tmp_app_root, out_dir, caplog):
-    """Non-empty but yielding no dialogue is not "empty": listing it alongside the
-    untranslated ones would mislead."""
+def test_unparseable_subtitle_warned_apart_from_empty_ones(tmp_app_root, out_dir, caplog):
+    """A non-empty file that yields no dialogue gets its own warning, because listing it
+    alongside the untranslated ones would mislead."""
     write_subtitle("Cs_A", "EN", text="nothing that parses")
 
     assert process_subtitles("Cs_A", out_dir) == []
+    assert "has an incorrect format" in caplog.text
     assert "Subtitles empty" not in caplog.text
 
 

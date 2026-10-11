@@ -84,7 +84,7 @@
   "FOUND_SUBTITLES": "找到 {count} 個字幕檔。",
   "SUBTITLE_CONVERT_FAILED": "轉換 {name} 失敗：{error}",
   "SUBTITLES_EMPTY": "字幕為空，已略過：{languages}",
-  "SUBTITLE_FORMAT_INVALID": "{path} 為空或格式不正確。",
+  "SUBTITLE_FORMAT_INVALID": "{path} 格式不正確。",
   "VS_SCRIPT_MISSING": "找不到 {stem} 的 VapourSynth 指令碼，略過濾鏡…",
   "VS_SCRIPT_FALLBACK": "找不到 {stem} 的 VapourSynth 指令碼，改用 {script}。",
   "HARD_SUB_MISSING": "{stem} 沒有 {language} 字幕，沒有可燒錄的內容。",

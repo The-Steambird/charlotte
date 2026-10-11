@@ -84,7 +84,7 @@
   "FOUND_SUBTITLES": "자막 파일 {count}개를 찾았습니다.",
   "SUBTITLE_CONVERT_FAILED": "{name} 변환 실패: {error}",
   "SUBTITLES_EMPTY": "자막이 비어 있어 건너뜀: {languages}",
-  "SUBTITLE_FORMAT_INVALID": "{path}이(가) 비어 있거나 형식이 잘못되었습니다.",
+  "SUBTITLE_FORMAT_INVALID": "{path}의 형식이 잘못되었습니다.",
   "VS_SCRIPT_MISSING": "{stem}에 대한 VapourSynth 스크립트가 없어 필터를 건너뜁니다...",
   "VS_SCRIPT_FALLBACK": "{stem}에 대한 VapourSynth 스크립트가 없어 대신 {script}을(를) 사용합니다.",
   "HARD_SUB_MISSING": "{stem}에 {language} 자막이 없어 입힐 자막이 없습니다.",

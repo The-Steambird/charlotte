@@ -84,7 +84,7 @@
   "FOUND_SUBTITLES": "Encontrado(s) {count} ficheiro(s) de legendas.",
   "SUBTITLE_CONVERT_FAILED": "Não foi possível converter {name}: {error}",
   "SUBTITLES_EMPTY": "Legendas vazias, ignoradas: {languages}",
-  "SUBTITLE_FORMAT_INVALID": "{path} está vazio ou tem um formato incorreto.",
+  "SUBTITLE_FORMAT_INVALID": "{path} tem um formato incorreto.",
   "VS_SCRIPT_MISSING": "Não foi encontrado nenhum script do VapourSynth para {stem}, a ignorar o filtro...",
   "VS_SCRIPT_FALLBACK": "Script do VapourSynth para {stem} não encontrado, a usar {script} em vez dele.",
   "HARD_SUB_MISSING": "Não há legendas em {language} para {stem}, nada para gravar.",
