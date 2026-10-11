@@ -1,9 +1,4 @@
-AUDIO_LANGUAGES = {
-    "0": ("zh", "中文"),
-    "1": ("en", "English"),
-    "2": ("ja", "日本語"),
-    "3": ("ko", "한국어"),
-}
+AUDIO_LANGUAGES = {"0": "zh", "1": "en", "2": "ja", "3": "ko"}
 
 SUBTITLES_LANGUAGES = {
     "CHS": ("zh-Hans", "简体中文"),

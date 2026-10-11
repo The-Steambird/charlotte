@@ -43,7 +43,7 @@ def mux_args(
 ) -> list[str]:
     """The caller puts the video input ahead of these. Fonts are only attached with subtitle
     tracks, and `-f` is needed because the `.part` name does not tell ffmpeg the format."""
-    audio = [(path, AUDIO_LANGUAGES.get(track_code(path), ("und",))[0]) for path in audio_files]
+    audio = [(path, AUDIO_LANGUAGES.get(track_code(path), "und")) for path in audio_files]
     subtitles = [(path, track_code(path)) for path in subtitle_files]
     audio.sort(key=lambda track: (track[1] != default_audio, track[0].name))
     subtitles.sort(key=lambda track: (track[1] != default_subtitle, track[0].name))

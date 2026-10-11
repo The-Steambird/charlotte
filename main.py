@@ -26,7 +26,7 @@ app = typer.Typer(help=translate("APP_HELP"))
 
 
 AUDIO_CODEC_CHOICES = list(AUDIO_CODECS)
-AUDIO_CHOICES = [tag for tag, _ in AUDIO_LANGUAGES.values()]
+AUDIO_CHOICES = list(AUDIO_LANGUAGES.values())
 SUBTITLE_CHOICES = list(SUBTITLES_LANGUAGES)
 
 
