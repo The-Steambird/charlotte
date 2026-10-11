@@ -69,7 +69,7 @@ def process_audio(
         list(executor.map(convert_one, hca_files, audio_files))
 
 
-def process_subtitles(stem: str, output_path: Path) -> list[Path]:
+def process_subtitles(stem: str, folder: Path) -> list[Path]:
     subtitle_files = []
     for lang in SUBTITLES_LANGUAGES:
         sub_path = local_subtitle_path(stem, lang)
@@ -84,7 +84,7 @@ def process_subtitles(stem: str, output_path: Path) -> list[Path]:
         try:
             ass = ASS(sub_file, lang)
             if ass.parse_srt():
-                ass_files.append(ass.convert_to_ass(output_path=output_path))
+                ass_files.append(ass.convert_to_ass(folder))
             elif sub_file.stat().st_size == 0:
                 empty_langs.append(SUBTITLES_LANGUAGES[lang][1])
         except (OSError, UnicodeDecodeError) as e:
@@ -99,8 +99,9 @@ def process_subtitles(stem: str, output_path: Path) -> list[Path]:
 def prepare_subtitles(
     stem: str, output_path: Path, fonts: list[Path]
 ) -> tuple[list[Path], list[Path]]:
-    subtitle_files = process_subtitles(BASENAME_FIXES.get(stem, stem), output_path)
-    subsets = subset_fonts(fonts, subtitle_files, output_path / "subs") if subtitle_files else []
+    folder = output_path / "subs"
+    subtitle_files = process_subtitles(BASENAME_FIXES.get(stem, stem), folder)
+    subsets = subset_fonts(fonts, subtitle_files, folder) if subtitle_files else []
     return subtitle_files, subsets
 
 

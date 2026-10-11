@@ -276,9 +276,9 @@ def stub_stages(monkeypatch):
         for path in audio_files:
             path.write_bytes(b"flac")
 
-    def subtitles(stem, output_path):
-        (output_path / "subs").mkdir()
-        files = [output_path / "subs" / f"{stem}_{lang}.ass" for lang in ("EN", "JP")]
+    def subtitles(stem, folder):
+        folder.mkdir()
+        files = [folder / f"{stem}_{lang}.ass" for lang in ("EN", "JP")]
         for path in files:
             path.write_bytes(b"ass")
         return files
@@ -436,8 +436,8 @@ def test_subtitles_converted_to_ass(tmp_app_root, out_dir):
 
     ass_files = process_subtitles("Cs_A", out_dir)
 
-    assert [path.name for path in ass_files] == ["Cs_A_DE.ass"]
-    assert (out_dir / "subs" / "Cs_A_DE.ass").is_file()
+    assert ass_files == [out_dir / "Cs_A_DE.ass"]
+    assert ass_files[0].is_file()
 
 
 def test_empty_subtitle_named_not_converted(tmp_app_root, out_dir, caplog):

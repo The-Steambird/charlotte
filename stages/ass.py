@@ -57,10 +57,9 @@ class ASS:
 
         return True
 
-    def convert_to_ass(self, output_path: Path) -> Path:
-        output_path = output_path / "subs"
-        output_path.mkdir(parents=True, exist_ok=True)
-        output_file = output_path / (self.srt_file.stem + ".ass")
+    def convert_to_ass(self, folder: Path) -> Path:
+        folder.mkdir(parents=True, exist_ok=True)
+        output_file = folder / (self.srt_file.stem + ".ass")
 
         # Default style matching official GI subtitle style.
         style_line = ",".join(
