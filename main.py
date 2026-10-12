@@ -52,32 +52,29 @@ def choice_option(*names: str, help: str, choices: list[str]) -> OptionInfo:
     )
 
 
-def die(message: str) -> NoReturn:
+def die(message: str, reporter: Reporter, name: str = "") -> NoReturn:
+    reporter.event("error", file=name, message=message)
     log.error(message)
     raise typer.Exit(1)
 
 
 def collect_files(input_paths: list[Path], reporter: Reporter) -> list[Path]:
-    def fail(message: str, name: str) -> NoReturn:
-        reporter.event("error", file=name, message=message)
-        die(message)
-
     if not input_paths:
-        fail(translate("NO_INPUT_FILES"), "")
+        die(translate("NO_INPUT_FILES"), reporter)
 
     files: list[Path] = []
     for path in input_paths:
         if path.is_file():
             if path.suffix.lower() != ".usm":
-                fail(translate("NOT_USM_FILE", path=path), path.name)
+                die(translate("NOT_USM_FILE", path=path), reporter, path.name)
             files.append(path)
         elif path.is_dir():
             found = sorted(path.glob("*.usm"))
             if not found:
-                fail(translate("NO_USM_IN_DIRECTORY", path=path), str(path))
+                die(translate("NO_USM_IN_DIRECTORY", path=path), reporter, str(path))
             files.extend(found)
         else:
-            fail(translate("NOT_FILE_OR_DIRECTORY", path=path), str(path))
+            die(translate("NOT_FILE_OR_DIRECTORY", path=path), reporter, str(path))
 
     return list(dict.fromkeys(files))
 
@@ -186,15 +183,15 @@ def run(
 
     if update:
         if usm_paths or probe or crack or key is not None:
-            die(translate("UPDATE_WITH_OTHER_MODES"))
+            die(translate("UPDATE_WITH_OTHER_MODES"), reporter)
         run_update(reporter, json_output)
         return
     if crack and (probe or key is not None):
-        die(translate("CRACK_WITH_OTHER_MODES"))
+        die(translate("CRACK_WITH_OTHER_MODES"), reporter)
 
     usm_files = collect_files(usm_paths or [], reporter)
     if key is not None and len(usm_files) > 1:
-        die(translate("KEY_WITH_MANY_FILES"))
+        die(translate("KEY_WITH_MANY_FILES"), reporter)
 
     if crack:
         crack_all(usm_files, reporter)

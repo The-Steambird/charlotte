@@ -108,6 +108,12 @@ def test_crack_rejects_probe_and_key(tmp_path):
     assert runner.invoke(main.app, [str(usm), "--crack", "--key", "1"]).exit_code == 1
 
 
+def test_rejected_flags_reach_the_gui(tmp_path):
+    usm = make_usm(tmp_path)
+    result = runner.invoke(main.app, [str(usm), "--crack", "--probe", "--json"])
+    assert '{"type":"error","file":"","message":' in result.stdout
+
+
 def test_invalid_choice_flag_is_usage_error(tmp_path):
     usm = make_usm(tmp_path)
     assert runner.invoke(main.app, [str(usm), "-da", "xx"]).exit_code == 2
