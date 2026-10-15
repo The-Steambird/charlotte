@@ -56,7 +56,7 @@ class ChunkHeader(NamedTuple):
 
     @property
     def is_data(self) -> bool:
-        return self.data_type & 0x3 == 0
+        return self.data_type == 0
 
 
 def read_chunks(file_path: Path) -> Generator[tuple[ChunkHeader, bytes]]:
@@ -226,7 +226,7 @@ class USM:
         base_name = self.file_path.stem
         video = output_path / f"{base_name}.ivf"
         streams: dict[Path, BufferedWriter] = {}
-        known = {b"CRID", b"@SFV", b"@SFA", b"@CUE", b"@APP", b"@ALP", b"@SBT"}
+        known = {b"CRID", b"@SFV", b"@SFA", b"@CUE", b"@ALP"}
         file_size = self.file_path.stat().st_size
 
         with (

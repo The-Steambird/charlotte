@@ -126,7 +126,7 @@ def test_known_metadata_signatures_skipped_silently(tmp_path, out_dir, reporter,
     data = (
         chunk(b"CRID", b"header")
         + chunk(b"@CUE", b"cue")
-        + chunk(b"@APP", b"app")
+        + chunk(b"@ALP", b"alpha")
         + chunk(b"@SFV", b"video")
     )
     created = []

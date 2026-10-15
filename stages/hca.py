@@ -4,10 +4,10 @@ lazy from pathlib import Path
 
 lazy import numpy as np
 
+from resources.keys import KEY_MASK, DecryptionKey
 from utils.errors import CharlotteError
 from utils.ffmpeg import run_ffmpeg
 from utils.strings import translate
-lazy from resources.keys import DecryptionKey
 
 
 AUDIO_CODECS = {
@@ -50,74 +50,52 @@ def create_table56(key: int) -> bytearray:
     return table
 
 
-def build_cipher_table(ciph_type: int, key1: bytes, key2: bytes) -> bytearray:
+def build_cipher_table(key1: bytes, key2: bytes) -> bytearray:
+    key = int.from_bytes(key1 + key2, "little") - 1
+    t1 = (key & KEY_MASK).to_bytes(7, "little")
+
+    t2 = bytearray(
+        [
+            t1[1],
+            t1[1] ^ t1[6],
+            t1[2] ^ t1[3],
+            t1[2],
+            t1[2] ^ t1[1],
+            t1[3] ^ t1[4],
+            t1[3],
+            t1[3] ^ t1[2],
+            t1[4] ^ t1[5],
+            t1[4],
+            t1[4] ^ t1[3],
+            t1[5] ^ t1[6],
+            t1[5],
+            t1[5] ^ t1[4],
+            t1[6] ^ t1[1],
+            t1[6],
+        ]
+    )
+
+    t3 = bytearray(0x100)
+    t31 = create_table56(t1[0])
+
+    for i in range(0x10):
+        t32 = create_table56(t2[i])
+        v = t31[i] << 4
+        for j, val in enumerate(t32):
+            t3[i * 0x10 + j] = v | val
+
     table = bytearray(0x100)
+    i_table = 1
+    v = 0
+    for _ in range(0x100):
+        v = (v + 0x11) & 0xFF
+        a = t3[v]
+        if a not in (0, 0xFF):
+            table[i_table] = a
+            i_table += 1
 
-    if ciph_type == 1:
-        v = 0
-        for i in range(0xFF):
-            v = (v * 13 + 11) & 0xFF
-            if v in (0, 0xFF):
-                v = (v * 13 + 11) & 0xFF
-            table[i] = v
-        table[0] = 0
-        table[0xFF] = 0xFF
-    elif ciph_type == 0x38:
-        t1 = bytearray(8)
-        k1 = int.from_bytes(key1, "little")
-        k2 = int.from_bytes(key2, "little")
-
-        if k1 == 0:
-            k2 = (k2 - 1) & 0xFFFFFFFF
-        k1 = (k1 - 1) & 0xFFFFFFFF
-
-        for i in range(7):
-            t1[i] = k1 & 0xFF
-            k1 = ((k1 >> 8) | (k2 << 24)) & 0xFFFFFFFF
-            k2 >>= 8
-
-        t2 = bytearray(
-            [
-                t1[1],
-                t1[1] ^ t1[6],
-                t1[2] ^ t1[3],
-                t1[2],
-                t1[2] ^ t1[1],
-                t1[3] ^ t1[4],
-                t1[3],
-                t1[3] ^ t1[2],
-                t1[4] ^ t1[5],
-                t1[4],
-                t1[4] ^ t1[3],
-                t1[5] ^ t1[6],
-                t1[5],
-                t1[5] ^ t1[4],
-                t1[6] ^ t1[1],
-                t1[6],
-            ]
-        )
-
-        t3 = bytearray(0x100)
-        t31 = create_table56(t1[0])
-
-        for i in range(0x10):
-            t32 = create_table56(t2[i])
-            v = t31[i] << 4
-            for j, val in enumerate(t32):
-                t3[i * 0x10 + j] = v | val
-
-        i_table = 1
-        v = 0
-        for _ in range(0x100):
-            v = (v + 0x11) & 0xFF
-            a = t3[v]
-            if a not in (0, 0xFF):
-                table[i_table] = a
-                i_table += 1
-
-        table[0] = 0
-        table[0xFF] = 0xFF
-
+    table[0] = 0
+    table[0xFF] = 0xFF
     return table
 
 
@@ -174,7 +152,7 @@ class HCA:
             offset += 16
         if self.match_chunk(offset, b"ciph"):
             self.ciph_type = struct.unpack_from(">H", self.header, offset + 4)[0]
-            if self.ciph_type not in (0, 1, 0x38):
+            if self.ciph_type not in (0, 0x38):
                 raise CharlotteError(
                     translate("HCA_CIPHER_INVALID", type=self.ciph_type, name=self.file_path.name)
                 )
@@ -196,7 +174,7 @@ class HCA:
         if self.ciph_type == 0:
             return
 
-        table = build_cipher_table(self.ciph_type, self.key.key1, self.key.key2)
+        table = build_cipher_table(self.key.key1, self.key.key2)
         self.data = self.data.translate(table)
 
         self.ciph_type = 0

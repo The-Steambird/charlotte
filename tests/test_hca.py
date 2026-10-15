@@ -110,9 +110,9 @@ def test_zero_block_size_raises(tmp_path):
 
 
 def test_unknown_cipher_type_raises(tmp_path):
-    """Anything but 0, 1 and 0x38 would build an all-zero table and translate the whole
-    stream to zeros."""
-    path = write_hca(tmp_path, hca_bytes(ciph_type=2))
+    """Anything but 0 and 0x38 would go through the 0x38 table and come out as noise that
+    ffmpeg decodes without an error. That includes the keyless type 1, which no stream uses."""
+    path = write_hca(tmp_path, hca_bytes(ciph_type=1))
     with pytest.raises(CharlotteError, match="Invalid cipher type"):
         HCA(path, KEY)
 
