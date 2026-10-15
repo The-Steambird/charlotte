@@ -22,6 +22,7 @@
   "CHOICE_INVALID": "次のいずれかである必要があります: {choices}",
   "UPDATE_WITH_OTHER_MODES": "--update は入力ファイルや他のモードと併用できません。",
   "CRACK_WITH_OTHER_MODES": "--crack は --probe や --key と併用できません。",
+  "PROBE_WITH_KEY": "--probe は --key と併用できません。",
   "KEY_WITH_MANY_FILES": "--key は入力ファイルが 1 つの場合にのみ使用できます。",
   "NO_INPUT_FILES": ".usm 入力ファイルが指定されていません。",
   "NOT_USM_FILE": ".usm ファイルではありません: {path}",

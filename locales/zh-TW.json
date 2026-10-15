@@ -22,6 +22,7 @@
   "CHOICE_INVALID": "必須是下列其中之一：{choices}",
   "UPDATE_WITH_OTHER_MODES": "--update 不能與輸入檔案或其他模式一起使用。",
   "CRACK_WITH_OTHER_MODES": "--crack 不能與 --probe 或 --key 一起使用。",
+  "PROBE_WITH_KEY": "--probe 不能與 --key 一起使用。",
   "KEY_WITH_MANY_FILES": "--key 只能用於單一輸入檔案。",
   "NO_INPUT_FILES": "未提供 .usm 輸入檔案。",
   "NOT_USM_FILE": "不是 .usm 檔案：{path}",

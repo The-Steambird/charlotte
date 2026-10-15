@@ -22,6 +22,7 @@
   "CHOICE_INVALID": "Debe ser uno de estos: {choices}",
   "UPDATE_WITH_OTHER_MODES": "--update no se puede combinar con archivos de entrada ni con otros modos.",
   "CRACK_WITH_OTHER_MODES": "--crack no se puede combinar con --probe ni con --key.",
+  "PROBE_WITH_KEY": "--probe no se puede combinar con --key.",
   "KEY_WITH_MANY_FILES": "--key solo es válido con un único archivo de entrada.",
   "NO_INPUT_FILES": "No se ha proporcionado ningún archivo .usm de entrada.",
   "NOT_USM_FILE": "No es un archivo .usm: {path}",

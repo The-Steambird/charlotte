@@ -188,6 +188,8 @@ def run(
         return
     if crack and (probe or key is not None):
         die(translate("CRACK_WITH_OTHER_MODES"), reporter)
+    if probe and key is not None:
+        die(translate("PROBE_WITH_KEY"), reporter)
 
     usm_files = collect_files(usm_paths or [], reporter)
     if key is not None and len(usm_files) > 1:

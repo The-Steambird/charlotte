@@ -22,6 +22,7 @@
   "CHOICE_INVALID": "Допустимые значения: {choices}",
   "UPDATE_WITH_OTHER_MODES": "--update нельзя сочетать с входными файлами или другими режимами.",
   "CRACK_WITH_OTHER_MODES": "--crack нельзя сочетать с --probe или --key.",
+  "PROBE_WITH_KEY": "--probe нельзя сочетать с --key.",
   "KEY_WITH_MANY_FILES": "--key можно использовать только с одним входным файлом.",
   "NO_INPUT_FILES": "Не указаны входные файлы .usm.",
   "NOT_USM_FILE": "Это не файл .usm: {path}",
