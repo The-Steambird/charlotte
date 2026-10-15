@@ -118,6 +118,17 @@ def test_ask_returns_default_on_eof():
     assert reporter.ask("Overwrite?", default=True) is True
 
 
+def test_piped_ask_keeps_a_cancel_sent_with_the_answer():
+    """The GUI's pipe is read through the raw fd, which keeps a cancel that arrives in the same
+    write as the answer where the next checkpoint can still find it."""
+    reporter = make_piped_reporter(
+        '{"type": "answer", "id": "q0", "value": true}\n{"type": "cancel"}\n'
+    )
+    assert reporter.ask("Overwrite?", default=False) is True
+    with pytest.raises(Cancelled):
+        reporter.checkpoint()
+
+
 def test_cancel_during_ask_sticks():
     reporter = make_reporter('{"type": "cancel"}\n')
     assert reporter.ask("Overwrite?", default=False) is False

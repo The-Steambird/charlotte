@@ -1,14 +1,15 @@
-"""The decryption itself is deliberately not tested, because a test would have to encrypt
-with the same tables the line-for-line port decrypts with and would pass whether or not the
-port matches the original. The corpus is the check that matters."""
+"""The cipher table is checked against a transcription of the C# rather than by a round trip,
+because a round trip would encrypt with the same tables the port decrypts with and pass
+whether or not they match the original."""
 
+import random
 import struct
 
 import pytest
 
 from conftest import flag_value
 from resources.keys import DecryptionKey
-from stages.hca import HCA, crc16
+from stages.hca import HCA, build_cipher_table, crc16
 from utils.errors import CharlotteError
 
 
@@ -56,6 +57,80 @@ def write_hca(tmp_path, blob: bytes):
 
 def make_hca(tmp_path) -> HCA:
     return HCA(write_hca(tmp_path, hca_bytes()), KEY)
+
+
+def cipher_table_reference(key1: bytes, key2: bytes) -> bytes:
+    """GICutscenes HCA.cs::InitMask case 56, transcribed line for line. build_cipher_table
+    takes t1 from the whole key at once, and the C# borrow into key2 is where the two could
+    differ."""
+
+    def create_table(key: int) -> list[int]:
+        table = []
+        mul = (key & 1) << 3 | 5
+        add = key & 0xE | 1
+        key >>= 4
+        for _ in range(0x10):
+            key = (key * mul + add) & 0xF
+            table.append(key)
+        return table
+
+    k1 = int.from_bytes(key1, "little")
+    k2 = int.from_bytes(key2, "little")
+    if k1 == 0:
+        k2 = (k2 - 1) & 0xFFFFFFFF
+    k1 = (k1 - 1) & 0xFFFFFFFF
+    t1 = []
+    for _ in range(7):
+        t1.append(k1 & 0xFF)
+        k1 = (k1 >> 8 | k2 << 24) & 0xFFFFFFFF
+        k2 >>= 8
+
+    t2 = [
+        t1[1], t1[1] ^ t1[6], t1[2] ^ t1[3], t1[2],
+        t1[2] ^ t1[1], t1[3] ^ t1[4], t1[3], t1[3] ^ t1[2],
+        t1[4] ^ t1[5], t1[4], t1[4] ^ t1[3], t1[5] ^ t1[6],
+        t1[5], t1[5] ^ t1[4], t1[6] ^ t1[1], t1[6],
+    ]  # fmt: skip
+
+    t3 = [0] * 0x100
+    t31 = create_table(t1[0])
+    for i in range(0x10):
+        v = (t31[i] << 4) & 0xFF
+        for index, j in enumerate(create_table(t2[i])):
+            t3[i * 0x10 + index] = v | j
+
+    table = [0] * 0x100
+    i_table = 1
+    v = 0
+    for _ in range(0x100):
+        v = (v + 0x11) & 0xFF
+        a = t3[v]
+        if a not in (0, 0xFF):
+            table[i_table] = a
+            i_table += 1
+    table[0] = 0
+    table[0xFF] = 0xFF
+    return bytes(table)
+
+
+def random_keys(count: int) -> list[tuple[bytes, bytes]]:
+    rng = random.Random(0)
+    return [(rng.randbytes(4), rng.randbytes(4)) for _ in range(count)]
+
+
+# --- cipher table ---
+
+
+@pytest.mark.parametrize(
+    "key1, key2",
+    [
+        *random_keys(10),
+        pytest.param(bytes(4), bytes([0x55, 0x66, 0x77, 0]), id="borrow-from-key2"),
+        pytest.param(bytes(4), bytes([0, 0, 0, 1]), id="wrapped-zero-key"),
+    ],
+)
+def test_cipher_table_matches_the_reference(key1, key2):
+    assert build_cipher_table(key1, key2) == cipher_table_reference(key1, key2)
 
 
 # --- checksum ---

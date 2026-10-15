@@ -1,4 +1,5 @@
 import orjson
+import pytest
 
 import resources.keys
 
@@ -10,6 +11,7 @@ from resources.keys import (
     find_video_key,
     find_video_version,
 )
+from utils.errors import CharlotteError
 
 
 FLAT_KEYS = {"list": [{"version": "2.0", "videoKey": 111, "videos": ["Cs_A", "Cs_B"]}]}
@@ -43,6 +45,23 @@ def write_keys(root, data):
 
 def read_keys(root):
     return orjson.loads((root / "keys.json").read_bytes())
+
+
+# --- calculate_key_from_filename ---
+
+
+@pytest.mark.parametrize(
+    "stem, key",
+    [
+        ("Cs_NodKrai_AQ60161901_BSHMO_Boy", 24858672235870171),
+        ("MDAQ001_OPNew_Part1", 2180990),
+        ("MDAQ001_OPNew_Part2_PlayerGirl", 2180990),
+    ],
+)
+def test_filename_key_of_real_files(stem, key):
+    """Each value is the combined key --crack recovers from that file's own video minus its
+    videoKey in keys.json, which keeps them independent of the function under test."""
+    assert calculate_key_from_filename(stem) == key
 
 
 # --- find_video_key ---
@@ -80,6 +99,23 @@ def test_manual_key_skips_disk_and_network(reporter, monkeypatch):
     assert reporter.prompts == []
 
 
+@pytest.mark.parametrize(
+    "manual_key, lookup",
+    [
+        (f"5:{AES_HEX}", "get"),
+        ("12345", "stream_keys"),
+        ("5:abcd", "stream_keys"),
+        (f"-5:{AES_HEX}", "stream_keys"),
+    ],
+    ids=["stream-keys-for-an-old-file", "video-key-for-a-7.1-file", "short-aes-key", "negative"],
+)
+def test_malformed_manual_key_fails_the_file(reporter, monkeypatch, manual_key, lookup):
+    monkeypatch.setattr(resources.keys, "fetch_upstream_keys", forbid_call)
+    keys = Keys(reporter, manual_key=manual_key)
+    with pytest.raises(CharlotteError):
+        getattr(keys, lookup)("Cs_A")
+
+
 def test_stream_keys_need_both_fields_of_the_group(tmp_app_root, reporter, monkeypatch):
     write_keys(tmp_app_root, STREAM_KEYS)
     monkeypatch.setattr(resources.keys, "fetch_upstream_keys", lambda: None)
@@ -106,6 +142,15 @@ def test_missing_file_fetched_and_saved(tmp_app_root, reporter, monkeypatch):
 def test_upstream_identical_returns_none(tmp_app_root, reporter, monkeypatch):
     write_keys(tmp_app_root, FLAT_KEYS)
     monkeypatch.setattr(resources.keys, "fetch_upstream_keys", lambda: orjson.dumps(FLAT_KEYS))
+    assert Keys(reporter).get("Cs_X") is None
+    assert reporter.prompts == []
+
+
+def test_broken_upstream_file_reads_as_no_key(tmp_app_root, reporter, monkeypatch):
+    """Upstream keys.json changes through outside PRs with no CI check. A broken commit has to
+    leave each file to the crack fallback, because a ValueError here would end the batch."""
+    write_keys(tmp_app_root, FLAT_KEYS)
+    monkeypatch.setattr(resources.keys, "fetch_upstream_keys", lambda: b"{not json")
     assert Keys(reporter).get("Cs_X") is None
     assert reporter.prompts == []
 

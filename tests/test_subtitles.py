@@ -1,12 +1,20 @@
 import io
 import zipfile
 
+from types import SimpleNamespace
+
 import pytest
 
 import resources.subtitles
 
 from conftest import forbid_call
-from resources.subtitles import local_subtitle_path, stored_commit, sync_subtitles, write_commit
+from resources.subtitles import (
+    latest_commit,
+    local_subtitle_path,
+    stored_commit,
+    sync_subtitles,
+    write_commit,
+)
 from utils.errors import CharlotteError
 
 
@@ -36,6 +44,18 @@ def test_stored_commit_tolerates_corrupt_marker(tmp_app_root):
     marker.parent.mkdir()
     marker.write_bytes(b"not json")
     assert stored_commit() == ""
+
+
+# --- latest_commit ---
+
+
+def test_empty_commit_list_is_an_error_not_a_crash(monkeypatch):
+    """GitLab answers 200 with [] for a path with no history and for a missing branch, and an
+    IndexError would crash every run at startup."""
+    response = SimpleNamespace(status=200, data=b"[]")
+    monkeypatch.setattr(resources.subtitles.urllib3, "request", lambda *a, **kw: response)
+    with pytest.raises(CharlotteError):
+        latest_commit()
 
 
 # --- sync_subtitles ---

@@ -1,6 +1,8 @@
+import io
 import subprocess
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -16,6 +18,7 @@ from stages.encode import (
     encode_args,
     filter_escape,
     find_vs_script,
+    parse_ffmpeg_stderr,
     subtitle_filter,
 )
 from utils.ffmpeg import ffmpeg_path
@@ -85,6 +88,32 @@ def test_colour_tags_go_through_x265_only():
     cmd = encode_args(DEFAULT_CRF, DEFAULT_PRESET)
     assert flag_value(cmd, "-x265-params").endswith(X265_COLOUR_TAGS)
     assert not {"-colorspace", "-color_primaries", "-color_trc"} & set(cmd)
+
+
+# --- ffmpeg output ---
+
+
+def test_frame_count_moves_the_bar_and_other_lines_keep_their_level(reporter):
+    stderr = (
+        b"frame=12\n"
+        b"fps=30.0\n"
+        b"progress=continue\n"
+        b"\n"
+        b"x265 [warning]: frame size limited\n"
+        b"x265 [error]: out of memory\n"
+        b"[matroska @ 000001] Starting new cluster\n"
+    )
+    process = SimpleNamespace(stderr=io.BytesIO(stderr))
+
+    with reporter.task("ffmpeg", 100) as task:
+        parse_ffmpeg_stderr(process, task, reporter)
+
+    assert reporter.progress == [("ffmpeg", 12)]
+    assert reporter.logs == [
+        ("warning", "x265 [warning]: frame size limited"),
+        ("error", "x265 [error]: out of memory"),
+        ("info", "[matroska @ 000001] Starting new cluster"),
+    ]
 
 
 # --- hard-sub ---

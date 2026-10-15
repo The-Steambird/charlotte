@@ -4,7 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from utils.strings import LOCALES_DIR, PLACEHOLDER, closest, load
+import utils.strings
+
+from utils.strings import LOCALES_DIR, PLACEHOLDER, closest, load, translate
 
 
 ROOT = Path(__file__).parent.parent
@@ -52,6 +54,29 @@ def test_translations_keep_the_english_keys_and_placeholders():
             if text:
                 assert key in ENGLISH, f"{language}: {key}"
                 assert placeholders(text) == placeholders(ENGLISH[key]), f"{language}: {key}"
+
+
+def test_a_translation_falls_back_to_english_key_by_key(monkeypatch):
+    """Every other test runs in English, which leaves this as the only run that builds the
+    strings of another language. A crash there would hit those users when main.py imports."""
+    japanese = load("ja-JP")
+
+    def load_with_gaps(language):
+        table = load(language)
+        if language == "ja-JP":
+            del table["PROBE_WITH_KEY"]
+            table["KEY_WITH_MANY_FILES"] = ""
+        return table
+
+    monkeypatch.setattr(utils.strings, "load", load_with_gaps)
+    monkeypatch.setenv("CHARLOTTE_LANG", "ja-JP")
+    utils.strings.strings.cache_clear()
+    try:
+        assert translate("CRACK_WITH_OTHER_MODES") == japanese["CRACK_WITH_OTHER_MODES"]
+        assert translate("PROBE_WITH_KEY") == ENGLISH["PROBE_WITH_KEY"]
+        assert translate("KEY_WITH_MANY_FILES") == ENGLISH["KEY_WITH_MANY_FILES"]
+    finally:
+        utils.strings.strings.cache_clear()
 
 
 @pytest.mark.parametrize(

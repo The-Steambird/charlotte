@@ -8,6 +8,7 @@ import main
 import pipeline
 
 from conftest import forbid_call
+from pipeline import Options
 from utils.errors import Cancelled, CharlotteError, Skipped
 from utils.version import __version__
 
@@ -136,6 +137,46 @@ def test_choice_flags_normalized_into_options(pipeline_stub, tmp_path):
     assert opts.default_audio == "en"
     assert opts.default_subtitle == "CHS"
     assert opts.audio_codec == "opus"
+
+
+def test_the_guis_convert_command_reaches_the_options(pipeline_stub, tmp_path):
+    """MainViewModel and RunOptions.ToArguments in MonsieurVerite build this command, and a
+    renamed flag here would fail every conversion the GUI starts."""
+    usm = make_usm(tmp_path)
+    args = [
+        "--json",
+        "--output", str(tmp_path / "out"),
+        "--default-audio", "en",
+        "--default-sub", "JP",
+        "--audio-codec", "opus",
+        "--no-cleanup",
+        "--skip-existing",
+        "--flat",
+        "--vapoursynth",
+        "--hard-sub",
+        "--crf", "18",
+        "--preset", "medium",
+        "--x265-params", "aq-mode=3",
+        "--key", "12345",
+        str(usm),
+    ]  # fmt: skip
+    assert runner.invoke(main.app, args).exit_code == 0
+
+    assert pipeline_stub.opts == Options(
+        output=tmp_path / "out",
+        no_cleanup=True,
+        vapoursynth=True,
+        crf=18.0,
+        preset="medium",
+        x265_params="aq-mode=3",
+        fonts=None,
+        default_audio="en",
+        default_subtitle="JP",
+        audio_codec="opus",
+        skip_existing=True,
+        flat=True,
+        hard_sub=True,
+    )
 
 
 def test_default_subtitle_comes_out_canonical(pipeline_stub, tmp_path):
