@@ -5,33 +5,19 @@ from contextlib import suppress
 from dataclasses import dataclass
 lazy from pathlib import Path
 
-from resources.keys import (
-    KEY_MASK,
-    DecryptionKey,
-    Keys,
-    calculate_key_from_filename,
-    find_video_version,
-)
+from resources.keys import DecryptionKey, Keys, find_video_version, join_key, video_key_from
 from resources.subtitles import local_subtitle_path
 from stages.ass import ASS
 from stages.crack import Recovery, crack_key
-from stages.filter import encode_args, find_vs_script, subtitle_filter, vapoursynth_filter
-from stages.hca import HCA
+from stages.encode import encode_args, find_vs_script, subtitle_filter, vapoursynth_filter
+from stages.hca import AUDIO_CODECS, HCA
 from stages.mux import mux, mux_args, subset_fonts, track_code
 from stages.usm import USM, video_nonce
 from utils.errors import Cancelled, CharlotteError, Skipped
-from utils.ffmpeg import AUDIO_CODECS
 from utils.languages import SUBTITLES_LANGUAGES
 from utils.logger import log
 from utils.strings import translate
 lazy from utils.reporter import Reporter
-
-
-BASENAME_FIXES = {
-    "Cs_4131904_HaiDaoChuXian_Boy": "Cs_Activity_4001103_Summertime_Boy",
-    "Cs_4131904_HaiDaoChuXian_Girl": "Cs_Activity_4001103_Summertime_Girl",
-    "Cs_200211_WanYeXianVideo": "Cs_DQAQ200211_WanYeXianVideo",
-}
 
 
 @dataclass(frozen=True)
@@ -103,7 +89,7 @@ def prepare_subtitles(
     stem: str, output_path: Path, fonts: list[Path]
 ) -> tuple[list[Path], list[Path]]:
     folder = output_path / "subs"
-    subtitle_files = process_subtitles(BASENAME_FIXES.get(stem, stem), folder)
+    subtitle_files = process_subtitles(stem, folder)
     subsets = subset_fonts(fonts, subtitle_files, folder) if subtitle_files else []
     return subtitle_files, subsets
 
@@ -287,8 +273,8 @@ def crack_usm(usm_file: Path, reporter: Reporter) -> Recovery:
     key = recovery.key
     combined = video_key = None
     if key is not None:
-        combined = int.from_bytes(key.key1 + key.key2, "little")
-        video_key = (combined - calculate_key_from_filename(stem)) & KEY_MASK
+        combined = join_key(key)
+        video_key = video_key_from(combined, stem)
         log.info(f"{usm_file.name}: videoKey={video_key}")
 
     reporter.event(
@@ -338,13 +324,10 @@ def crack_all(usm_files: list[Path], reporter: Reporter) -> None:
 
 def probe_usm(usm_file: Path, keys: Keys, reporter: Reporter) -> None:
     stem = usm_file.stem
-    sub_stem = BASENAME_FIXES.get(stem, stem)
     stream_cipher = video_nonce(usm_file) is not None
     key = (keys.stream_keys(stem) if stream_cipher else keys.get(stem)) is not None
     version = find_video_version(keys.data, stem)
-    subtitles = [
-        lang for lang in SUBTITLES_LANGUAGES if local_subtitle_path(sub_stem, lang).exists()
-    ]
+    subtitles = [lang for lang in SUBTITLES_LANGUAGES if local_subtitle_path(stem, lang).exists()]
     vs_script = find_vs_script(stem)
 
     level = log.info if key else log.warning

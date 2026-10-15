@@ -23,12 +23,19 @@ SUBTITLE_COMMITS_URL = (
     "?path=Subtitle&ref_name=main&per_page=1"
 )
 
+BASENAME_FIXES = {
+    "Cs_4131904_HaiDaoChuXian_Boy": "Cs_Activity_4001103_Summertime_Boy",
+    "Cs_4131904_HaiDaoChuXian_Girl": "Cs_Activity_4001103_Summertime_Girl",
+    "Cs_200211_WanYeXianVideo": "Cs_DQAQ200211_WanYeXianVideo",
+}
+
 
 def subtitle_dir() -> Path:
     return app_root() / "Subtitle"
 
 
 def local_subtitle_path(stem: str, lang: str) -> Path:
+    stem = BASENAME_FIXES.get(stem, stem)
     return subtitle_dir() / lang / f"{stem}_{lang}.srt"
 
 

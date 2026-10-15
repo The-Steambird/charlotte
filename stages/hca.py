@@ -5,9 +5,15 @@ lazy from pathlib import Path
 lazy import numpy as np
 
 from utils.errors import CharlotteError
-from utils.ffmpeg import AUDIO_CODECS, run_ffmpeg
+from utils.ffmpeg import run_ffmpeg
 from utils.strings import translate
 lazy from resources.keys import DecryptionKey
+
+
+AUDIO_CODECS = {
+    "flac": (".flac", ["-sample_fmt", "s16", "-compression_level", "8"]),
+    "opus": (".mka", ["-c:a", "libopus", "-b:a", "256k", "-vbr", "on", "-f", "matroska"]),
+}
 
 
 def crc16_table() -> tuple[int, ...]:

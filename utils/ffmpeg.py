@@ -8,12 +8,6 @@ from utils.paths import bundle_root
 from utils.strings import translate
 
 
-AUDIO_CODECS = {
-    "flac": (".flac", ["-sample_fmt", "s16", "-compression_level", "8"]),
-    "opus": (".mka", ["-c:a", "libopus", "-b:a", "256k", "-vbr", "on", "-f", "matroska"]),
-}
-
-
 def ffmpeg_path() -> Path:
     return bundle_root() / "ffmpeg.exe"
 

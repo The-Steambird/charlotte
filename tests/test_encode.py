@@ -5,11 +5,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import stages.filter
+import stages.encode
 
 from conftest import flag_value
 from stages.ass import ASS
-from stages.filter import (
+from stages.encode import (
     DEFAULT_CRF,
     DEFAULT_PRESET,
     X265_COLOUR_TAGS,
@@ -26,7 +26,7 @@ from utils.ffmpeg import ffmpeg_path
 
 @pytest.fixture
 def vs_dir(tmp_path, monkeypatch):
-    monkeypatch.setattr(stages.filter, "bundle_root", lambda: tmp_path)
+    monkeypatch.setattr(stages.encode, "bundle_root", lambda: tmp_path)
     scripts = tmp_path / "vs"
     scripts.mkdir()
     return scripts
