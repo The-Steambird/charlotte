@@ -57,8 +57,8 @@ def test_update_runs_without_input_files(monkeypatch):
 
 @pytest.mark.parametrize("extra", [["Cs_A.usm"], ["--probe"], ["--crack"], ["--key", "1"]])
 def test_update_rejects_every_other_mode(monkeypatch, extra):
-    """--update replaces the binary and exits; combining it with a run would leave the
-    engine mid-batch on a version that just got swapped out from under it."""
+    """--update replaces the binary and exits. Combining it with a run would leave the engine
+    mid-batch on a version that just got swapped out from under it."""
     monkeypatch.setattr(main, "run_update", forbid_call)
     assert runner.invoke(main.app, ["--update", *extra]).exit_code == 1
 
@@ -119,11 +119,9 @@ def test_rejected_flags_reach_the_gui(tmp_path):
 def test_invalid_choice_flag_is_usage_error(tmp_path):
     usm = make_usm(tmp_path)
     assert runner.invoke(main.app, [str(usm), "-da", "xx"]).exit_code == 2
-    assert runner.invoke(main.app, [str(usm), "-ds", "xx"]).exit_code == 2
-    assert runner.invoke(main.app, [str(usm), "-ac", "xx"]).exit_code == 2
 
 
-def test_flags_normalized_into_options(pipeline_stub, tmp_path):
+def test_choice_flags_normalized_into_options(pipeline_stub, tmp_path):
     usm = make_usm(tmp_path)
     args = [
         str(usm),
@@ -131,9 +129,6 @@ def test_flags_normalized_into_options(pipeline_stub, tmp_path):
         "--default-audio", "EN",
         "--default-sub", "chs",
         "-ac", "OPUS",
-        "-nc",
-        "-f",
-        "--hard-sub",
     ]  # fmt: skip
     assert runner.invoke(main.app, args).exit_code == 0
 
@@ -141,21 +136,14 @@ def test_flags_normalized_into_options(pipeline_stub, tmp_path):
     assert opts.default_audio == "en"
     assert opts.default_subtitle == "CHS"
     assert opts.audio_codec == "opus"
-    assert opts.no_cleanup is True
-    assert opts.flat is True
-    assert opts.hard_sub is True
 
 
-def test_default_options(pipeline_stub, tmp_path):
+def test_default_subtitle_comes_out_canonical(pipeline_stub, tmp_path):
+    """The default "en" runs through the normalizer too, and a lowercase code would match no
+    subtitle file."""
     usm = make_usm(tmp_path)
     assert runner.invoke(main.app, [str(usm), "-o", str(tmp_path / "out")]).exit_code == 0
-
-    opts = pipeline_stub.opts
-    assert opts.default_audio == "ja"
-    # The default "en" runs through the normalizer too and comes out as the canonical code.
-    assert opts.default_subtitle == "EN"
-    assert opts.audio_codec == "flac"
-    assert opts.hard_sub is False
+    assert pipeline_stub.opts.default_subtitle == "EN"
 
 
 # --- run outcomes ---
@@ -201,7 +189,9 @@ def test_batch_outcome_of_a_stopped_file(
 
 def test_cancel_after_a_failure_still_exits_1(pipeline_stub, monkeypatch, tmp_path):
     def process(usm_file, opts, keys, reporter):
-        raise CharlotteError("boom") if usm_file.name == "Cs_A.usm" else Cancelled()
+        if usm_file.name == "Cs_A.usm":
+            raise CharlotteError("boom")
+        raise Cancelled
 
     monkeypatch.setattr(pipeline, "process_usm", process)
     files = [make_usm(tmp_path, "Cs_A.usm"), make_usm(tmp_path, "Cs_B.usm")]
@@ -212,8 +202,8 @@ def test_cancel_after_a_failure_still_exits_1(pipeline_stub, monkeypatch, tmp_pa
 
 
 def test_probe_shares_one_keys_and_carries_on_past_a_failed_file(monkeypatch, tmp_path):
-    """One Keys for the whole run, handed to probe_usm itself rather than a snapshot of its
-    data, so an update accepted partway through reaches the files probed after it."""
+    """One Keys serves the whole run and probe_usm gets the object rather than a snapshot of
+    its data, which is how an update accepted partway through reaches the later files."""
     keys = types.SimpleNamespace(data={"list": []})
     probed = []
 

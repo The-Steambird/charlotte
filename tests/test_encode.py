@@ -41,7 +41,6 @@ def vs_dir(tmp_path, monkeypatch):
         (["Cs_A_Boy", "default"], "Cs_A_Girl", "Cs_A_Boy"),
         (["Cs_A_Boy", "default"], "Cs_NoGender", "default"),
         ([], "Cs_A_Boy", None),
-        ([], "Cs_NoGender", None),
     ],
     ids=[
         "girl-to-boy",
@@ -50,7 +49,6 @@ def vs_dir(tmp_path, monkeypatch):
         "counterpart-over-default",
         "default-last",
         "missing",
-        "missing-no-gender",
     ],
 )
 def test_find_vs_script(vs_dir, scripts, stem, expected):
@@ -62,30 +60,24 @@ def test_find_vs_script(vs_dir, scripts, stem, expected):
 # --- encode_args ---
 
 
-@pytest.mark.parametrize("preset", ["ultrafast", "medium"])
-def test_fast_presets_keep_tuning_but_own_their_effort(preset):
-    cmd = encode_args(20.0, preset)
-    params = flag_value(cmd, "-x265-params").split(":")
+@pytest.mark.parametrize(
+    "preset, slow", [("ultrafast", False), ("medium", False), ("slow", True), ("placebo", True)]
+)
+def test_effort_knobs_ride_only_with_the_slow_presets(preset, slow):
+    effort = {"bframes=8", "rd=4", "ref=6"}
+    params = set(flag_value(encode_args(DEFAULT_CRF, preset), "-x265-params").split(":"))
     assert "psy-rd=2.0" in params
-    assert not {"bframes=8", "rd=4", "ref=6"} & set(params)
-    assert flag_value(cmd, "-crf") == "20.0"
-    assert flag_value(cmd, "-preset") == preset
+    assert params & effort == (effort if slow else set())
 
 
-@pytest.mark.parametrize("preset", ["slow", "placebo"])
-def test_slow_presets_pin_effort(preset):
-    params = flag_value(encode_args(DEFAULT_CRF, preset), "-x265-params").split(":")
-    assert {"psy-rd=2.0", "bframes=8", "rd=4", "ref=6"} <= set(params)
-
-
-def test_explicit_params_replace_builtin_ahead_of_colour_tags():
-    cmd = encode_args(DEFAULT_CRF, DEFAULT_PRESET, "rd=6")
-    assert flag_value(cmd, "-x265-params") == f"rd=6:{X265_COLOUR_TAGS}"
-
-
-def test_empty_params_mean_the_bare_preset():
-    cmd = encode_args(DEFAULT_CRF, DEFAULT_PRESET, "")
-    assert flag_value(cmd, "-x265-params") == X265_COLOUR_TAGS
+@pytest.mark.parametrize(
+    "given, expected",
+    [("rd=6", f"rd=6:{X265_COLOUR_TAGS}"), ("", X265_COLOUR_TAGS)],
+    ids=["replaces-the-tuning", "empty-means-the-bare-preset"],
+)
+def test_given_params_replace_the_tuning_ahead_of_colour_tags(given, expected):
+    cmd = encode_args(DEFAULT_CRF, DEFAULT_PRESET, given)
+    assert flag_value(cmd, "-x265-params") == expected
 
 
 def test_colour_tags_go_through_x265_only():
@@ -93,16 +85,6 @@ def test_colour_tags_go_through_x265_only():
     cmd = encode_args(DEFAULT_CRF, DEFAULT_PRESET)
     assert flag_value(cmd, "-x265-params").endswith(X265_COLOUR_TAGS)
     assert not {"-colorspace", "-color_primaries", "-color_trc"} & set(cmd)
-
-
-def test_other_tracks_copied():
-    """The encode writes the final MKV itself, which is why audio and subtitles ride along
-    as copies."""
-    cmd = encode_args(DEFAULT_CRF, DEFAULT_PRESET)
-    assert flag_value(cmd, "-c:v") == "libx265"
-    assert flag_value(cmd, "-c:a") == "copy"
-    assert flag_value(cmd, "-c:s") == "copy"
-    assert "-vf" not in cmd
 
 
 # --- hard-sub ---

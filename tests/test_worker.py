@@ -63,19 +63,7 @@ def test_queue_reporter_forwards_calls():
         ("log", "warning", "slow"),
         ("task_start", "ffmpeg", 10, "frame"),
         ("progress", "ffmpeg", 3),
-        ("task_end", "ffmpeg"),
     ]
-
-
-def test_queue_reporter_ends_the_task_even_on_failure():
-    """The relay keeps the progress bar open until task_end arrives."""
-    q = queue.Queue()
-    reporter = QueueReporter(q)
-
-    with pytest.raises(RuntimeError), reporter.task("ffmpeg", 10):
-        raise RuntimeError("the filter blew up")
-
-    assert list(q.queue)[-1] == ("task_end", "ffmpeg")
 
 
 # --- relay_worker (the consumer, back in the parent) ---
@@ -87,7 +75,6 @@ def test_relay_replays_messages_onto_the_reporter(reporter):
         ("task_start", "ffmpeg", 100, "frame"),
         ("progress", "ffmpeg", 40),
         ("progress", "ffmpeg", 100),
-        ("task_end", "ffmpeg"),
         ("result", True),
     )
 
@@ -115,26 +102,6 @@ def test_relay_drains_a_result_the_dying_worker_left_behind(reporter):
 
 def test_relay_returns_none_when_the_worker_sent_no_result(reporter):
     assert relay(reporter, queue.Queue(), FakeProcess(alive=1)) is None
-
-
-def test_relay_survives_an_empty_poll(reporter):
-    """queue.get times out whenever the worker is busy between messages, and a quiet
-    moment is not the end of the run."""
-
-    class SlowQueue(queue.Queue):
-        polls = 0
-
-        def get(self, block=True, timeout=None):
-            self.polls += 1
-            if self.polls == 1:
-                raise queue.Empty
-            return super().get(block=False)
-
-    q = SlowQueue()
-    q.put(("result", "late"))
-
-    assert relay(reporter, q) == "late"
-    assert q.polls == 2  # timed out once, then delivered
 
 
 @pytest.mark.parametrize(

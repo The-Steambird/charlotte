@@ -40,8 +40,8 @@ def mask_video_reference(usm: USM, data: bytearray) -> None:
 # --- decrypt_video ---
 
 
-# The threshold, then every shape of trailing partial block at both block-count
-# parities, since an odd count leaves a different mask behind for the tail.
+# The sizes cover the threshold and every shape of trailing partial block at both block-count
+# parities, because an odd count leaves a different mask behind for the tail.
 THRESHOLD = MASK_START + MIN_MASKED
 
 
@@ -116,49 +116,39 @@ def test_metadata_chunks_skipped(tmp_path, out_dir, reporter):
     assert (out_dir / "Cs_Test.ivf").read_bytes() == b"video"
 
 
-def test_unknown_signature_warned_once(tmp_path, out_dir, reporter, caplog):
-    data = chunk(b"@XXX", b"a") + chunk(b"@XXX", b"b") + chunk(b"@XXX", b"c")
-    make_usm(tmp_path, data).demux(out_dir, reporter, [])
-    warnings = [record for record in caplog.records if "Unknown signature" in record.message]
-    assert len(warnings) == 1
-
-
-def test_known_metadata_signatures_skipped_silently(tmp_path, out_dir, reporter, caplog):
+def test_only_unknown_signatures_warn_and_only_once(tmp_path, out_dir, reporter, caplog):
     data = (
         chunk(b"CRID", b"header")
         + chunk(b"@CUE", b"cue")
         + chunk(b"@ALP", b"alpha")
+        + chunk(b"@XXX", b"a")
+        + chunk(b"@XXX", b"b")
         + chunk(b"@SFV", b"video")
     )
     created = []
     _, audio = make_usm(tmp_path, data).demux(out_dir, reporter, created)
 
-    assert [record for record in caplog.records if "Unknown signature" in record.message] == []
+    warnings = [record for record in caplog.records if "Unknown signature" in record.message]
+    assert len(warnings) == 1
     assert audio == []
     assert [path.name for path in created] == ["Cs_Test.ivf"]
 
 
-def test_corrupt_chunk_raises(tmp_path, out_dir, reporter):
-    bad = struct.pack(">4sIxBHB2xB16x", b"@SFA", 4, 0x18, 0, 0, 0)  # data_size < data_offset
-    with pytest.raises(CharlotteError, match="Corrupt USM chunk"):
-        make_usm(tmp_path, bad).demux(out_dir, reporter, [])
+def bare_header(data_size: int, data_offset: int) -> bytes:
+    return struct.pack(">4sIxBHB2xB16x", b"@SFA", data_size, data_offset, 0, 0, 0)
 
 
-def test_truncated_chunk_raises(tmp_path, out_dir, reporter):
-    data = chunk(b"@SFV", b"video") + chunk(b"@SFA", b"audio")[:-2]
-    with pytest.raises(CharlotteError, match="Truncated USM chunk"):
+# The reasons are in CLAUDE.md under read_chunks().
+@pytest.mark.parametrize(
+    "data, match",
+    [
+        (bare_header(4, 0x18), "Corrupt USM chunk"),
+        (bare_header(0, 0), "Corrupt USM chunk"),
+        (chunk(b"@SFV", b"video") + chunk(b"@SFA", b"audio")[:-2], "Truncated USM chunk"),
+        (bare_header(0xFFFFFFFF, 0x18), "Truncated USM chunk"),
+    ],
+    ids=["size-below-offset", "offset-inside-header", "cut-off-payload", "4gb-declared"],
+)
+def test_broken_chunk_rejected(tmp_path, out_dir, reporter, data, match):
+    with pytest.raises(CharlotteError, match=match):
         make_usm(tmp_path, data).demux(out_dir, reporter, [])
-
-
-def test_oversized_data_size_raises_before_reading(tmp_path, out_dir, reporter):
-    """read() allocates the declared size up front, and MemoryError is not a CharlotteError."""
-    bad = struct.pack(">4sIxBHB2xB16x", b"@SFA", 0xFFFFFFFF, 0x18, 0, 0, 0)
-    with pytest.raises(CharlotteError, match="Truncated USM chunk"):
-        make_usm(tmp_path, bad).demux(out_dir, reporter, [])
-
-
-def test_undersized_data_offset_raises(tmp_path, out_dir, reporter):
-    """Below 0x18 the walk would seek back into the header just read and creep."""
-    bad = struct.pack(">4sIxBHB2xB16x", b"@SFA", 0, 0, 0, 0, 0)  # data_offset 0
-    with pytest.raises(CharlotteError, match="Corrupt USM chunk"):
-        make_usm(tmp_path, bad).demux(out_dir, reporter, [])

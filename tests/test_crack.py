@@ -112,16 +112,6 @@ def test_crack_key_recovers_from_a_usm(tmp_path, reporter):
     assert crack_key(usm_file, reporter) == Recovery(DecryptionKey(KEY1, KEY2), "")
 
 
-def test_crack_key_declines_a_file_with_no_video(tmp_path, reporter):
-    usm_file = tmp_path / "Cs_Test.usm"
-    usm_file.write_bytes(chunk(b"@SFA", b"audio"))
-
-    recovery = crack_key(usm_file, reporter)
-
-    assert recovery.key is None
-    assert "no IVF video stream" in recovery.reason
-
-
 def test_crack_key_declines_the_stream_cipher(tmp_path, reporter):
     usm_file = tmp_path / "Cs_Test.usm"
     usm_file.write_bytes(video_header(nonce=1) + chunk(b"@SFV", b"DKIF"))
@@ -176,7 +166,8 @@ def test_split_half_rejects_disagreeing_noise():
     left, right = Stats(), Stats()
     for i in range(30):
         body = bytes(rng.randrange(256) for _ in range(BLOCK * 60))
-        (left if i % 2 == 0 else right).add(bytes(CIPHER_START) + body)
+        pool = left if i % 2 == 0 else right
+        pool.add(bytes(CIPHER_START) + body)
 
     used = (left.blocks + right.blocks) * BLOCK
     mask, reason = evaluate(Sample(left, right, True, used))

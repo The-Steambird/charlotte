@@ -19,10 +19,7 @@ class QueueReporter(Reporter):
     @contextmanager
     def task(self, stage, total, unit="it"):
         self.queue.put(("task_start", stage, total, unit))
-        try:
-            yield Task(self, stage, total)
-        finally:
-            self.queue.put(("task_end", stage))
+        yield Task(self, stage, total)
 
     def update_task(self, handle, current, total):
         self.queue.put(("progress", handle, current))
@@ -43,8 +40,6 @@ def relay_worker(reporter: Reporter, queue, process, stop):
                     tasks[stage] = stack.enter_context(reporter.task(stage, total=total, unit=unit))
                 case ("progress", stage, current):
                     tasks[stage].set_completed(current)
-                case ("task_end", _):
-                    pass
 
         # The short poll keeps a cancel or skip from the frontend responsive.
         while process.is_alive():

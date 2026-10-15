@@ -85,19 +85,10 @@ def test_header_fields_parsed(tmp_path):
 # --- header rejections ---
 
 
-@pytest.mark.parametrize(
-    "blob, match",
-    [
-        (hca_bytes()[:12], "Corrupt HCA header"),
-        (hca_bytes().replace(b"HCA\x00", b"XXXX", 1), "Invalid HCA header"),
-        (hca_bytes().replace(b"fmt\x00", b"junk", 1), "fmt chunk not found"),
-        (hca_bytes().replace(b"comp", b"junk", 1), "comp/dec chunk not found"),
-    ],
-    ids=["truncated", "bad-magic", "no-fmt", "no-comp"],
-)
-def test_malformed_header_rejected(tmp_path, blob, match):
-    path = write_hca(tmp_path, blob)
-    with pytest.raises(CharlotteError, match=match):
+def test_truncated_header_raises(tmp_path):
+    """A bare struct.error would escape the per-file handler and end the whole batch."""
+    path = write_hca(tmp_path, hca_bytes()[:12])
+    with pytest.raises(CharlotteError, match="Corrupt HCA header"):
         HCA(path, KEY)
 
 

@@ -48,7 +48,7 @@ def mux_args(
         audio = [(audio_files[0], "zxx")]
     else:
         audio = [(path, AUDIO_LANGUAGES.get(track_code(path), "und")) for path in audio_files]
-    subtitles =[(path, track_code(path)) for path in subtitle_files]
+    subtitles = [(path, track_code(path)) for path in subtitle_files]
     audio.sort(key=lambda track: (track[1] != default_audio, track[0].name))
     subtitles.sort(key=lambda track: (track[1] != default_subtitle, track[0].name))
 

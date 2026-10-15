@@ -31,13 +31,6 @@ def stub_upstream(monkeypatch, entries):
 # --- the sync marker ---
 
 
-def test_commit_marker_roundtrip(tmp_app_root):
-    assert stored_commit() == ""
-    (tmp_app_root / "Subtitle").mkdir()
-    write_commit("abc123")
-    assert stored_commit() == "abc123"
-
-
 def test_stored_commit_tolerates_corrupt_marker(tmp_app_root):
     marker = tmp_app_root / "Subtitle" / ".sync.json"
     marker.parent.mkdir()

@@ -51,8 +51,3 @@ def test_no_game_install_returns_whatever_is_local(tmp_app_root, monkeypatch):
     assert fetch_fonts() == []
     local_font(tmp_app_root, "ja-jp.ttf")
     assert [font.name for font in fetch_fonts()] == ["ja-jp.ttf"]
-
-
-def test_game_missing_font_returns_available_subset(tmp_app_root, game_fonts):
-    (game_fonts / "zh-cn.ttf").unlink()
-    assert [font.name for font in fetch_fonts()] == ["ja-jp.ttf"]

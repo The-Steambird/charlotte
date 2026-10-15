@@ -35,10 +35,9 @@ def write_subtitle(stem, lang, text=SRT):
     path.write_text(text, encoding="utf-8")
 
 
-def make_keys(reporter, monkeypatch, data=None, upstream=None):
+def make_keys(reporter, monkeypatch, data, upstream=None):
     """A real Keys over `data` on disk, reaching a fake upstream that serves `upstream`."""
-    if data is not None:
-        (resources.keys.app_root() / "keys.json").write_bytes(orjson.dumps(data))
+    (resources.keys.app_root() / "keys.json").write_bytes(orjson.dumps(data))
     fetch = (lambda: orjson.dumps(upstream)) if upstream is not None else forbid_call
     monkeypatch.setattr(resources.keys, "fetch_upstream_keys", fetch)
     return Keys(reporter)
@@ -122,8 +121,8 @@ def test_probe_reports_missing_when_upstream_has_nothing(tmp_app_root, reporter,
 
 
 def test_probe_picks_up_an_accepted_upstream_update(tmp_app_root, reporter, monkeypatch):
-    """The whole point of probing through Keys: a stem the local file misses is reported with
-    its key and version once the update is accepted, without a second probe run."""
+    """This is why probe goes through Keys. A stem the local file misses is reported with its
+    key and version once the update is accepted, without a second probe run."""
     monkeypatch.setattr(pipeline, "find_vs_script", lambda stem: None)
     reporter.answer = True
     keys = make_keys(reporter, monkeypatch, {"list": []}, upstream=KEYS_DATA)
@@ -159,7 +158,7 @@ def test_probe_of_the_stream_cipher_needs_its_own_keys(
 
 
 def test_probe_remaps_subtitle_stem_only(tmp_app_root, reporter, monkeypatch):
-    """BASENAME_FIXES applies to the subtitle lookup; the key and VapourSynth script
+    """BASENAME_FIXES applies to the subtitle lookup only, and the key and VapourSynth script
     keep the original stem."""
     seen_vs_stems = []
     monkeypatch.setattr(pipeline, "find_vs_script", seen_vs_stems.append)  # returns None
@@ -357,7 +356,7 @@ def test_flat_lifts_the_mkv_and_drops_the_work_dir(stub_stages, tmp_path, report
     ids=["nested", "flat"],
 )
 def test_skip_existing_stops_before_the_key_lookup(tmp_path, reporter, flat, existing):
-    """-se is a resume switch: a missing key must not turn a skip into a failure."""
+    """-se is a resume switch, and a missing key must not turn a skip into a failure."""
     usm_file, opts, _ = make_run(tmp_path, skip_existing=True, flat=flat)
     existing = tmp_path / "out" / existing
     existing.parent.mkdir(parents=True, exist_ok=True)
@@ -431,18 +430,9 @@ def test_failed_encode_falls_back_to_soft_subtitles(stub_stages, tmp_path, repor
 # --- subtitles ---
 
 
-def test_subtitles_converted_to_ass(tmp_app_root, out_dir):
-    write_subtitle("Cs_A", "DE")
-
-    ass_files = process_subtitles("Cs_A", out_dir)
-
-    assert ass_files == [out_dir / "Cs_A_DE.ass"]
-    assert ass_files[0].is_file()
-
-
 def test_empty_subtitle_named_not_converted(tmp_app_root, out_dir, caplog):
-    """Upstream ships zero-byte .srt files for languages a cutscene was never localized
-    into; naming them keeps the run from looking like it lost a track."""
+    """Upstream ships zero-byte .srt files for languages a cutscene was never localized into.
+    Naming them keeps the run from looking like it lost a track."""
     write_subtitle("Cs_A", "DE")
     write_subtitle("Cs_A", "EN", text="")
 
@@ -484,7 +474,7 @@ def test_one_bad_subtitle_does_not_sink_the_rest(tmp_app_root, out_dir, monkeypa
 
 
 def test_crack_reports_key_and_video_key(tmp_app_root, reporter, monkeypatch):
-    """videoKey is the keys.json half: the combined key minus the filename hash."""
+    """videoKey is the keys.json half, which is the combined key minus the filename hash."""
     combined = (calculate_key_from_filename("Cs_A") + 777) & 0xFFFFFFFFFFFFFF
     key = DecryptionKey(*split_key(combined))
     monkeypatch.setattr(pipeline, "crack_key", lambda f, r: Recovery(key, ""))

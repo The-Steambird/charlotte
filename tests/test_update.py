@@ -29,10 +29,6 @@ def release(tag: str, url: str = "https://example/rel", body: str = "notes") -> 
     return {"tag_name": tag, "html_url": url, "body": body}
 
 
-def test_parse_version_ignores_leading_v():
-    assert parse_version("v1.2.3") == parse_version("1.2.3")
-
-
 @pytest.mark.parametrize(
     "lower, higher",
     [

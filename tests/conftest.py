@@ -65,13 +65,13 @@ def forbid_call(*args, **kwargs):
 
 @pytest.fixture
 def ffmpeg(monkeypatch):
-    capture = types.SimpleNamespace(cmd=None, input=None, returncode=0, stdout=b"", stderr=b"")
+    capture = types.SimpleNamespace(cmd=None, input=None, returncode=0, stderr=b"")
 
     def fake_run(cmd, **kwargs):
         capture.cmd = cmd
         capture.input = kwargs.get("input")
         return subprocess.CompletedProcess(
-            cmd, capture.returncode, stdout=capture.stdout, stderr=capture.stderr
+            cmd, capture.returncode, stdout=b"", stderr=capture.stderr
         )
 
     monkeypatch.setattr(utils.ffmpeg.subprocess, "run", fake_run)
