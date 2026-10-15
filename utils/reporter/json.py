@@ -31,8 +31,9 @@ def parse_command(line: str | bytes) -> dict | None:
 
 
 class JsonReporter(Reporter):
-    """NDJSON events on stdout; commands (answers/cancel/skip) read from stdin on demand.
-    Regular log go to stderr via the shared console in logger.py, keeping stdout JSON only."""
+    """Writes NDJSON events to stdout and reads commands (answers, cancel and skip) from stdin
+    on demand. Ordinary log lines go to stderr through the shared console in logger.py, which
+    keeps stdout pure JSON."""
 
     def __init__(self, out=None, stdin=None):
         self.out = out if out is not None else sys.stdout
@@ -42,15 +43,11 @@ class JsonReporter(Reporter):
         self.current_file = None
         self.skip_file = None
         self.last_percent = {}
-        # stdin is read one of two ways:
-        # 1. UI frontend: everything reads it through the raw fd (self.pipe_fd)
-        # into self.stdin_buf, bypassing Python's buffered stdin.
-        # Cancellation is reliable by allowing cancel_requested() to peek the
-        # pipe without blocking. ask() reads from the same raw fd so no
-        # bytes can hide in Python's stdin buffer where peek wouldn't see.
-        # 2. Console, file, and test: since stdin is not a pipe (pipe_peek returns None),
-        # self.pipe_fd stays None, ask() falls back to stdin.readline(), and
-        # cancel_requested() can't touch stdin.
+        # On the GUI's pipe, everything reads stdin through the raw fd into stdin_buf rather than
+        # Python's buffered stdin. That lets cancel_requested() peek without blocking, and no
+        # bytes can hide in a buffer the peek cannot see. A console, a file or a test is not a
+        # pipe, which leaves pipe_fd as None, and then ask() falls back to readline() and
+        # cancel_requested() never touches stdin.
         self.stdin_buf = b""
         try:
             fd = self.stdin.fileno()
@@ -82,8 +79,8 @@ class JsonReporter(Reporter):
             self.emit({"type": "stage", "stage": stage, "status": "end"})
 
     def update_task(self, handle, current, total):
-        # Limit the number of events emitted to 1 per whole percentage. The final tick
-        # lands on a fresh 100 (never equal to the prior 99), so the guard never drops it.
+        # This sends at most one event per whole percent. The final tick always lands on a new
+        # 100, which is why the guard never drops it.
         percent = int(current * 100 / total) if total else 0
         if percent != self.last_percent.get(handle, -1):
             self.last_percent[handle] = percent
