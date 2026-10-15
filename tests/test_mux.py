@@ -49,6 +49,14 @@ def test_default_audio_sorted_first_and_flagged(ffmpeg, tmp_path):
     assert flag_value(ffmpeg.cmd, "-disposition:a:2") == "0"
 
 
+def test_lone_audio_track_is_music_and_default(ffmpeg, tmp_path):
+    video, audio, subs = make_tracks(tmp_path)
+    mux(video, tmp_path / "o.mkv.part", audio[:1], subs, **TRACKS)
+
+    assert flag_value(ffmpeg.cmd, "-metadata:s:a:0") == "language=zxx"
+    assert flag_value(ffmpeg.cmd, "-disposition:a:0") == "default"
+
+
 def test_default_subtitle_sorted_first_and_flagged(ffmpeg, tmp_path):
     video, audio, subs = make_tracks(tmp_path)
     mux(video, tmp_path / "o.mkv.part", audio, subs, **TRACKS | {"default_subtitle": "JP"})

@@ -43,8 +43,12 @@ def mux_args(
 ) -> list[str]:
     """The caller puts the video input ahead of these. Fonts are only attached with subtitle
     tracks, and `-f` is needed because the `.part` name does not tell ffmpeg the format."""
-    audio = [(path, AUDIO_LANGUAGES.get(track_code(path), "und")) for path in audio_files]
-    subtitles = [(path, track_code(path)) for path in subtitle_files]
+    if len(audio_files) == 1:
+        # Video_Reunion only has music, zxx marks it as such.
+        audio = [(audio_files[0], "zxx")]
+    else:
+        audio = [(path, AUDIO_LANGUAGES.get(track_code(path), "und")) for path in audio_files]
+    subtitles =[(path, track_code(path)) for path in subtitle_files]
     audio.sort(key=lambda track: (track[1] != default_audio, track[0].name))
     subtitles.sort(key=lambda track: (track[1] != default_subtitle, track[0].name))
 
@@ -58,7 +62,7 @@ def mux_args(
 
     for i, (_, lang) in enumerate(audio):
         args.extend([f"-metadata:s:a:{i}", f"language={lang}"])
-        args.extend([f"-disposition:a:{i}", "default" if lang == default_audio else "0"])
+        args.extend([f"-disposition:a:{i}", "default" if i == 0 else "0"])
 
     for i, (_, code) in enumerate(subtitles):
         args.extend([f"-metadata:s:s:{i}", f"language={get_language(code)}"])
