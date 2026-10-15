@@ -29,8 +29,8 @@ dependencies = [
 dev = [
     "deptry>=0.25.1",
     "pytest>=9.1.1",
-    "ruff>=0.17.0",
-    "vsview>=0.12.1",
+    "ruff>=0.17.1",
+    "vsview>=0.13.0",
 ]
 build = [
     "pyinstaller>=6.22.3",
