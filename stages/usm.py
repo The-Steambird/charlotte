@@ -220,9 +220,10 @@ class USM:
         cipher = AES.new(self.aes_key, AES.MODE_CTR, nonce=b"", initial_value=iv)
         data[MASK_START:] = cipher.decrypt(data[MASK_START:])
 
-    def demux(self, output_path: Path, reporter: Reporter, created: list[Path]) -> list[Path]:
-        """Returns the .hca files. Every file joins `created` as soon as it is opened, which
-        lets the caller clean up after a failure part way through."""
+    def demux(
+        self, output_path: Path, reporter: Reporter, created: list[Path]
+    ) -> tuple[Path, list[Path]]:
+        """Returns the .ivf and .hca files, and adds each to `created` as soon as it opens."""
         base_name = self.file_path.stem
         video = output_path / f"{base_name}.ivf"
         streams: dict[Path, BufferedWriter] = {}
@@ -261,4 +262,4 @@ class USM:
 
             task.set_completed(file_size)
 
-        return [path for path in streams if path.suffix == ".hca"]
+        return video, [path for path in streams if path.suffix == ".hca"]

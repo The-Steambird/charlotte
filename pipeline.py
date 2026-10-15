@@ -191,12 +191,11 @@ def process_usm(usm_file: Path, opts: Options, keys: Keys, reporter: Reporter) -
     usm = USM(usm_file, key, nonce)
     output_path = opts.output / stem
     output_path.mkdir(exist_ok=True)
-    video = output_path / f"{stem}.ivf"
     # A killed ffmpeg can leave a broken file that --skip-existing would mistake for a finished one.
     partial_mkv = output_path / f"{stem}.mkv.part"
     created = [partial_mkv]
     try:
-        hca_files = usm.demux(output_path=output_path, reporter=reporter, created=created)
+        video, hca_files = usm.demux(output_path=output_path, reporter=reporter, created=created)
         reporter.checkpoint()
 
         extension = AUDIO_CODECS[opts.audio_codec][0]

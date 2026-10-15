@@ -100,9 +100,10 @@ def test_demux_extracts_streams(tmp_path, out_dir, reporter):
         + chunk(b"@SFA", b"audio1", channel=1)
     )
     created = []
-    audio = make_usm(tmp_path, data).demux(out_dir, reporter, created)
+    video, audio = make_usm(tmp_path, data).demux(out_dir, reporter, created)
 
-    assert (out_dir / "Cs_Test.ivf").read_bytes() == b"video"
+    assert video == out_dir / "Cs_Test.ivf"
+    assert video.read_bytes() == b"video"
     assert (out_dir / "Cs_Test_0.hca").read_bytes() == b"audio0"
     assert (out_dir / "Cs_Test_1.hca").read_bytes() == b"audio1"
     assert [path.name for path in audio] == ["Cs_Test_0.hca", "Cs_Test_1.hca"]
@@ -130,7 +131,7 @@ def test_known_metadata_signatures_skipped_silently(tmp_path, out_dir, reporter,
         + chunk(b"@SFV", b"video")
     )
     created = []
-    audio = make_usm(tmp_path, data).demux(out_dir, reporter, created)
+    _, audio = make_usm(tmp_path, data).demux(out_dir, reporter, created)
 
     assert [record for record in caplog.records if "Unknown signature" in record.message] == []
     assert audio == []
