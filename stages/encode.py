@@ -21,7 +21,6 @@ DEFAULT_CRF = 13.5
 DEFAULT_PRESET = "slower"
 X265_COLOUR_TAGS = "colorprim=bt709:transfer=bt709:colormatrix=smpte170m"
 
-# Map ffmpeg log level to internal levels (error/warning/info/debug).
 FFMPEG_LEVELS = {
     "panic": "error",
     "fatal": "error",
@@ -44,8 +43,8 @@ def filter_escape(value: str) -> str:
 
 
 def subtitle_filter(subtitle: Path, fonts: list[Path]) -> str:
-    """libass takes a font directory instead of font files. No matrix option is set because the
-    `ass` filter always blends in BT.601 similarly to source."""
+    """libass takes a font directory rather than font files. No matrix is set because the `ass`
+    filter blends in BT.601 whatever the input is tagged, which matches the source anyway."""
     graph = f"ass=filename={filter_escape(str(subtitle))}"
     if fonts:
         graph += f":fontsdir={filter_escape(str(fonts[0].parent))}"
@@ -75,27 +74,30 @@ def encode_args(
             "no-sao=1",
             "no-sao-non-deblock=1",
         ]
-        # ultrafast encode with bframes=8 breaks against its rc-lookahead=5.
+        # The effort knobs would undo the speed a faster preset was picked for, and ultrafast
+        # cannot even open with bframes=8 against its rc-lookahead of 5.
         if preset in ("slow", "slower", "veryslow", "placebo"):
             tuning += ["ref=6", "bframes=8", "lookahead-slices=0", "rd=4", "max-merge=5", "tskip=1"]
         x265_params = ":".join(tuning)
 
-    return [
-        *(["-vf", video_filter] if video_filter else []),
+    params = f"{x265_params}:{X265_COLOUR_TAGS}" if x265_params else X265_COLOUR_TAGS
+    args = ["-vf", video_filter] if video_filter else []
+    args += [
         "-c:v", "libx265",
         "-pix_fmt", "yuv420p10le",
         "-profile:v", "main10",
         "-preset", preset,
         "-crf", str(crf),
         "-color_range", "tv",
-        "-x265-params", f"{x265_params}:{X265_COLOUR_TAGS}" if x265_params else X265_COLOUR_TAGS,
+        "-x265-params", params,
         "-c:a", "copy",
         "-c:s", "copy",
     ]  # fmt: skip
+    return args
 
 
-def parse_ffmpeg_stderr(process: subprocess.Popen, ffmpeg_task, reporter: Reporter) -> None:
-    expected_keys = {
+def parse_ffmpeg_stderr(process: subprocess.Popen, task, reporter: Reporter) -> None:
+    progress_keys = {
         "frame",
         "fps",
         "stream_0_0_q",
@@ -115,13 +117,13 @@ def parse_ffmpeg_stderr(process: subprocess.Popen, ffmpeg_task, reporter: Report
         if not line:
             continue
 
-        key, _, val = line.partition("=")
-        if key in expected_keys:
-            if key == "frame" and val.isdigit():
-                ffmpeg_task.set_completed(int(val))
-        else:
+        key, _, value = line.partition("=")
+        if key == "frame" and value.isdigit():
+            task.set_completed(int(value))
+        elif key not in progress_keys:
             match = LEVEL_TAG.search(line)
-            reporter.log(FFMPEG_LEVELS[match.group(1)] if match else "info", line)
+            level = FFMPEG_LEVELS[match.group(1)] if match else "info"
+            reporter.log(level, line)
 
 
 def find_vs_script(stem: str) -> str | None:
@@ -231,21 +233,12 @@ def vapoursynth_filter(
     ffmpeg_args: list[str],
     script: str | None = None,
 ) -> bool:
-    """
-    Runs the worker in an isolated process. `ffmpeg_args` comes from `stages.mux.mux_args`
-    and carries the encode options, the burnt subtitle, the other tracks and the output path.
-
-    vssource.BestSource seems to hold an OS-level file handle to index and read the .ivf
-    file. Because VapourSynth's core environment is effectively a global singleton in the
-    Python process and caches these indexers, the .ivf file remains locked even after the
-    clip goes out of scope and the filter completes, breaking the -nc flag when
-    file.unlink() is called.
-    """
-    ctx = multiprocessing.get_context()
-    queue = ctx.Queue()
-    stop = ctx.Event()
-
-    process = ctx.Process(
+    """The worker runs in its own process because BestSource keeps the .ivf open for as long as
+    the VapourSynth core lives, which is the whole process, and the cleanup would fail to delete it.
+    `ffmpeg_args` comes from `stages.mux.mux_args` and holds everything after the Y4M input."""
+    queue = multiprocessing.Queue()
+    stop = multiprocessing.Event()
+    process = multiprocessing.Process(
         target=worker,
         args=(source, script, ffmpeg_args, queue, stop),
     )

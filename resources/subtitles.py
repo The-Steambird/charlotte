@@ -104,13 +104,13 @@ def sync_subtitles(reporter: Reporter) -> None:
         return
 
     with archive:
-        # animegamedata2-main-Subtitle/Subtitle/<LANG>/<file>.srt -> drop the top-level prefix
-        # dir so files land in <root>/Subtitle/<LANG>/...
+        # Entries look like animegamedata2-main-Subtitle/Subtitle/<LANG>/<file>.srt, and dropping
+        # the first folder puts them under the app's own Subtitle/.
         root = app_root()
         targets = []
         for name in archive.namelist():
             _, _, rel = name.partition("/")
-            # Only .srt leaves, and guard against zip-slip (../ escaping the cache).
+            # A ".." segment would let an entry write outside the cache.
             if rel.startswith("Subtitle/") and rel.endswith(".srt") and ".." not in rel.split("/"):
                 targets.append((name, root / rel))
 

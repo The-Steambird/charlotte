@@ -6,14 +6,9 @@ from pathlib import Path
 
 
 if getattr(sys, "frozen", False):
-    """
-    PyInstaller incorrectly places libvapoursynth.dll at _MEIPASS/ as a detected dependency of
-    vapoursynth.pyd. VS's C core uses GetModuleFileName on itself and resolves the plugin
-    directory to _MEIPASS/plugins/ (nonexistent). The correct copy is at
-    _MEIPASS/vapoursynth/libvapoursynth.dll. Pre-loading it by full path ensures subsequent
-    LoadLibrary("libvapoursynth.dll") calls reuse this instance, giving the correct
-    plugin path _MEIPASS/vapoursynth/plugins/.
-    """
+    # The VapourSynth core finds its plugins next to its own DLL, and a copy that PyInstaller
+    # puts at the bundle root would look in a plugins/ folder that does not exist there. Loading
+    # the one in vapoursynth/ first makes every later LoadLibrary("libvapoursynth.dll") reuse it.
     meipass = Path(sys._MEIPASS)
     ctypes.WinDLL(str(meipass / "vapoursynth" / "libvapoursynth.dll"))
 

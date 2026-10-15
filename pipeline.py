@@ -99,22 +99,23 @@ def encode_video(
     partial_mkv: Path,
     audio_files: list[Path],
     subtitle_files: list[Path],
-    fonts: list[Path],
+    font_subsets: list[Path],
     opts: Options,
     reporter: Reporter,
 ) -> bool:
     stem = video.stem
-    script = find_vs_script(stem) if opts.vapoursynth else None
-    if opts.vapoursynth and script is None:
-        log.warning(translate("VS_SCRIPT_MISSING", stem=stem))
-    elif script and script != stem:
-        log.info(translate("VS_SCRIPT_FALLBACK", stem=stem, script=script))
+    script = None
+    if opts.vapoursynth:
+        script = find_vs_script(stem)
+        if script is None:
+            log.warning(translate("VS_SCRIPT_MISSING", stem=stem))
+        elif script != stem:
+            log.info(translate("VS_SCRIPT_FALLBACK", stem=stem, script=script))
 
     burnt_subtitle = None
     if opts.hard_sub:
-        burnt_subtitle = next(
-            (path for path in subtitle_files if track_code(path) == opts.default_subtitle), None
-        )
+        by_language = {track_code(path): path for path in subtitle_files}
+        burnt_subtitle = by_language.get(opts.default_subtitle)
         if burnt_subtitle is None:
             log.warning(translate("HARD_SUB_MISSING", language=opts.default_subtitle, stem=stem))
         else:
@@ -129,7 +130,7 @@ def encode_video(
         encode_args(opts.crf, opts.preset, opts.x265_params, video_filter),
         audio_files,
         [] if burnt_subtitle else subtitle_files,
-        fonts=fonts,
+        fonts=font_subsets,
         default_audio=opts.default_audio,
         default_subtitle=opts.default_subtitle,
     )
@@ -212,17 +213,20 @@ def process_usm(usm_file: Path, opts: Options, keys: Keys, reporter: Reporter) -
                 keep_decrypted=opts.no_cleanup,
                 codec=opts.audio_codec,
             )
-        subtitle_files, fonts = subtitles.result()
+        subtitle_files, font_subsets = subtitles.result()
         created += subtitle_files
         reporter.checkpoint()
 
-        if not encode_video(video, partial_mkv, audio_files, subtitle_files, fonts, opts, reporter):
+        encoded = encode_video(
+            video, partial_mkv, audio_files, subtitle_files, font_subsets, opts, reporter
+        )
+        if not encoded:
             mux(
                 video,
                 partial_mkv,
                 audio_files,
                 subtitle_files,
-                fonts=fonts,
+                fonts=font_subsets,
                 default_audio=opts.default_audio,
                 default_subtitle=opts.default_subtitle,
             )
@@ -325,17 +329,18 @@ def crack_all(usm_files: list[Path], reporter: Reporter) -> None:
 def probe_usm(usm_file: Path, keys: Keys, reporter: Reporter) -> None:
     stem = usm_file.stem
     stream_cipher = video_nonce(usm_file) is not None
-    key = (keys.stream_keys(stem) if stream_cipher else keys.get(stem)) is not None
+    lookup = keys.stream_keys if stream_cipher else keys.get
+    has_key = lookup(stem) is not None
     version = find_video_version(keys.data, stem)
     subtitles = [lang for lang in SUBTITLES_LANGUAGES if local_subtitle_path(stem, lang).exists()]
     vs_script = find_vs_script(stem)
 
-    level = log.info if key else log.warning
+    level = log.info if has_key else log.warning
     level(
         translate(
             "PROBE_RESULT",
             name=usm_file.name,
-            key=translate("PROBE_KEY_FOUND") if key else translate("PROBE_KEY_MISSING"),
+            key=translate("PROBE_KEY_FOUND") if has_key else translate("PROBE_KEY_MISSING"),
             subtitles=",".join(subtitles) or translate("PROBE_NONE"),
             script=vs_script or translate("PROBE_NONE"),
         )
@@ -344,7 +349,7 @@ def probe_usm(usm_file: Path, keys: Keys, reporter: Reporter) -> None:
         "probe",
         file=usm_file.name,
         stem=stem,
-        key=key,
+        key=has_key,
         version=version,
         subtitles=subtitles,
         vs_script=vs_script,

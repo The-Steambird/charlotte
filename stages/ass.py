@@ -25,9 +25,9 @@ class ASS:
     def parse_srt(self) -> bool:
         # Some SRT files carry a BOM which breaks the digit check on the first block.
         content = self.srt_file.read_text(encoding="utf-8-sig")
-        blocks = re.split(r"\n{2,}", "\n".join(content.splitlines()).strip())
+        content = "\n".join(content.splitlines()).strip()
 
-        for block in blocks:
+        for block in re.split(r"\n{2,}", content):
             lines = block.split("\n")
             if len(lines) < 3 or not lines[0].strip().isdigit():
                 continue
@@ -39,9 +39,11 @@ class ASS:
             # HH:MM:SS,cc -> H:MM:SS.cc
             start, end = (t.replace(",", ".").removeprefix("0") for t in timings)
 
-            # Renderers only honor soft breaks (\n) under WrapStyle 2 and draw them as spaces, so
-            # we use hard line break instead.
+            # Renderers draw a soft break (\n) as a space unless WrapStyle is 2, which is why the
+            # lines are joined with a hard break.
             text = "\\N".join(line for line in lines[2:] if line.strip())
+            for pattern, repl in self.html_tag_fix:
+                text = pattern.sub(repl, text)
 
             self.dialog_lines.append(
                 f"Dialogue: 0,{start},{end},Default,,0,0,0,,{self.shadow}{text}"
@@ -103,12 +105,5 @@ class ASS:
             "Format: Layer, Start, End, Style, Actor, MarginL, MarginR, MarginV, Effect, Text"
         )
 
-        events = []
-        for line in self.dialog_lines:
-            tagged = line
-            for pattern, repl in self.html_tag_fix:
-                tagged = pattern.sub(repl, tagged)
-            events.append(tagged)
-
-        output_file.write_text("\n".join([header, *events]), encoding="utf-8")
+        output_file.write_text("\n".join([header, *self.dialog_lines]), encoding="utf-8")
         return output_file

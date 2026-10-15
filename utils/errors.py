@@ -1,10 +1,10 @@
 class CharlotteError(Exception):
-    """charlotte errors that are not a bug. Engine code raises this instead of exiting; main.py
-    turns it into a CLI exit code or an error event via --json."""
+    """An expected failure rather than a bug. Engine code raises it instead of exiting, and the
+    batch loops in pipeline.py report it against the file and carry on."""
 
 
 class Cancelled(Exception):
-    """Cancelled event as a clean exit, not an error."""
+    """The frontend cancelled the batch, which ends it cleanly rather than as an error."""
 
 
 class Skipped(Exception):

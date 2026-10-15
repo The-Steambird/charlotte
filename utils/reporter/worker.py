@@ -6,9 +6,9 @@ from utils.reporter.base import Reporter, Task
 
 
 class QueueReporter(Reporter):
-    """Runs in the VapourSynth worker process, forwards every call onto the queue for
-    relay_worker() in the parent to replay. The worker must not touch stdout/stderr -
-    the parent owns them, and in --json mode stdout carries the event stream."""
+    """Runs in the VapourSynth worker process and forwards every call onto the queue for
+    relay_worker() in the parent to replay. The worker must not touch stdout or stderr, because
+    the parent owns them and in --json mode stdout carries the event stream."""
 
     def __init__(self, queue):
         self.queue = queue
@@ -46,7 +46,7 @@ def relay_worker(reporter: Reporter, queue, process, stop):
                 case ("task_end", _):
                     pass
 
-        # Short timeout polls keep a frontend cancel or skip responsive, "result" ends the relay.
+        # The short poll keeps a cancel or skip from the frontend responsive.
         while process.is_alive():
             try:
                 reporter.checkpoint()
@@ -55,7 +55,6 @@ def relay_worker(reporter: Reporter, queue, process, stop):
                 # A worker still building the clip has no ffmpeg yet and may not
                 # notice the flag for a long time, and is terminated after the grace period.
                 stop.set()
-                # stop grace period = 5s
                 process.join(5.0)
                 if process.is_alive():
                     process.terminate()
@@ -69,9 +68,8 @@ def relay_worker(reporter: Reporter, queue, process, stop):
                 return msg[1]
             relay(msg)
 
-        # The worker exited. Its queue feeder flushes before the process dies, so a
-        # result put just as it left can still be sitting here after is_alive() turned
-        # false and drain the rest without blocking.
+        # The worker's queue feeder flushes before the process exits, which means a result put
+        # just before the exit can still be waiting here after is_alive() turned false.
         while True:
             try:
                 msg = queue.get_nowait()

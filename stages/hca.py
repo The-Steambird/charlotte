@@ -31,10 +31,9 @@ CRC16_TABLE = crc16_table()
 
 
 def crc16(data: bytes | bytearray) -> int:
-    table = CRC16_TABLE
     crc = 0
     for byte in data:
-        crc = ((crc << 8) ^ table[(crc >> 8) ^ byte]) & 0xFFFF
+        crc = ((crc << 8) ^ CRC16_TABLE[(crc >> 8) ^ byte]) & 0xFFFF
     return crc
 
 
@@ -128,10 +127,15 @@ class HCA:
         self.key = key
         self.ciph_type = 0
         self.ciph_offset = 0
+
+        blob = file_path.read_bytes()
         try:
+            data_offset = struct.unpack_from(">H", blob, 6)[0]
+            self.header = bytearray(blob[:data_offset])
             self.read_header()
         except struct.error as e:
             raise CharlotteError(translate("HCA_HEADER_CORRUPT", name=self.file_path.name)) from e
+        self.data = bytearray(blob[data_offset : data_offset + self.block_size * self.block_count])
 
     def match_chunk(self, offset: int, tag: bytes) -> bool:
         sig = bytes(b & 0x7F for b in self.header[offset : offset + 4])
@@ -141,10 +145,6 @@ class HCA:
         return True
 
     def read_header(self) -> None:
-        blob = self.file_path.read_bytes()
-        data_offset = struct.unpack_from(">H", blob, 6)[0]
-        self.header = bytearray(blob[:data_offset])
-
         if not self.match_chunk(0, b"HCA\x00"):
             raise CharlotteError(translate("HCA_HEADER_INVALID", name=self.file_path.name))
         offset = 8
@@ -183,12 +183,11 @@ class HCA:
         if self.match_chunk(offset, b"rva\x00"):
             offset += 8
         if self.match_chunk(offset, b"comm"):
-            offset += 5 + struct.unpack_from(">B", self.header, offset + 4)[0]
+            offset += 5 + self.header[offset + 4]
         if self.match_chunk(offset, b"pad\x00"):
             offset += 4
 
         self.update_header_crc()
-        self.data = bytearray(blob[data_offset : data_offset + self.block_size * self.block_count])
 
     def update_header_crc(self) -> None:
         struct.pack_into(">H", self.header, len(self.header) - 2, crc16(self.header[:-2]))

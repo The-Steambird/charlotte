@@ -103,7 +103,7 @@ def report_update(reporter: Reporter) -> UpdateInfo:
     info = check_for_update()
     if info.reason is not None:
         log.warning(translate("UPDATE_CHECK_FAILED", reason=info.reason))
-    elif info.available and info.latest:
+    elif info.available:
         link = f" ({info.url})" if info.url else ""
         log.info(translate("UPDATE_AVAILABLE", current=info.current, latest=info.latest, link=link))
     else:
@@ -142,7 +142,6 @@ def clear_stale_binary() -> None:
 
 
 def stream_to_file(response: urllib3.BaseHTTPResponse, dest: Path, reporter: Reporter) -> None:
-    """Write the streamed response body to `dest`, reporting download progress as it goes."""
     length = response.headers.get("Content-Length")
     total = int(length) if length else None
     with (
@@ -157,7 +156,6 @@ def stream_to_file(response: urllib3.BaseHTTPResponse, dest: Path, reporter: Rep
 
 
 def download_bundle(url: str, dest: Path, reporter: Reporter) -> None:
-    """Stream the release zip at `url` into `dest`."""
     headers = {"User-Agent": f"charlotte/{__version__}"}
     try:
         with urllib3.request(
@@ -206,7 +204,6 @@ def swap_binary(new_file: Path) -> None:
         new_file.rename(exe)
     except OSError as e:
         try:
-            # Roll back.
             stale.rename(exe)
         except OSError as rollback_error:
             log.error(translate("UPDATE_ROLLBACK_FAILED", name=stale.name, error=rollback_error))
@@ -247,7 +244,7 @@ def pause_before_exit(seconds: int = 5) -> None:
 
 def run_update(reporter: Reporter, json_mode: bool) -> None:
     info = report_update(reporter)
-    if not (info.available and info.latest and is_standalone_exe(json_mode)):
+    if not (info.available and is_standalone_exe(json_mode)):
         return
 
     wants_install = reporter.ask(

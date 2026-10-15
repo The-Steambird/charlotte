@@ -18,7 +18,8 @@ KEY_MASK = (1 << 56) - 1
 
 
 class DecryptionKey(NamedTuple):
-    """key1 and key2 decrypt both audio + video mask. 7.1+ uses an AES key for the video instead."""
+    """key1 and key2 decrypt the audio and the video mask. Files from 7.1 on decrypt their video
+    with aes_key instead."""
 
     key1: bytes
     key2: bytes
@@ -101,14 +102,17 @@ def parse_stream_keys(audio_key: object, aes_key: object) -> DecryptionKey | Non
         and re.fullmatch(r"\s*[0-9A-Fa-f]{32}\s*", aes_key)
     ):
         return None
-    # 7.1 doesn't use filename anymore so audioKey is used as it is.
+    # audioKey is used as it is, because 7.1 keys have no filename term.
     key1, key2 = split_key(audio_key)
     return DecryptionKey(key1, key2, bytes.fromhex(aes_key))
 
 
 def find_stream_keys(data: dict, filename: str) -> DecryptionKey | None:
     found = find_video(data, filename)
-    return parse_stream_keys(found[1].get("audioKey"), found[1].get("aesKey")) if found else None
+    if found is None:
+        return None
+    _, group = found
+    return parse_stream_keys(group.get("audioKey"), group.get("aesKey"))
 
 
 class Keys:
@@ -154,8 +158,8 @@ class Keys:
 
     def stream_keys(self, stem: str) -> DecryptionKey | None:
         if self.manual_key is not None:
-            audio_key, _, aes_key = self.manual_key.partition(":")
-            audio_key = int(audio_key) if audio_key.strip().isdecimal() else None
+            audio_text, _, aes_key = self.manual_key.partition(":")
+            audio_key = int(audio_text) if audio_text.strip().isdecimal() else None
             stream_keys = parse_stream_keys(audio_key, aes_key)
             if stream_keys is None:
                 raise CharlotteError(translate("KEY_NOT_STREAM_KEYS", stem=stem))
@@ -192,8 +196,8 @@ class Keys:
             log.info(translate("KEY_NOT_UPSTREAM", stem=stem))
             return None
 
-        overwrite_prompt = self.reporter.ask(translate("KEYS_UPDATE_PROMPT"), default=False)
-        if not overwrite_prompt:
+        accepted = self.reporter.ask(translate("KEYS_UPDATE_PROMPT"), default=False)
+        if not accepted:
             self.declined = True
             log.info(translate("KEYS_UPDATE_DECLINED", stem=stem))
             return None

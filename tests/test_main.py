@@ -102,10 +102,12 @@ def test_key_requires_single_input(tmp_path):
     assert result.exit_code == 1
 
 
-def test_crack_rejects_probe_and_key(tmp_path):
+@pytest.mark.parametrize(
+    "flags", [["--crack", "--probe"], ["--crack", "--key", "1"], ["--probe", "--key", "1"]]
+)
+def test_conflicting_modes_rejected(tmp_path, flags):
     usm = make_usm(tmp_path)
-    assert runner.invoke(main.app, [str(usm), "--crack", "--probe"]).exit_code == 1
-    assert runner.invoke(main.app, [str(usm), "--crack", "--key", "1"]).exit_code == 1
+    assert runner.invoke(main.app, [str(usm), *flags]).exit_code == 1
 
 
 def test_rejected_flags_reach_the_gui(tmp_path):

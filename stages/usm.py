@@ -95,7 +95,8 @@ UTF_ZERO, UTF_CONSTANT, UTF_PER_ROW = 0x10, 0x30, 0x50
 
 def read_utf(payload: bytes) -> dict:
     """The first row of an @UTF table, which is the only row a stream header has."""
-    table = payload[8 : 8 + struct.unpack_from(">I", payload, 4)[0]]
+    table_size = struct.unpack_from(">I", payload, 4)[0]
+    table = payload[8 : 8 + table_size]
     row_at, strings_at, _, _, columns = struct.unpack_from(">HIIIH", table, 2)
 
     row = {}
@@ -115,18 +116,20 @@ def read_utf(payload: bytes) -> dict:
             value = struct.unpack_from(form, table, row_at)[0]
             row_at += struct.calcsize(form)
         name_at += strings_at
-        row[table[name_at : table.index(b"\x00", name_at)].decode()] = value
+        name_end = table.index(b"\x00", name_at)
+        row[table[name_at:name_end].decode()] = value
     return row
 
 
 def video_nonce(file_path: Path) -> int | None:
-    """None means the file uses old mask in pre-7.1."""
+    """None means the file uses the old mask from before 7.1."""
     with closing(read_chunks(file_path)) as chunks:
-        video = next((chunk for chunk in chunks if chunk[0].signature == b"@SFV"), None)
-    if video is None:
+        video_payloads = (payload for header, payload in chunks if header.signature == b"@SFV")
+        video_header = next(video_payloads, None)
+    if video_header is None:
         return None
     try:
-        return read_utf(video[1]).get("nonce")
+        return read_utf(video_header).get("nonce")
     except (struct.error, KeyError, ValueError) as e:
         raise CharlotteError(translate("VIDEO_HEADER_CORRUPT", name=file_path.name)) from e
 
