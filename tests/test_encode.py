@@ -7,8 +7,6 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-import stages.encode
-
 from conftest import flag_value
 from stages.ass import ASS
 from stages.encode import (
@@ -17,47 +15,10 @@ from stages.encode import (
     X265_COLOUR_TAGS,
     encode_args,
     filter_escape,
-    find_vs_script,
     parse_ffmpeg_stderr,
     subtitle_filter,
 )
 from utils.ffmpeg import ffmpeg_path
-
-
-# --- find_vs_script ---
-
-
-@pytest.fixture
-def vs_dir(tmp_path, monkeypatch):
-    monkeypatch.setattr(stages.encode, "bundle_root", lambda: tmp_path)
-    scripts = tmp_path / "vs"
-    scripts.mkdir()
-    return scripts
-
-
-@pytest.mark.parametrize(
-    "scripts, stem, expected",
-    [
-        (["Cs_A_Boy"], "Cs_A_Girl", "Cs_A_Boy"),
-        (["Cs_A_Girl"], "Cs_A_Boy", "Cs_A_Girl"),
-        (["Cs_A_Boy", "Cs_A_Girl"], "Cs_A_Girl", "Cs_A_Girl"),
-        (["Cs_A_Boy", "default"], "Cs_A_Girl", "Cs_A_Boy"),
-        (["Cs_A_Boy", "default"], "Cs_NoGender", "default"),
-        ([], "Cs_A_Boy", None),
-    ],
-    ids=[
-        "girl-to-boy",
-        "boy-to-girl",
-        "exact-over-counterpart",
-        "counterpart-over-default",
-        "default-last",
-        "missing",
-    ],
-)
-def test_find_vs_script(vs_dir, scripts, stem, expected):
-    for name in scripts:
-        (vs_dir / f"{name}.py").touch()
-    assert find_vs_script(stem) == expected
 
 
 # --- encode_args ---
@@ -101,6 +62,8 @@ def test_frame_count_moves_the_bar_and_other_lines_keep_their_level(reporter):
         b"\n"
         b"x265 [warning]: frame size limited\n"
         b"x265 [error]: out of memory\n"
+        b"[libx265 @ 000001] [warning] Unknown option: bogus.\n"
+        b"[info] Stream mapping:\n"
         b"[matroska @ 000001] Starting new cluster\n"
     )
     process = SimpleNamespace(stderr=io.BytesIO(stderr))
@@ -112,6 +75,8 @@ def test_frame_count_moves_the_bar_and_other_lines_keep_their_level(reporter):
     assert reporter.logs == [
         ("warning", "x265 [warning]: frame size limited"),
         ("error", "x265 [error]: out of memory"),
+        ("warning", "[libx265 @ 000001] Unknown option: bogus."),
+        ("info", "Stream mapping:"),
         ("info", "[matroska @ 000001] Starting new cluster"),
     ]
 

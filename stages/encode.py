@@ -74,8 +74,6 @@ def encode_args(
             "no-sao=1",
             "no-sao-non-deblock=1",
         ]
-        # The effort knobs would undo the speed a faster preset was picked for, and ultrafast
-        # cannot even open with bframes=8 against its rc-lookahead of 5.
         if preset in ("slow", "slower", "veryslow", "placebo"):
             tuning += ["ref=6", "bframes=8", "lookahead-slices=0", "rd=4", "max-merge=5", "tskip=1"]
         x265_params = ":".join(tuning)
@@ -122,27 +120,17 @@ def parse_ffmpeg_stderr(process: subprocess.Popen, task, reporter: Reporter) -> 
             task.set_completed(int(value))
         elif key not in progress_keys:
             match = LEVEL_TAG.search(line)
-            level = FFMPEG_LEVELS[match.group(1)] if match else "info"
+            level = "info"
+            if match:
+                level = FFMPEG_LEVELS[match.group(1)]
+                line = line.replace(f"{match.group()} ", "", 1)
             reporter.log(level, line)
 
 
-def find_vs_script(stem: str) -> str | None:
-    candidates = [stem]
-    if stem.endswith("_Girl"):
-        candidates.append(stem.removesuffix("_Girl") + "_Boy")
-    elif stem.endswith("_Boy"):
-        candidates.append(stem.removesuffix("_Boy") + "_Girl")
-    candidates.append("default")
-    for name in candidates:
-        if (bundle_root() / "vs" / f"{name}.py").exists():
-            return name
-    return None
-
-
-def build_clip(source: Path, script: str | None, reporter: Reporter):
-    if script:
-        reporter.log("info", translate("VS_FILTER_APPLYING", script=f"vs/{script}.py"))
-        return importlib.import_module(f"vs.{script}").filter_chain(source)
+def build_clip(source: Path, filtered: bool, reporter: Reporter):
+    if filtered:
+        reporter.log("info", translate("VS_FILTER_APPLYING", script="vs/default.py"))
+        return importlib.import_module("vs.default").filter_chain(source)
     return vs.core.bs.VideoSource(str(source), showprogress=False)
 
 
@@ -154,7 +142,7 @@ def kill_on_stop(stop: Event, process: subprocess.Popen) -> None:
 
 def worker(
     source: Path,
-    script: str | None,
+    filtered: bool,
     ffmpeg_args: list[str],
     queue: multiprocessing.Queue,
     stop: Event,
@@ -169,7 +157,7 @@ def worker(
             sys.path.insert(0, str(path))
 
     try:
-        clip = build_clip(source, script, reporter)
+        clip = build_clip(source, filtered, reporter)
     except Exception as e:
         reporter.log("warning", translate("VS_CLIP_FAILED", stem=source.stem, error=e))
         queue.put(("result", False))
@@ -179,7 +167,7 @@ def worker(
         str(ffmpeg_path()),
         "-y",
         "-hide_banner",
-        "-v", "info",
+        "-v", "level+info",
         "-nostats",
         "-progress", "pipe:2",
         "-f", "yuv4mpegpipe",
@@ -194,9 +182,7 @@ def worker(
         stderr=subprocess.PIPE,
     )
 
-    # Closing stdin is not enough to stop ffmpeg on a cancel, because it first flushes the whole
-    # x265 lookahead, which takes a few minutes on the slow presets and keeps the audio inputs and
-    # the .part open, where the parent's cleanup cannot delete them.
+    # Closing stdin is not enough to stop ffmpeg on a cancel.
     threading.Thread(target=kill_on_stop, args=(stop, process), daemon=True).start()
 
     with (
@@ -231,7 +217,7 @@ def vapoursynth_filter(
     source: Path,
     reporter: Reporter,
     ffmpeg_args: list[str],
-    script: str | None = None,
+    filtered: bool,
 ) -> bool:
     """The worker runs in its own process because BestSource keeps the .ivf open for as long as
     the VapourSynth core lives, which is the whole process, and the cleanup would fail to delete it.
@@ -240,7 +226,7 @@ def vapoursynth_filter(
     stop = multiprocessing.Event()
     process = multiprocessing.Process(
         target=worker,
-        args=(source, script, ffmpeg_args, queue, stop),
+        args=(source, filtered, ffmpeg_args, queue, stop),
     )
     process.start()
     result = relay_worker(reporter, queue, process, stop)
