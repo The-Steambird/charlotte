@@ -27,26 +27,8 @@ class UpdateInfo:
     reason: str | None = None
 
 
-def parse_version(text: str) -> tuple[tuple[int, ...], int, int]:
-    """
-    1.2.3b1  -> ((1, 2, 3), 1, 1)
-    1.2.3b2  -> ((1, 2, 3), 1, 2)
-    1.2.3rc1 -> ((1, 2, 3), 2, 1)
-    1.2.3    -> ((1, 2, 3), 3, 0)
-    """
-    phase_rank = {"a": 0, "b": 1, "rc": 2}
-    final_rank = 3
-
-    core = text.strip().lstrip("vV")
-    # Everything up to the first letter is the dotted release.
-    # The rest is an optional pre-release suffix like "b1" or "rc2".
-    split = next((i for i, char in enumerate(core) if char.isalpha()), len(core))
-    release, prerelease = core[:split], core[split:]
-
-    numbers = tuple(int(part) for part in release.split("."))
-    phase = prerelease.rstrip("0123456789")
-    number = int(prerelease[len(phase) :] or 0)
-    return numbers, phase_rank.get(phase, final_rank), number
+def parse_version(text: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in text.split("."))
 
 
 def fetch_latest_release() -> dict:
