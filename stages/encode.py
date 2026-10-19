@@ -35,16 +35,20 @@ LEVEL_TAG = re.compile(r"\[(panic|fatal|error|warning|info|verbose|debug|trace)]
 
 
 def filter_escape(value: str) -> str:
-    """ffmpeg unescapes a `-vf` value twice, first as a filter graph and then as one filter's
-    options, and each pass has its own special characters. The first `re.sub` is for the
-    inner pass and the second wraps it for the outer one."""
+    r"""Escapes a path for an option value inside `-vf`, which ffmpeg unescapes once as a filter
+    graph and then once more as that filter's options.
+
+        C:\out\a'b.ass               path
+        C\:\\out\\a\'b.ass           after the first re.sub for option parser
+        C\\:\\\\out\\\\a\\\'b.ass    after the second for graph parser
+    """
     value = re.sub(r"([\\:'])", r"\\\1", value)
     return re.sub(r"([\\'\[\],;])", r"\\\1", value)
 
 
 def subtitle_filter(subtitle: Path, fonts: list[Path]) -> str:
-    """libass takes a font directory rather than font files. No matrix is set because the `ass`
-    filter blends in BT.601 whatever the input is tagged, which matches the source anyway."""
+    """libass takes a font directory rather than font files. No matrix is set because ass filter
+    uses BT.601 which source already uses."""
     graph = f"ass=filename={filter_escape(str(subtitle))}"
     if fonts:
         graph += f":fontsdir={filter_escape(str(fonts[0].parent))}"
@@ -54,8 +58,6 @@ def subtitle_filter(subtitle: Path, fonts: list[Path]) -> str:
 def encode_args(
     crf: float, preset: str, x265_params: str | None = None, video_filter: str | None = None
 ) -> list[str]:
-    """Audio and subtitles are muxed by this same ffmpeg run because the bundled build cannot
-    decode HEVC, and remuxing the B-frame stream later would clamp its timestamps."""
     if x265_params is None:
         tuning = [
             "keyint=300",
@@ -88,6 +90,8 @@ def encode_args(
         "-crf", str(crf),
         "-color_range", "tv",
         "-x265-params", params,
+        # Audio and subtitles are muxed in this same run because the bundled ffmpeg has no HEVC
+        # decoder, and without one a later remux gets the B-frame timestamps wrong and stutters.
         "-c:a", "copy",
         "-c:s", "copy",
     ]  # fmt: skip
