@@ -18,7 +18,7 @@ from utils.languages import AUDIO_LANGUAGES, SUBTITLES_LANGUAGES
 from utils.logger import log
 from utils.reporter import ConsoleReporter, JsonReporter, Reporter
 from utils.strings import translate
-from utils.update import clear_stale_binary, run_update
+from utils.update import clear_stale_files, run_update
 from utils.version import __version__
 
 
@@ -173,7 +173,7 @@ def run(
         typer.Option("--version", "-v", help=translate("HELP_VERSION")),
     ] = False,
 ) -> None:
-    clear_stale_binary()
+    clear_stale_files()
 
     if version:
         typer.echo(f"Charlotte {__version__}.")
