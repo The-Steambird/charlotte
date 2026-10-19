@@ -24,8 +24,8 @@ from utils.strings import translate
 lazy from utils.reporter import Reporter
 
 
-# Each pool sees half of a step's budget.
-SAMPLE_STEPS = (10_000_000, 30_000_000)
+# The two pools share this budget, which gives each half of it.
+SAMPLE_BYTES = 10_000_000
 MIN_SAMPLE_BYTES = 100_000
 BEAM = 50
 # The 16-bit stage scores too few entries to trust a narrow beam.
@@ -220,7 +220,7 @@ def decline(usm_file: Path, reason: str) -> Recovery:
     return Recovery(None, reason)
 
 
-def collect(usm_file: Path, reporter: Reporter, budget: int) -> Sample:
+def collect(usm_file: Path, reporter: Reporter) -> Sample:
     pools = (Stats(), Stats())
     seen: set[int] = set()  # payload digests, used to deal a repeated frame only once
     ivf: bool | None = None
@@ -250,7 +250,7 @@ def collect(usm_file: Path, reporter: Reporter, budget: int) -> Sample:
             seen.add(digest)
             used += pools[pool].add(payload)
             pool ^= 1
-            if used >= budget:
+            if used >= SAMPLE_BYTES:
                 break
 
         task.set_completed(file_size)
@@ -276,24 +276,16 @@ def crack_key(usm_file: Path, reporter: Reporter) -> Recovery:
         return decline(usm_file, translate("CRACK_STREAM_CIPHER"))
 
     log.info(translate("CRACK_STARTED", name=usm_file.name))
-    reason = ""
+    sample = collect(usm_file, reporter)
+    if not sample.ivf:
+        return decline(usm_file, translate("CRACK_NO_VIDEO"))
+    if sample.used < MIN_SAMPLE_BYTES:
+        return decline(usm_file, translate("CRACK_TOO_LITTLE_VIDEO", size=sample.used))
 
-    for budget in SAMPLE_STEPS:
-        sample = collect(usm_file, reporter, budget)
-        if not sample.ivf:
-            return decline(usm_file, translate("CRACK_NO_VIDEO"))
-        if sample.used < MIN_SAMPLE_BYTES:
-            return decline(usm_file, translate("CRACK_TOO_LITTLE_VIDEO", size=sample.used))
+    mask, reason = evaluate(sample)
+    if mask is None:
+        return decline(usm_file, translate("CRACK_UNCONFIRMED", reason=reason))
 
-        mask, reason = evaluate(sample)
-        if mask is not None:
-            blocks = sample.left.blocks + sample.right.blocks
-            log.info(translate("CRACK_RECOVERED", blocks=blocks))
-            return Recovery(key_from_mask(mask), "")
-
-        if sample.used < budget:
-            break  # the whole file was already sampled, and more budget adds nothing
-
-        log.info(translate("CRACK_RETRYING", size=sample.used))
-
-    return decline(usm_file, translate("CRACK_UNCONFIRMED", reason=reason))
+    blocks = sample.left.blocks + sample.right.blocks
+    log.info(translate("CRACK_RECOVERED", blocks=blocks))
+    return Recovery(key_from_mask(mask), "")

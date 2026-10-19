@@ -6,7 +6,6 @@ import pytest
 from conftest import chunk, video_header
 from resources.keys import DecryptionKey
 from stages.crack import (
-    SAMPLE_STEPS,
     STAGES,
     Recovery,
     Sample,
@@ -140,7 +139,7 @@ def test_repeated_payloads_are_dealt_once(tmp_path, reporter):
     usm_file = tmp_path / "Cs_Test.usm"
     usm_file.write_bytes(b"".join(chunk(b"@SFV", payload) for _ in range(5)))
 
-    sample = collect(usm_file, reporter, SAMPLE_STEPS[0])
+    sample = collect(usm_file, reporter)
 
     assert sample.used == 100 * BLOCK
     assert (sample.left.blocks, sample.right.blocks) == (100, 0)
