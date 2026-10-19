@@ -84,8 +84,8 @@ Process several files and/or directories at once:
 charlotte-cli "USM\6.3\Cs_NodKrai_AQ60161901_BSHMO_Boy.usm" "USM\7.1\Cs_ZD_AQ70190901_HE.usm" "USM\7.1\Cs_ZD_AQ70200801_TFR_Boy.usm" -o batch
 ```
 
-To check what is available for your files (decryption key, local subtitles, VapourSynth script)
-without processing anything:
+To check what is available for your files (decryption key, local subtitles) without processing
+anything:
 
 ```sh
 charlotte-cli "USM\7.1\Cs_ZD_AQ70190901_HE.usm" --probe
@@ -126,12 +126,12 @@ terminal on the front so that Windows' Process Scheduling Priority will prioriti
 | Option   | `--default-audio [LANG]` | `-da`     | Select default audio language: `zh`, `en`, `ja` (default), `ko`.                                                               |
 | Option   | `--default-sub [CODE]`   | `-ds`     | Select default subtitle: `chs`, `cht`, `de`, `en` (default), `es`, `fr`, `id`, `it`, `jp`, `kr`, `pt`, `ru`, `th`, `tr`, `vi`. |
 | Option   | `--key [KEY]`            | `-k`      | Decryption key for a single file. Use `audioKey:aesKey` format for a 7.1+ file.                                                |
-| Option   | `--vapoursynth`          | `-vs`     | Apply a matching VapourSynth filter script from `vs/`.                                                                         |
+| Option   | `--vapoursynth`          | `-vs`     | Apply the VapourSynth filter preset in `vs/default.py`.                                                                        |
 | Option   | `--hard-sub`             | `-hs`     | Burn the default subtitle language into the video with x265 and skip softsub muxing.                                           |
 | Option   | `--crf [VALUE]`          | `-crf`    | x265 CRF value for re-encoded output, i.e. `-vs` or `-hs` (default: `13.5`).                                                   |
 | Option   | `--preset [PRESET]`      | `-preset` | x265 preset for re-encoded output, i.e. `-vs` or `-hs` (default: `slower`).                                                    |
 | Option   | `--x265-params [PARAMS]` | `-x265`   | Custom x265 params (colon-separated). Overrides the built-in defaults below.                                                   |
-| Option   | `--probe`                | `-p`      | Only report what is available for each file (decryption key, local subtitles, VapourSynth script).                             |
+| Option   | `--probe`                | `-p`      | Only report what is available for each file (decryption key, local subtitles).                                                 |
 | Option   | `--crack`                | `-c`      | Recover key from USM file and report it, without demuxing or converting.                                                       |
 | Option   | `--json`                 | `-json`   | Emit newline-delimited JSON events on stdout for a GUI/automation frontend.                                                    |
 | Option   | `--update`               | `-u`      | Check GitHub for a newer release and update.                                                                                   |

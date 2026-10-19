@@ -88,7 +88,6 @@ def make_run(tmp_path, chunks=None, **overrides):
 
 
 def test_probe_reports_available(tmp_app_root, reporter, monkeypatch):
-    monkeypatch.setattr(pipeline, "find_vs_script", lambda stem: "Cs_A")
     write_subtitle("Cs_A", "EN")
     write_subtitle("Cs_A", "JP")
 
@@ -101,13 +100,11 @@ def test_probe_reports_available(tmp_app_root, reporter, monkeypatch):
         "key": True,
         "version": "5.3",
         "subtitles": ["EN", "JP"],
-        "vs_script": "Cs_A",
         "stream_cipher": False,
     }
 
 
 def test_probe_reports_missing_when_upstream_has_nothing(tmp_app_root, reporter, monkeypatch):
-    monkeypatch.setattr(pipeline, "find_vs_script", lambda stem: None)
     keys = make_keys(reporter, monkeypatch, {"list": []}, upstream={"list": []})
 
     probe_usm(write_usm(tmp_app_root, "Cs_A"), keys, reporter)
@@ -116,14 +113,12 @@ def test_probe_reports_missing_when_upstream_has_nothing(tmp_app_root, reporter,
     assert data["key"] is False
     assert data["version"] is None
     assert data["subtitles"] == []
-    assert data["vs_script"] is None
     assert reporter.prompts == []
 
 
 def test_probe_picks_up_an_accepted_upstream_update(tmp_app_root, reporter, monkeypatch):
     """This is why probe goes through Keys. A stem the local file misses is reported with its
     key and version once the update is accepted, without a second probe run."""
-    monkeypatch.setattr(pipeline, "find_vs_script", lambda stem: None)
     reporter.answer = True
     keys = make_keys(reporter, monkeypatch, {"list": []}, upstream=KEYS_DATA)
 
@@ -145,7 +140,6 @@ def test_probe_picks_up_an_accepted_upstream_update(tmp_app_root, reporter, monk
 def test_probe_of_the_stream_cipher_needs_its_own_keys(
     tmp_app_root, reporter, monkeypatch, group, key
 ):
-    monkeypatch.setattr(pipeline, "find_vs_script", lambda stem: None)
     keys_data = {"list": [{"version": "7.1", "videoGroups": [group | {"videos": ["Cs_A"]}]}]}
     keys = make_keys(reporter, monkeypatch, keys_data, upstream=keys_data)
 
@@ -158,10 +152,7 @@ def test_probe_of_the_stream_cipher_needs_its_own_keys(
 
 
 def test_probe_remaps_subtitle_stem_only(tmp_app_root, reporter, monkeypatch):
-    """BASENAME_FIXES applies to the subtitle lookup only, and the key and VapourSynth script
-    keep the original stem."""
-    seen_vs_stems = []
-    monkeypatch.setattr(pipeline, "find_vs_script", seen_vs_stems.append)  # returns None
+    """BASENAME_FIXES applies to the subtitle lookup only, and the event keeps the original stem."""
     write_subtitle("Cs_DQAQ200211_WanYeXianVideo", "EN")
 
     keys = make_keys(reporter, monkeypatch, {"list": []}, upstream={"list": []})
@@ -170,7 +161,6 @@ def test_probe_remaps_subtitle_stem_only(tmp_app_root, reporter, monkeypatch):
     data = last_event(reporter, "probe")
     assert data["stem"] == "Cs_200211_WanYeXianVideo"
     assert data["subtitles"] == ["EN"]
-    assert seen_vs_stems == ["Cs_200211_WanYeXianVideo"]
 
 
 # --- cancel and key fallback ---
@@ -381,7 +371,7 @@ def test_hard_sub_burns_the_default_language_with_no_soft_tracks(stub_stages, tm
     work_dir = tmp_path / "out" / "Cs_Test"
     ffmpeg_args = stub_stages.encode["ffmpeg_args"]
     assert stub_stages.encode["source"] == work_dir / "Cs_Test.ivf"
-    assert stub_stages.encode["script"] is None
+    assert stub_stages.encode["filtered"] is False
     assert "Cs_Test_JP.ass" in flag_value(ffmpeg_args, "-vf")
     assert input_files(ffmpeg_args) == [str(work_dir / "Cs_Test_0.flac")]
     assert ffmpeg_args[-1] == str(work_dir / "Cs_Test.mkv.part")
@@ -390,13 +380,12 @@ def test_hard_sub_burns_the_default_language_with_no_soft_tracks(stub_stages, tm
     assert stub_stages.mux is None
 
 
-def test_hard_sub_with_vapoursynth_encodes_once(stub_stages, tmp_path, reporter, monkeypatch):
-    monkeypatch.setattr(pipeline, "find_vs_script", lambda stem: "default")
+def test_hard_sub_with_vapoursynth_encodes_once(stub_stages, tmp_path, reporter):
     usm_file, opts, keys = make_run(tmp_path, hard_sub=True, vapoursynth=True)
 
     process_usm(usm_file, opts, keys, reporter)
 
-    assert stub_stages.encode["script"] == "default"
+    assert stub_stages.encode["filtered"] is True
     assert "Cs_Test_EN.ass" in flag_value(stub_stages.encode["ffmpeg_args"], "-vf")
     assert stub_stages.mux is None
 

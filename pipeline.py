@@ -9,7 +9,7 @@ from resources.keys import DecryptionKey, Keys, find_video_version, join_key, vi
 from resources.subtitles import local_subtitle_path
 from stages.ass import ASS
 from stages.crack import Recovery, crack_key
-from stages.encode import encode_args, find_vs_script, subtitle_filter, vapoursynth_filter
+from stages.encode import encode_args, subtitle_filter, vapoursynth_filter
 from stages.hca import AUDIO_CODECS, HCA
 from stages.mux import mux, mux_args, subset_fonts, track_code
 from stages.usm import USM, video_nonce
@@ -104,14 +104,6 @@ def encode_video(
     reporter: Reporter,
 ) -> bool:
     stem = video.stem
-    script = None
-    if opts.vapoursynth:
-        script = find_vs_script(stem)
-        if script is None:
-            log.warning(translate("VS_SCRIPT_MISSING", stem=stem))
-        elif script != stem:
-            log.info(translate("VS_SCRIPT_FALLBACK", stem=stem, script=script))
-
     burnt_subtitle = None
     if opts.hard_sub:
         by_language = {track_code(path): path for path in subtitle_files}
@@ -121,7 +113,7 @@ def encode_video(
         else:
             log.info(translate("HARD_SUB_BURNING", name=burnt_subtitle.name))
 
-    if not (script or burnt_subtitle):
+    if not (opts.vapoursynth or burnt_subtitle):
         return False
 
     video_filter = subtitle_filter(burnt_subtitle, opts.fonts) if burnt_subtitle else None
@@ -134,7 +126,9 @@ def encode_video(
         default_audio=opts.default_audio,
         default_subtitle=opts.default_subtitle,
     )
-    if vapoursynth_filter(source=video, reporter=reporter, ffmpeg_args=ffmpeg_args, script=script):
+    if vapoursynth_filter(
+        source=video, reporter=reporter, ffmpeg_args=ffmpeg_args, filtered=opts.vapoursynth
+    ):
         return True
     log.warning(translate("ENCODE_FALLBACK", stem=stem))
     return False
@@ -332,7 +326,6 @@ def probe_usm(usm_file: Path, keys: Keys, reporter: Reporter) -> None:
     has_key = lookup(stem) is not None
     version = find_video_version(keys.data, stem)
     subtitles = [lang for lang in SUBTITLES_LANGUAGES if local_subtitle_path(stem, lang).exists()]
-    vs_script = find_vs_script(stem)
 
     level = log.info if has_key else log.warning
     level(
@@ -341,7 +334,6 @@ def probe_usm(usm_file: Path, keys: Keys, reporter: Reporter) -> None:
             name=usm_file.name,
             key=translate("PROBE_KEY_FOUND") if has_key else translate("PROBE_KEY_MISSING"),
             subtitles=",".join(subtitles) or translate("PROBE_NONE"),
-            script=vs_script or translate("PROBE_NONE"),
         )
     )
     reporter.event(
@@ -351,7 +343,6 @@ def probe_usm(usm_file: Path, keys: Keys, reporter: Reporter) -> None:
         key=has_key,
         version=version,
         subtitles=subtitles,
-        vs_script=vs_script,
         stream_cipher=stream_cipher,
     )
 
