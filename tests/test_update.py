@@ -3,8 +3,8 @@ import hashlib
 import sys
 import zipfile
 
-from pathlib import Path
 from types import SimpleNamespace
+lazy from pathlib import Path
 
 import pytest
 
@@ -181,7 +181,11 @@ def test_install_bundle_rejects_a_bad_bundle_before_touching_anything(tmp_path, 
 
     with pytest.raises(CharlotteError):
         install_bundle(zip_path, folder)
-    assert sorted(path.name for path in tmp_path.rglob("*")) == ["app", "b.zip", "charlotte-cli.exe"]
+    assert sorted(path.name for path in tmp_path.rglob("*")) == [
+        "app",
+        "b.zip",
+        "charlotte-cli.exe",
+    ]
 
 
 def released(tmp_path, monkeypatch, sha256: str | None = None) -> tuple[UpdateInfo, Path]:
