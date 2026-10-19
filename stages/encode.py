@@ -62,7 +62,7 @@ def encode_args(
             "min-keyint=30",
             "no-open-gop=1",
             "aq-mode=3",
-            "aq-strength=0.75",
+            "aq-strength=1.0",
             "qcomp=0.72",
             "cbqpoffs=-2",
             "crqpoffs=-2",

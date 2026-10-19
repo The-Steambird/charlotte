@@ -143,7 +143,7 @@ When `-vs` or `-hs` is used, the following x265 params are applied automatically
 `--x265-params` is set:
 
 ```
-keyint=300:min-keyint=30:no-open-gop=1:aq-mode=3:aq-strength=0.75:qcomp=0.72:cbqpoffs=-2:crqpoffs=-2:no-cutree=1:psy-rd=2.0:psy-rdoq=1.7:no-strong-intra-smoothing=1:deblock=-2,-2:no-sao=1:no-sao-non-deblock=1
+keyint=300:min-keyint=30:no-open-gop=1:aq-mode=3:aq-strength=1.0:qcomp=0.72:cbqpoffs=-2:crqpoffs=-2:no-cutree=1:psy-rd=2.0:psy-rdoq=1.7:no-strong-intra-smoothing=1:deblock=-2,-2:no-sao=1:no-sao-non-deblock=1
 ```
 
 With `--preset slow`, `slower` (default), `veryslow` or `placebo`, these will be applied
