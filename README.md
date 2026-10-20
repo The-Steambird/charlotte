@@ -128,7 +128,7 @@ terminal on the front so that Windows' Process Scheduling Priority will prioriti
 | Option   | `--key [KEY]`            | `-k`      | Decryption key for a single file. Use `audioKey:aesKey` format for a 7.1+ file.                                                |
 | Option   | `--vapoursynth`          | `-vs`     | Apply the VapourSynth filter preset in `vs/default.py`.                                                                        |
 | Option   | `--hard-sub`             | `-hs`     | Burn the default subtitle language into the video with x265 and skip softsub muxing.                                           |
-| Option   | `--crf [VALUE]`          | `-crf`    | x265 CRF value for re-encoded output, i.e. `-vs` or `-hs` (default: `13.5`).                                                   |
+| Option   | `--crf [VALUE]`          | `-crf`    | x265 CRF value for re-encoded output, i.e. `-vs` or `-hs` (default: `13`).                                                   |
 | Option   | `--preset [PRESET]`      | `-preset` | x265 preset for re-encoded output, i.e. `-vs` or `-hs` (default: `slower`).                                                    |
 | Option   | `--x265-params [PARAMS]` | `-x265`   | Custom x265 params (colon-separated). Overrides the built-in defaults below.                                                   |
 | Option   | `--probe`                | `-p`      | Only report what is available for each file (decryption key, local subtitles).                                                 |
@@ -143,7 +143,7 @@ When `-vs` or `-hs` is used, the following x265 params are applied automatically
 `--x265-params` is set:
 
 ```
-keyint=300:min-keyint=30:no-open-gop=1:aq-mode=3:aq-strength=1.0:qcomp=0.72:cbqpoffs=-2:crqpoffs=-2:no-cutree=1:psy-rd=2.0:psy-rdoq=1.7:no-strong-intra-smoothing=1:deblock=-2,-2:no-sao=1:no-sao-non-deblock=1
+keyint=300:min-keyint=30:no-open-gop=1:aq-mode=3:aq-strength=1.0:qcomp=0.6:cbqpoffs=-2:crqpoffs=-2:no-cutree=1:psy-rd=2.0:psy-rdoq=1.7:no-strong-intra-smoothing=1:deblock=-2,-2:no-sao=1
 ```
 
 With `--preset slow`, `slower` (default), `veryslow` or `placebo`, these will be applied

@@ -17,7 +17,7 @@ from utils.reporter import QueueReporter, Reporter, relay_worker
 from utils.strings import translate
 
 
-DEFAULT_CRF = 13.5
+DEFAULT_CRF = 13.0
 DEFAULT_PRESET = "slower"
 X265_COLOUR_TAGS = "colorprim=bt709:transfer=bt709:colormatrix=smpte170m"
 
@@ -65,7 +65,7 @@ def encode_args(
             "no-open-gop=1",
             "aq-mode=3",
             "aq-strength=1.0",
-            "qcomp=0.72",
+            "qcomp=0.6",
             "cbqpoffs=-2",
             "crqpoffs=-2",
             "no-cutree=1",
@@ -74,7 +74,6 @@ def encode_args(
             "no-strong-intra-smoothing=1",
             "deblock=-2,-2",
             "no-sao=1",
-            "no-sao-non-deblock=1",
         ]
         if preset in ("slow", "slower", "veryslow", "placebo"):
             tuning += ["ref=6", "bframes=8", "lookahead-slices=0", "rd=4", "max-merge=5", "tskip=1"]
