@@ -19,7 +19,7 @@ dependencies = [
     "vapoursynth-deblock>=9.0",
     "vapoursynth-edgemasks>=4.1",
     "vapoursynth-resize2>=0.5.1",
-    "vapoursynth-vszip>=22.1.0",
+    "vapoursynth-vszip>=23.1.0",
     "vapoursynth-zsmooth>=0.20.0",
     "vs-placebo>=2.0.4",
     "vsjetpack>=2.2.6",
@@ -29,7 +29,7 @@ dependencies = [
 dev = [
     "deptry>=0.25.1",
     "pytest>=9.1.1",
-    "ruff>=0.17.1",
+    "ruff>=0.17.2",
     "vsview>=0.13.0",
 ]
 build = [
