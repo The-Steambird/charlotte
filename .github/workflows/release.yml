@@ -51,7 +51,7 @@ jobs:
       - name: Build with PyInstaller
         run: uv run pyinstaller charlotte.spec
 
-      # If pyproject.toml version tag doesn't match the release, stop it.
+      # Stops the release when the version in pyproject.toml differs from the tag.
       - name: Smoke test
         run: |
           $reported = "$(dist/charlotte-cli.exe --version)".Trim()

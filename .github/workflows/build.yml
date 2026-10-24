@@ -4,12 +4,14 @@ on:
       - master
     paths:
       - charlotte.spec
+      - runtime_hook.py
       - pyproject.toml
       - uv.lock
       - .github/workflows/build.yml
   pull_request:
     paths:
       - charlotte.spec
+      - runtime_hook.py
       - pyproject.toml
       - uv.lock
       - .github/workflows/build.yml
