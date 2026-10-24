@@ -11,7 +11,7 @@ from utils.errors import CharlotteError
 from utils.logger import log
 from utils.paths import app_root
 from utils.strings import translate
-lazy from utils.http import NO_RETRIES
+lazy from utils.http import RETRIES
 lazy from utils.reporter import Reporter
 
 
@@ -55,7 +55,7 @@ def fetch_upstream_keys() -> bytes | None:
     )
     try:
         log.info(translate("KEYS_FETCHING"))
-        response = urllib3.request("GET", keys_url, timeout=10.0, retries=NO_RETRIES)
+        response = urllib3.request("GET", keys_url, timeout=10.0, retries=RETRIES)
         if response.status == 200:
             log.info(translate("KEYS_FETCHED"))
             return response.data
