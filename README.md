@@ -203,6 +203,7 @@ uv run pyinstaller charlotte.spec
 
 - [GI-cutscenes](https://github.com/ToaHartor/GI-cutscenes) for the original decryption
   implementation Charlotte is based on
+- [irminsul](https://github.com/konkers/irminsul) for how to interpret Genshin network packets
 - [UsmDiviner](https://github.com/Senkin219/UsmDiviner) for inspiring me with the key guessing
   algorithm
 - [Dimbreath](https://gitlab.com/Dimbreath/animegamedata2) for subtitles
