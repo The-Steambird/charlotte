@@ -13,7 +13,8 @@ PORTS = (22101, 22102)
 # The game never resends a segment it received, even when the capture missed it. A gap still
 # open after this long is skipped.
 GAP_SECONDS = 3.0
-SESSION_WINDOW_MS = 10_000  # +/- 10s search
+# +/- 10s search
+SESSION_WINDOW_MS = 10_000
 RECOVERY_TRIES = 3
 
 
@@ -159,8 +160,8 @@ class Sniffer:
         return commands
 
     def decrypt(self, message: bytes, from_server: bool) -> list[Command]:
-        # A message < 12 parses under no key, which will only pick a wrong dispatch key or use
-        # up a key search try.
+        # Messages shorter than framing size (12) parses under no key, which would only pick a wrong
+        # dispatch key or waste a recovery try.
         if self.dead or len(message) < FRAMING_SIZE:
             return []
         if self.key is None:
@@ -192,7 +193,8 @@ class Sniffer:
         return self.recover() if self.seeds else []
 
     def recover(self) -> list[Command]:
-        """Tries more than one waiting message (missing part finds no key)."""
+        """Tries up to RECOVERY_TRIES waiting messages, because one that lost a part finds no
+        key."""
         while self.tried < min(len(self.waiting), RECOVERY_TRIES):
             message, _ = self.waiting[self.tried]
             self.tried += 1
@@ -230,5 +232,6 @@ class Sniffer:
             seeds = server_seeds(body, self.rsa_keys)
             if seeds:
                 self.seeds = seeds
-                self.sent_ms = dict(fields(header).varints).get(6, 0)
+                header_fields = dict(fields(header).varints)
+                self.sent_ms = header_fields.get(6, 0)
         return Command(command_id, body, from_server)
