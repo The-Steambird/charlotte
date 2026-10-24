@@ -117,11 +117,12 @@ def encode_video(
         return False
 
     video_filter = subtitle_filter(burnt_subtitle, opts.fonts) if burnt_subtitle else None
+    soft_subtitles = [] if burnt_subtitle else subtitle_files
     ffmpeg_args = mux_args(
         partial_mkv,
         encode_args(opts.crf, opts.preset, opts.x265_params, video_filter),
         audio_files,
-        [] if burnt_subtitle else subtitle_files,
+        soft_subtitles,
         fonts=font_subsets,
         default_audio=opts.default_audio,
         default_subtitle=opts.default_subtitle,
@@ -162,13 +163,15 @@ def cleanup_files(created: list[Path], output_path: Path) -> None:
 
 
 def process_usm(usm_file: Path, opts: Options, keys: Keys, reporter: Reporter) -> None:
-    reporter.checkpoint()
-
     stem = usm_file.stem
     log.info(translate("PROCESSING", name=usm_file.name))
+    # A skip is honored only for the file the last job_start named. A checkpoint ahead of it
+    # would let a late skip for the previous file skip this one.
     reporter.event("job_start", file=usm_file.name, stem=stem)
+    reporter.checkpoint()
 
-    final_mkv = opts.output / (f"{stem}.mkv" if opts.flat else f"{stem}/{stem}.mkv")
+    output_path = opts.output / stem
+    final_mkv = (opts.output if opts.flat else output_path) / f"{stem}.mkv"
     if opts.skip_existing and final_mkv.exists():
         log.info(translate("SKIP_EXISTING_OUTPUT", name=usm_file.name))
         reporter.event("job_skipped", file=usm_file.name, reason="exists")
@@ -183,7 +186,6 @@ def process_usm(usm_file: Path, opts: Options, keys: Keys, reporter: Reporter) -
     reporter.checkpoint()
 
     usm = USM(usm_file, key, nonce)
-    output_path = opts.output / stem
     output_path.mkdir(exist_ok=True)
     # A killed ffmpeg can leave a broken file that --skip-existing would mistake for a finished one.
     partial_mkv = output_path / f"{stem}.mkv.part"
@@ -207,7 +209,6 @@ def process_usm(usm_file: Path, opts: Options, keys: Keys, reporter: Reporter) -
                 codec=opts.audio_codec,
             )
         subtitle_files, font_subsets = subtitles.result()
-        created += subtitle_files
         reporter.checkpoint()
 
         encoded = encode_video(
@@ -286,7 +287,7 @@ def crack_usm(usm_file: Path, reporter: Reporter) -> Recovery:
 
 
 def crack_all(usm_files: list[Path], reporter: Reporter) -> None:
-    failures: dict[str, str] = {}  # filename -> why its key could not be recovered
+    failures: dict[str, str] = {}
     for usm_file in usm_files:
         reporter.event("job_start", file=usm_file.name, stem=usm_file.stem)
         try:
@@ -327,15 +328,13 @@ def probe_usm(usm_file: Path, keys: Keys, reporter: Reporter) -> None:
     version = find_video_version(keys.data, stem)
     subtitles = [lang for lang in SUBTITLES_LANGUAGES if local_subtitle_path(stem, lang).exists()]
 
-    level = log.info if has_key else log.warning
-    level(
-        translate(
-            "PROBE_RESULT",
-            name=usm_file.name,
-            key=translate("PROBE_KEY_FOUND") if has_key else translate("PROBE_KEY_MISSING"),
-            subtitles=",".join(subtitles) or translate("PROBE_NONE"),
-        )
-    )
+    key_text = translate("PROBE_KEY_FOUND") if has_key else translate("PROBE_KEY_MISSING")
+    subtitle_text = ",".join(subtitles) or translate("PROBE_NONE")
+    message = translate("PROBE_RESULT", name=usm_file.name, key=key_text, subtitles=subtitle_text)
+    if has_key:
+        log.info(message)
+    else:
+        log.warning(message)
     reporter.event(
         "probe",
         file=usm_file.name,
