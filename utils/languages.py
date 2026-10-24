@@ -21,4 +21,4 @@ SUBTITLES_LANGUAGES = {
 
 def get_language(lang: str) -> str:
     """Translate the subtitle file-name code to a BCP-47 language tag."""
-    return SUBTITLES_LANGUAGES.get(lang, ("und", "Unknown"))[0]
+    return SUBTITLES_LANGUAGES[lang][0]
