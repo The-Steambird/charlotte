@@ -11,6 +11,7 @@ from utils.errors import CharlotteError
 from utils.logger import log
 from utils.paths import app_root
 from utils.strings import translate
+lazy from utils.http import NO_RETRIES
 lazy from utils.reporter import Reporter
 
 
@@ -54,7 +55,7 @@ def fetch_upstream_keys() -> bytes | None:
     )
     try:
         log.info(translate("KEYS_FETCHING"))
-        response = urllib3.request("GET", keys_url, timeout=10.0)
+        response = urllib3.request("GET", keys_url, timeout=10.0, retries=NO_RETRIES)
         if response.status == 200:
             log.info(translate("KEYS_FETCHED"))
             return response.data
@@ -79,12 +80,18 @@ def find_video(data: dict, filename: str) -> tuple[dict, dict] | None:
 
 def find_video_key(data: dict, filename: str) -> int | None:
     found = find_video(data, filename)
-    return found[1].get("videoKey") if found else None
+    if found is None:
+        return None
+    _, group = found
+    return group.get("videoKey")
 
 
 def find_video_version(data: dict, filename: str) -> str | None:
     found = find_video(data, filename)
-    return found[0].get("version") if found else None
+    if found is None:
+        return None
+    version, _ = found
+    return version.get("version")
 
 
 def split_key(key: int) -> tuple[bytes, bytes]:
@@ -214,10 +221,10 @@ class Keys:
         return found
 
     def decryption_key(self, stem: str) -> DecryptionKey | None:
-        key1 = calculate_key_from_filename(stem)
         key2 = self.get(stem)
         if key2 is None:
             return None
 
+        key1 = calculate_key_from_filename(stem)
         combined = wrap_key(key1 + key2)
         return DecryptionKey(*split_key(combined))
