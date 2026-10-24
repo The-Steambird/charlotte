@@ -53,7 +53,7 @@ class JsonReporter(Reporter):
     def __init__(self, out=None, stdin=None, hangup_cancels=False):
         self.out = out if out is not None else sys.stdout
         self.stdin = stdin if stdin is not None else sys.stdin
-        # Key capture runs elevated and outside the GUI's Job Object. Once GUI is gone, its
+        # Key capture runs elevated and outside the GUI's Job Object. Once the GUI is gone, its
         # pipe closing is the only thing left that can stop the capture.
         self.hangup_cancels = hangup_cancels
         self.question_counter = count()
@@ -97,8 +97,8 @@ class JsonReporter(Reporter):
             self.emit({"type": "stage", "stage": stage, "status": "end"})
 
     def update_task(self, handle, current, total):
-        # This sends at most one event per whole percent. The final tick always lands on a new
-        # 100, which is why the guard never drops it.
+        # Sends at most one event per whole percent. The guard never drops the final tick
+        # because it always lands on a new 100.
         percent = int(current * 100 / total) if total else 0
         if percent != self.last_percent.get(handle, -1):
             self.last_percent[handle] = percent
@@ -170,8 +170,8 @@ class JsonReporter(Reporter):
 
     def drain_commands(self):
         """Read every command already waiting on the stdin pipe without blocking. Does nothing
-        in non-pipe mode. GUI closing stdin means no more commands will arrive instead of a
-        cancel."""
+        in non-pipe mode. The GUI closing stdin means no more commands will arrive, and it is
+        a cancel only on a capture's pipe."""
         if self.cancelled or self.pipe_fd is None:
             return
         while True:
@@ -180,7 +180,7 @@ class JsonReporter(Reporter):
                 self.pipe_fd = None
                 self.cancelled = self.hangup_cancels
                 break
-            if waiting == 0:  # Nothing waiting
+            if waiting == 0:
                 break
             self.stdin_buf += os.read(self.pipe_fd, waiting)
         while (raw_line := self.pop_line()) is not None:
