@@ -22,12 +22,13 @@ def subset_fonts(fonts: Sequence[Path], subtitle_files: list[Path], folder: Path
     text += unicodedata.normalize("NFKD", text)
     subsets = []
     for font in fonts:
+        subset = folder / font.name
         with TTFont(font, recalcTimestamp=False) as ttf:
             subsetter = Subsetter()
             subsetter.populate(text=text)
             subsetter.subset(ttf)
-            ttf.save(folder / font.name)
-        subsets.append(folder / font.name)
+            ttf.save(subset)
+        subsets.append(subset)
     return subsets
 
 
@@ -68,7 +69,8 @@ def mux_args(
         args.extend([f"-metadata:s:s:{i}", f"language={get_language(code)}"])
         args.extend([f"-disposition:s:{i}", "default" if code == default_subtitle else "0"])
 
-    for i, font in enumerate(fonts if subtitles else ()):
+    attached = fonts if subtitles else []
+    for i, font in enumerate(attached):
         args.extend(
             [
                 "-attach",
