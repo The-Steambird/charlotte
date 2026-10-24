@@ -1,3 +1,4 @@
+import os
 import types
 
 import pytest
@@ -7,7 +8,7 @@ from typer.testing import CliRunner
 import main
 import pipeline
 
-from conftest import forbid_call
+from conftest import FakeReporter, forbid_call
 from pipeline import Options
 from utils.errors import Cancelled, CharlotteError, Skipped
 from utils.version import __version__
@@ -56,12 +57,63 @@ def test_update_runs_without_input_files(monkeypatch):
     assert called == [False]
 
 
-@pytest.mark.parametrize("extra", [["Cs_A.usm"], ["--probe"], ["--crack"], ["--key", "1"]])
+@pytest.mark.parametrize(
+    "extra", [["Cs_A.usm"], ["--probe"], ["--crack"], ["--capture"], ["--key", "1"]]
+)
 def test_update_rejects_every_other_mode(monkeypatch, extra):
     """--update replaces the binary and exits. Combining it with a run would leave the engine
     mid-batch on a version that just got swapped out from under it."""
     monkeypatch.setattr(main, "run_update", forbid_call)
     assert runner.invoke(main.app, ["--update", *extra]).exit_code == 1
+
+
+@pytest.mark.parametrize("extra", [["Cs_A.usm"], ["--probe"], ["--crack"], ["--key", "1"]])
+def test_capture_rejects_every_other_mode(monkeypatch, extra):
+    monkeypatch.setattr(main, "KeyCapture", forbid_call)
+    assert runner.invoke(main.app, ["--capture", *extra]).exit_code == 1
+
+
+@pytest.mark.parametrize("flags", [["--json"], ["--capture"]])
+def test_pipe_is_only_for_a_gui_capture(monkeypatch, flags):
+    monkeypatch.setattr(main, "open_pipe", forbid_call)
+    assert runner.invoke(main.app, [*flags, "--pipe", "charlotte-x"]).exit_code == 1
+
+
+def test_the_guis_capture_command_reaches_the_pipe_and_the_language(monkeypatch):
+    """CaptureClient in MonsieurVerite starts the engine with exactly these arguments, and a
+    renamed flag here would fail every capture the GUI starts."""
+    opened = []
+
+    def open_pipe(name):
+        opened.append((name, os.environ["CHARLOTTE_LANG"]))
+        return FakeReporter()
+
+    monkeypatch.setattr(main, "open_pipe", open_pipe)
+    monkeypatch.setattr(main, "is_admin", lambda: True)
+    monkeypatch.setattr(main, "Keys", lambda reporter: types.SimpleNamespace(data={}))
+    monkeypatch.setattr(
+        main, "KeyCapture", lambda data, reporter, legacy: types.SimpleNamespace(run=lambda: None)
+    )
+    monkeypatch.setenv("CHARLOTTE_LANG", "en-US")
+
+    args = ["--capture", "--json", "--pipe", "charlotte-capture-1", "--lang", "ja-JP"]
+    try:
+        assert runner.invoke(main.app, args).exit_code == 0
+    finally:
+        main.strings.cache_clear()
+    assert opened == [("charlotte-capture-1", "ja-JP")]
+
+
+def test_capture_from_the_gui_without_admin_rights_fails_instead_of_prompting(monkeypatch):
+    """Only a console run relaunches itself through UAC, because the GUI could not read the
+    output of a process it did not start."""
+    monkeypatch.setattr(main, "is_admin", lambda: False)
+    monkeypatch.setattr(main, "relaunch_as_admin", forbid_call)
+    monkeypatch.setattr(main, "KeyCapture", forbid_call)
+
+    result = runner.invoke(main.app, ["--capture", "--json"])
+    assert result.exit_code == 1
+    assert '{"type":"error","file":"","message":' in result.stdout
 
 
 def test_no_input_is_an_error():

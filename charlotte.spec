@@ -11,6 +11,7 @@ a = Analysis(
         ("pyproject.toml", "."),  # utils/version.py reads __version__ out of it at runtime
         ("vs/*.py", "vs"),
         ("locales/*.json", "locales"),
+        ("capture/secrets/*", "capture/secrets"),
         *collect_data_files(
             "vapoursynth",
             excludes=[

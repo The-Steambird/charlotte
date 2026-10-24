@@ -250,6 +250,9 @@ mkvmerge.exe
 /.agents
 CLAUDE.md
 *.json
-!/locales/*.json
 /test/
 /sweep
+
+# Include
+!/locales/*.json
+!/capture/secrets/*.json

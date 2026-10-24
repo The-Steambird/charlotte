@@ -1,4 +1,5 @@
 import multiprocessing
+import os
 
 from pathlib import Path
 from typing import Annotated, NoReturn
@@ -14,12 +15,17 @@ from resources.keys import Keys
 from resources.subtitles import sync_subtitles
 from stages.encode import DEFAULT_CRF, DEFAULT_PRESET
 from stages.hca import AUDIO_CODECS
+from utils.elevation import is_admin, relaunch_as_admin
+from utils.errors import CharlotteError
 from utils.languages import AUDIO_LANGUAGES, SUBTITLES_LANGUAGES
-from utils.logger import log
+from utils.logger import ReporterHandler, log
 from utils.reporter import ConsoleReporter, JsonReporter, Reporter
-from utils.strings import translate
+from utils.reporter.console import wait_for_key
+from utils.reporter.json import open_pipe
+from utils.strings import strings, translate
 from utils.update import clear_stale_files, run_update
 from utils.version import __version__
+lazy from capture.run import KeyCapture
 
 
 app = typer.Typer(help=translate("APP_HELP"))
@@ -54,7 +60,7 @@ def choice_option(*names: str, help: str, choices: list[str]) -> OptionInfo:
 
 def die(message: str, reporter: Reporter, name: str = "") -> NoReturn:
     reporter.event("error", file=name, message=message)
-    log.error(message)
+    log.error(message, extra={"sent_as_event": True})
     raise typer.Exit(1)
 
 
@@ -77,6 +83,45 @@ def collect_files(input_paths: list[Path], reporter: Reporter) -> list[Path]:
             die(translate("NOT_FILE_OR_DIRECTORY", path=path), reporter, str(path))
 
     return list(dict.fromkeys(files))
+
+
+def run_capture(reporter: Reporter, json_output: bool, pause: bool, legacy: bool) -> None:
+    if not is_admin():
+        if json_output:
+            die(translate("CAPTURE_NEEDS_ADMIN"), reporter)
+        if not relaunch_as_admin(["--pause"]):
+            die(translate("CAPTURE_ELEVATION_DECLINED"), reporter)
+        log.info(translate("CAPTURE_ELEVATED_WINDOW"))
+        return
+
+    try:
+        KeyCapture(Keys(reporter).data, reporter, legacy).run()
+    except CharlotteError as e:
+        die(str(e), reporter)
+    except Exception as e:
+        # The GUI cannot read the stderr of a capture it started and gets the error as an event.
+        # The traceback is logged here because typer would print it only after the pause below.
+        message = translate("CAPTURE_CRASHED", error=repr(e))
+        reporter.event("error", file="", message=message)
+        log.exception(message, extra={"sent_as_event": True})
+        raise typer.Exit(1) from e
+    finally:
+        # The elevated window closes with the process, and the keys in it would go too.
+        if pause:
+            wait_for_key()
+
+
+def open_reporter(json_output: bool, pipe: str | None, capture: bool) -> Reporter:
+    if pipe is None:
+        return JsonReporter() if json_output else ConsoleReporter()
+    if not (capture and json_output):
+        die(translate("PIPE_ONLY_WITH_CAPTURE"), ConsoleReporter())
+    try:
+        reporter = open_pipe(pipe)
+    except (ValueError, OSError) as e:
+        die(translate("PIPE_OPEN_FAILED", name=pipe, error=e), ConsoleReporter())
+    log.addHandler(ReporterHandler(reporter))
+    return reporter
 
 
 @app.command()
@@ -129,6 +174,14 @@ def run(
         bool,
         typer.Option("--update", "-u", help=translate("HELP_UPDATE")),
     ] = False,
+    capture: Annotated[
+        bool,
+        typer.Option("--capture", "-cap", help=translate("HELP_CAPTURE")),
+    ] = False,
+    pause: Annotated[bool, typer.Option("--pause", hidden=True)] = False,
+    pipe: Annotated[str | None, typer.Option("--pipe", hidden=True)] = None,
+    lang: Annotated[str | None, typer.Option("--lang", hidden=True)] = None,
+    legacy_capture: Annotated[bool, typer.Option("--legacy-capture", hidden=True)] = False,
     key: Annotated[
         str | None,
         typer.Option("--key", "-k", help=translate("HELP_KEY")),
@@ -174,17 +227,27 @@ def run(
     ] = False,
 ) -> None:
     clear_stale_files()
+    # The GUI passes its language as a flag, because UAC drops the environment.
+    if lang:
+        os.environ["CHARLOTTE_LANG"] = lang
+        # Translating the help texts on import already cached the default language.
+        strings.cache_clear()
 
     if version:
         typer.echo(f"Charlotte {__version__}.")
         raise typer.Exit(0)
 
-    reporter = JsonReporter() if json_output else ConsoleReporter()
+    reporter = open_reporter(json_output, pipe, capture)
 
     if update:
-        if usm_paths or probe or crack or key is not None:
+        if usm_paths or probe or crack or capture or key is not None:
             die(translate("UPDATE_WITH_OTHER_MODES"), reporter)
         run_update(reporter, json_output)
+        return
+    if capture:
+        if usm_paths or probe or crack or key is not None:
+            die(translate("CAPTURE_WITH_OTHER_MODES"), reporter)
+        run_capture(reporter, json_output, pause, legacy_capture)
         return
     if crack and (probe or key is not None):
         die(translate("CRACK_WITH_OTHER_MODES"), reporter)

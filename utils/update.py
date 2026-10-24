@@ -1,7 +1,5 @@
 import hashlib
-import msvcrt
 import sys
-import time
 import zipfile
 
 from dataclasses import dataclass
@@ -12,6 +10,7 @@ lazy import urllib3
 
 from utils.errors import Cancelled, CharlotteError
 from utils.logger import log
+from utils.reporter.console import pause_before_exit
 from utils.strings import translate
 from utils.version import __version__
 lazy from utils.reporter import Reporter
@@ -224,25 +223,6 @@ def apply_update(info: UpdateInfo, reporter: Reporter) -> None:
         install_bundle(bundle, folder)
     finally:
         bundle.unlink(missing_ok=True)
-
-
-def key_pressed_within(seconds: float) -> bool:
-    deadline = time.monotonic() + seconds
-    while time.monotonic() < deadline:
-        if msvcrt.kbhit():
-            msvcrt.getch()
-            return True
-        time.sleep(0.1)
-    return False
-
-
-def pause_before_exit(seconds: int = 5) -> None:
-    for remaining in range(seconds, 0, -1):
-        sys.stderr.write(f"\r{translate('EXIT_COUNTDOWN', seconds=remaining)} ")
-        sys.stderr.flush()
-        if key_pressed_within(1):
-            break
-    sys.stderr.write("\n")
 
 
 def run_update(reporter: Reporter, json_mode: bool) -> None:

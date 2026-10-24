@@ -134,6 +134,12 @@ def video_nonce(file_path: Path) -> int | None:
         raise CharlotteError(translate("VIDEO_HEADER_CORRUPT", name=file_path.name)) from e
 
 
+def decrypt_stream(data: bytearray, aes_key: bytes, nonce: int, frame_time: int) -> None:
+    iv = struct.pack(">QI4x", nonce, frame_time)
+    cipher = AES.new(aes_key, AES.MODE_CTR, nonce=b"", initial_value=iv)
+    data[MASK_START:] = cipher.decrypt(data[MASK_START:])
+
+
 class USM:
     def __init__(self, file_path: Path, key: DecryptionKey, nonce: int | None = None):
         self.file_path = file_path
@@ -215,11 +221,6 @@ class USM:
         later = body[: HEAD_SIZE // BLOCK]
         head ^= mask1 ^ np.bitwise_xor.accumulate(later, axis=0)
 
-    def decrypt_stream(self, data: bytearray, frame_time: int) -> None:
-        iv = struct.pack(">QI4x", self.nonce, frame_time)
-        cipher = AES.new(self.aes_key, AES.MODE_CTR, nonce=b"", initial_value=iv)
-        data[MASK_START:] = cipher.decrypt(data[MASK_START:])
-
     def demux(
         self, output_path: Path, reporter: Reporter, created: list[Path]
     ) -> tuple[Path, list[Path]]:
@@ -247,7 +248,7 @@ class USM:
                     if self.nonce is None:
                         self.decrypt_video(buffer)
                     else:
-                        self.decrypt_stream(buffer, header.frame_time)
+                        decrypt_stream(buffer, self.aes_key, self.nonce, header.frame_time)
                     write_to(video, buffer)
                 elif header.signature == b"@SFA" and header.is_data:
                     write_to(output_path / f"{base_name}_{header.channel_no}.hca", data)
