@@ -1,3 +1,6 @@
+import io
+import os
+
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -22,6 +25,7 @@ from resources.keys import DecryptionKey, Keys, calculate_key_from_filename, spl
 from resources.subtitles import local_subtitle_path
 from stages.crack import Recovery
 from utils.errors import Cancelled, CharlotteError, Skipped
+from utils.reporter import JsonReporter
 
 
 KEYS_DATA = {"list": [{"version": "5.3", "videoKey": 111, "videos": ["Cs_A"]}]}
@@ -191,6 +195,21 @@ def test_stop_mid_demux_cleans_partial_files_unless_nc(tmp_path, error, no_clean
         process_usm(usm_file, opts, keys, StopDuringDemux(error))
 
     assert (tmp_path / "out" / "Cs_Test" / "Cs_Test_0.hca").exists() is no_cleanup
+
+
+def test_a_late_skip_for_the_previous_file_does_not_skip_the_next(tmp_path, monkeypatch):
+    read_fd, write_fd = os.pipe()
+    os.write(write_fd, b'{"type": "skip", "file": "Cs_Done.usm"}\n')
+    os.close(write_fd)
+    reporter = JsonReporter(out=io.StringIO(), stdin=os.fdopen(read_fd, "rb"))
+    reporter.event("job_start", file="Cs_Done.usm")
+    usm_file, opts, keys = make_run(tmp_path)
+    monkeypatch.setattr(pipeline, "find_keys", lambda *args: None)
+
+    process_usm(usm_file, opts, keys, reporter)
+
+    events = [orjson.loads(line) for line in reporter.out.getvalue().splitlines()]
+    assert events[-1] == {"type": "job_skipped", "file": "Cs_Test.usm", "reason": "no_key"}
 
 
 def test_missing_key_falls_back_to_cracking(tmp_path, reporter, monkeypatch):
