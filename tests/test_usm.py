@@ -64,8 +64,8 @@ def test_decrypt_video_matches_the_reference_chain(tmp_path, size):
 
 
 def test_decrypt_stream_counts_from_the_chunk_iv():
-    """Checked against AES-ECB of the counter blocks rather than a CTR cipher, which would
-    share any mistake in how the IV is laid out."""
+    """Checked against AES-ECB of the counter blocks rather than a CTR cipher, because a CTR
+    cipher would share any mistake in how the IV is laid out."""
     key = bytes(range(16))
     data = bytearray(MASK_START + 0x20)
 

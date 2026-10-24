@@ -125,8 +125,8 @@ def test_ask_returns_default_on_eof():
 
 
 def test_piped_ask_keeps_a_cancel_sent_with_the_answer():
-    """The GUI's pipe is read through the raw fd, which keeps a cancel that arrives in the same
-    write as the answer where the next checkpoint can still find it."""
+    """The GUI's pipe is read through the raw fd. A cancel that arrives in the same write as the
+    answer then stays where the next checkpoint can still find it."""
     reporter = make_piped_reporter(
         '{"type": "answer", "id": "q0", "value": true}\n{"type": "cancel"}\n'
     )
@@ -203,8 +203,8 @@ def test_a_capture_talks_to_the_gui_over_its_named_pipe():
 
 
 def test_the_gui_closing_its_pipe_stops_a_capture():
-    """The elevated capture is outside the GUI's Job Object, which leaves the pipe as the only
-    thing that can stop it once the GUI is gone."""
+    """The elevated capture is outside the GUI's Job Object. Once the GUI is gone, the pipe is
+    the only thing that can stop it."""
     name = f"charlotte-test-hangup-{os.getpid()}"
     with gui_pipe(name) as gui:
         reporter = open_pipe(name)
@@ -245,11 +245,11 @@ def test_log_lines_reach_a_reporter_whose_stderr_nobody_reads(reporter):
     ids=["old scheme", "7.1"],
 )
 def test_a_captured_key_prints_as_a_group_to_paste_into_keys_json(capsys, keys, expected):
-    """The console output is what a user copies, which is why the field order has to be the one
-    keys.json uses."""
+    """The field order has to be the one keys.json uses, because the console output is what a
+    user copies."""
     ConsoleReporter().event(
         "capture_key", **keys, parent_quest_id="602", known=False, videos=["Cs_A"]
     )
     printed = orjson.loads(capsys.readouterr().err)
-    expected |= {"parentQuestId": "602", "videos": ["Cs_A"]}
+    expected = expected | {"parentQuestId": "602", "videos": ["Cs_A"]}
     assert list(printed.items()) == list(expected.items())

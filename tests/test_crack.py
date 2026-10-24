@@ -39,7 +39,7 @@ SEEDS = {
 
 def key_pairs(count: int) -> list[tuple[bytes, bytes]]:
     rng = random.Random(0)
-    # build_mask never reads byte 3 of key2, which is why it always comes back as 0.
+    # Byte 3 of key2 always comes back as 0, because build_mask never reads it.
     return [
         (
             bytes(rng.randrange(256) for _ in range(4)),
@@ -51,7 +51,7 @@ def key_pairs(count: int) -> list[tuple[bytes, bytes]]:
 
 def video_plaintext(rng, blocks: int) -> bytes:
     """Compressed VP9 is close to uniform except for 00,00 and FF,FF byte pairs running
-    above chance, which is the only signal the solver has."""
+    above chance. Those pairs are the only signal the solver has."""
     data = bytearray(rng.randrange(256) for _ in range(blocks * BLOCK))
     for _ in range(len(data) // 40):
         i = rng.randrange(len(data) - 1)
@@ -146,8 +146,8 @@ def test_repeated_payloads_are_dealt_once(tmp_path, reporter):
 
 
 def test_crack_key_declines_a_repeated_payload(tmp_path, reporter):
-    """The frame repeats past the sample floor, but split-half proves nothing when both
-    pools would see the same bytes, which is why a single distinct payload is declined."""
+    """The frame repeats past the sample floor, but a single distinct payload is declined,
+    because split-half proves nothing when both pools would see the same bytes."""
     payload = b"DKIF" + bytes(CIPHER_START + 3200 * BLOCK - 4)
     usm_file = tmp_path / "Cs_Test.usm"
     usm_file.write_bytes(video_header() + b"".join(chunk(b"@SFV", payload) for _ in range(4)))
@@ -159,8 +159,8 @@ def test_crack_key_declines_a_repeated_payload(tmp_path, reporter):
 
 
 def test_split_half_rejects_disagreeing_noise():
-    """Pure noise carries no 00,00/FF,FF signal and each half solves to a different mask,
-    which is why no key is accepted. This is the core safety property."""
+    """Pure noise carries no 00,00/FF,FF signal, and no key is accepted because each half
+    solves to a different mask. This is the core safety property."""
     rng = random.Random(11)
     left, right = Stats(), Stats()
     for i in range(30):

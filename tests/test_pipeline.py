@@ -88,6 +88,42 @@ def make_run(tmp_path, chunks=None, **overrides):
     return usm_file, make_options(tmp_path, **overrides), keys
 
 
+@pytest.fixture
+def stub_stages(monkeypatch):
+    """Every stage after demux is stubbed. The font subsetting still runs but gets no fonts.
+    That leaves one audio track and EN plus JP subtitles on disk. The encode writes its .part
+    whether or not it reports `ok`, the way a failing ffmpeg does."""
+    calls = SimpleNamespace(ok=True, encode=None, mux=None, mux_error=None)
+
+    def audio(hca_files, audio_files, *args, **kwargs):
+        for path in audio_files:
+            path.write_bytes(b"flac")
+
+    def subtitles(stem, folder):
+        folder.mkdir()
+        files = [folder / f"{stem}_{lang}.ass" for lang in ("EN", "JP")]
+        for path in files:
+            path.write_bytes(b"ass")
+        return files
+
+    def encode(source, reporter, ffmpeg_args, **kwargs):
+        calls.encode = kwargs | {"source": source, "ffmpeg_args": ffmpeg_args}
+        Path(ffmpeg_args[-1]).write_bytes(b"hevc" if calls.ok else b"trunc")
+        return calls.ok
+
+    def mux(video, output_file, *args, **kwargs):
+        calls.mux = kwargs
+        output_file.write_bytes(b"mkv")
+        if calls.mux_error:
+            raise calls.mux_error
+
+    monkeypatch.setattr(pipeline, "process_audio", audio)
+    monkeypatch.setattr(pipeline, "process_subtitles", subtitles)
+    monkeypatch.setattr(pipeline, "vapoursynth_filter", encode)
+    monkeypatch.setattr(pipeline, "mux", mux)
+    return calls
+
+
 # --- probe ---
 
 
@@ -273,42 +309,6 @@ def test_stream_cipher_decrypts_with_the_keys_of_its_group(
 # --- full run: output layout and cleanup ---
 
 
-@pytest.fixture
-def stub_stages(monkeypatch):
-    """Every stage after demux is stubbed apart from the font subsetting, which has no fonts
-    to work on. That leaves one audio track and EN plus JP subtitles on disk. The encode
-    writes its .part whether or not it reports `ok`, the way a failing ffmpeg does."""
-    calls = SimpleNamespace(ok=True, encode=None, mux=None, mux_error=None)
-
-    def audio(hca_files, audio_files, *args, **kwargs):
-        for path in audio_files:
-            path.write_bytes(b"flac")
-
-    def subtitles(stem, folder):
-        folder.mkdir()
-        files = [folder / f"{stem}_{lang}.ass" for lang in ("EN", "JP")]
-        for path in files:
-            path.write_bytes(b"ass")
-        return files
-
-    def encode(source, reporter, ffmpeg_args, **kwargs):
-        calls.encode = kwargs | {"source": source, "ffmpeg_args": ffmpeg_args}
-        Path(ffmpeg_args[-1]).write_bytes(b"hevc" if calls.ok else b"trunc")
-        return calls.ok
-
-    def mux(video, output_file, *args, **kwargs):
-        calls.mux = kwargs
-        output_file.write_bytes(b"mkv")
-        if calls.mux_error:
-            raise calls.mux_error
-
-    monkeypatch.setattr(pipeline, "process_audio", audio)
-    monkeypatch.setattr(pipeline, "process_subtitles", subtitles)
-    monkeypatch.setattr(pipeline, "vapoursynth_filter", encode)
-    monkeypatch.setattr(pipeline, "mux", mux)
-    return calls
-
-
 def test_run_writes_mkv_and_clears_intermediates(stub_stages, tmp_path, reporter):
     usm_file, opts, keys = make_run(tmp_path)
 
@@ -422,8 +422,8 @@ def test_hard_sub_without_the_default_language_skips_the_encode(
 
 
 def test_failed_encode_falls_back_to_soft_subtitles(stub_stages, tmp_path, reporter):
-    """The lossless copy with every language as a soft track is still a usable output, which
-    is why the fallback mux runs like any other run and no .part is left behind."""
+    """The lossless copy with every language as a soft track is still a usable output. The
+    fallback mux therefore runs like any other run and leaves no .part behind."""
     stub_stages.ok = False
     usm_file, opts, keys = make_run(tmp_path, hard_sub=True)
 
@@ -482,7 +482,7 @@ def test_one_bad_subtitle_does_not_sink_the_rest(tmp_app_root, out_dir, monkeypa
 
 
 def test_crack_reports_key_and_video_key(tmp_app_root, reporter, monkeypatch):
-    """videoKey is the keys.json half, which is the combined key minus the filename hash."""
+    """videoKey is the keys.json half, the combined key minus the filename hash."""
     combined = (calculate_key_from_filename("Cs_A") + 777) & 0xFFFFFFFFFFFFFF
     key = DecryptionKey(*split_key(combined))
     monkeypatch.setattr(pipeline, "crack_key", lambda f, r: Recovery(key, ""))
@@ -535,8 +535,8 @@ def test_crack_batch_carries_on_past_a_failed_file(
 
     crack_all([tmp_app_root / "Cs_Bad.usm", tmp_app_root / "Cs_A.usm"], reporter)
 
-    # The GUI attaches progress to the last job_start, which is why crack_all opens one per
-    # file like process_usm does.
+    # crack_all opens a job_start per file like process_usm does, because the GUI attaches
+    # progress to the last one.
     assert [kind for kind, _ in reporter.events] == [
         "job_start",
         event[0],
