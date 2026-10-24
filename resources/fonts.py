@@ -1,30 +1,18 @@
 import shutil
-import winreg
 
-from pathlib import Path
+lazy from pathlib import Path
 
+from resources.game import game_data_dir
 from utils.logger import log
 from utils.paths import app_root
 from utils.strings import translate
 
 
 def game_font_dir() -> Path | None:
-    try:
-        with winreg.OpenKey(
-            winreg.HKEY_CURRENT_USER, r"Software\Cognosphere\HYP\1_0\hk4e_global"
-        ) as key:
-            install_path, _ = winreg.QueryValueEx(key, "GameInstallPath")
-    except OSError:
+    data_dir = game_data_dir()
+    if data_dir is None:
         return None
-
-    font_dir = (
-        Path(install_path)
-        / "GenshinImpact_Data"
-        / "StreamingAssets"
-        / "MiHoYoSDKRes"
-        / "HttpServerResources"
-        / "font"
-    )
+    font_dir = data_dir / "StreamingAssets" / "MiHoYoSDKRes" / "HttpServerResources" / "font"
     return font_dir if font_dir.is_dir() else None
 
 

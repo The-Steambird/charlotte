@@ -1,4 +1,5 @@
 import ctypes
+import io
 import msvcrt
 import os
 import sys
@@ -22,6 +23,19 @@ def pipe_peek(fd: int) -> int | None:
     return available.value if ok else None
 
 
+def open_pipe(name: str) -> JsonReporter:
+    """Connects to the named pipe the GUI uses for a key capture. The GUI starts the capture
+    as an elevated process, which cannot be given the GUI's stdin and stdout. Only a bare pipe
+    name is accepted because an admin process should not write to any path a caller gives it.
+    Events and commands share one handle. The reporter reads only after a peek shows data waiting,
+    as a blocking read would also block every write on that handle."""
+    if not name or any(char in name for char in "\\/:"):
+        raise ValueError(f"not a pipe name: {name!r}")
+    pipe = open(rf"\\.\pipe\{name}", "r+b", buffering=0)  # noqa: SIM115
+    out = io.TextIOWrapper(pipe, encoding="utf-8", newline="\n", write_through=True)
+    return JsonReporter(out=out, stdin=pipe, hangup_cancels=True)
+
+
 def parse_command(line: str | bytes) -> dict | None:
     try:
         cmd = orjson.loads(line)
@@ -33,11 +47,15 @@ def parse_command(line: str | bytes) -> dict | None:
 class JsonReporter(Reporter):
     """Writes NDJSON events to stdout and reads commands (answers, cancel and skip) from stdin
     on demand. Ordinary log lines go to stderr through the shared console in logger.py, which
-    keeps stdout pure JSON."""
+    keeps stdout pure JSON. A capture on the GUI's named pipe sends its events and reads its
+    commands there instead, and its log lines reach the GUI as events through ReporterHandler."""
 
-    def __init__(self, out=None, stdin=None):
+    def __init__(self, out=None, stdin=None, hangup_cancels=False):
         self.out = out if out is not None else sys.stdout
         self.stdin = stdin if stdin is not None else sys.stdin
+        # Key capture runs elevated and outside the GUI's Job Object. Once GUI is gone, its
+        # pipe closing is the only thing left that can stop the capture.
+        self.hangup_cancels = hangup_cancels
         self.question_counter = count()
         self.cancelled = False
         self.current_file = None
@@ -160,6 +178,7 @@ class JsonReporter(Reporter):
             waiting = pipe_peek(self.pipe_fd)
             if waiting is None:  # Frontend hung up
                 self.pipe_fd = None
+                self.cancelled = self.hangup_cancels
                 break
             if waiting == 0:  # Nothing waiting
                 break

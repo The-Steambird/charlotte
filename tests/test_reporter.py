@@ -1,11 +1,17 @@
+import contextlib
+import ctypes
 import io
+import logging
+import msvcrt
 import os
 
 import orjson
 import pytest
 
 from utils.errors import Cancelled, Skipped
-from utils.reporter import JsonReporter
+from utils.logger import ReporterHandler
+from utils.reporter import ConsoleReporter, JsonReporter
+from utils.reporter.json import open_pipe
 from utils.version import __version__
 
 
@@ -167,3 +173,83 @@ def test_cancel_outranks_skip():
     reporter.event("job_start", file="Cs_A.usm")
     with pytest.raises(Cancelled):
         reporter.checkpoint()
+
+
+@contextlib.contextmanager
+def gui_pipe(name):
+    """The GUI's end of a capture's named pipe, as a file descriptor."""
+    kernel32 = ctypes.windll.kernel32
+    kernel32.CreateNamedPipeW.restype = ctypes.c_void_p
+    handle = kernel32.CreateNamedPipeW(rf"\\.\pipe\{name}", 3, 0, 1, 65536, 65536, 0, None)
+    assert handle not in (None, ctypes.c_void_p(-1).value)
+    fd = msvcrt.open_osfhandle(handle, 0)
+    try:
+        yield fd
+    finally:
+        with contextlib.suppress(OSError):
+            os.close(fd)
+
+
+def test_a_capture_talks_to_the_gui_over_its_named_pipe():
+    name = f"charlotte-test-{os.getpid()}"
+    with gui_pipe(name) as gui:
+        reporter = open_pipe(name)
+        reporter.log("info", "x")
+        sent = os.read(gui, 4096).decode().splitlines()
+        assert [orjson.loads(line)["type"] for line in sent] == ["session_start", "log"]
+
+        os.write(gui, b'{"type": "cancel"}\n')
+        assert reporter.cancel_requested()
+
+
+def test_the_gui_closing_its_pipe_stops_a_capture():
+    """The elevated capture is outside the GUI's Job Object, which leaves the pipe as the only
+    thing that can stop it once the GUI is gone."""
+    name = f"charlotte-test-hangup-{os.getpid()}"
+    with gui_pipe(name) as gui:
+        reporter = open_pipe(name)
+        os.close(gui)
+        assert reporter.cancel_requested()
+
+
+@pytest.mark.parametrize("name", ["..\\other", "C:/Windows/x", ""])
+def test_a_pipe_name_cannot_be_a_path(name):
+    with pytest.raises(ValueError, match="not a pipe name"):
+        open_pipe(name)
+
+
+def test_log_lines_reach_a_reporter_whose_stderr_nobody_reads(reporter):
+    logger = logging.getLogger("charlotte.test")
+    handler = ReporterHandler(reporter)
+    logger.addHandler(handler)
+    try:
+        logger.warning("keys.json not found")
+        logger.error("boom", extra={"sent_as_event": True})
+    finally:
+        logger.removeHandler(handler)
+    assert reporter.logs == [("warning", "keys.json not found")]
+
+
+@pytest.mark.parametrize(
+    "keys, expected",
+    [
+        (
+            {"video_key": 9602627639787478, "audio_key": None, "aes_key": None},
+            {"videoKey": 9602627639787478},
+        ),
+        (
+            {"video_key": None, "audio_key": 5281416956962385, "aes_key": "f9e9e1c5"},
+            {"audioKey": 5281416956962385, "aesKey": "f9e9e1c5"},
+        ),
+    ],
+    ids=["old scheme", "7.1"],
+)
+def test_a_captured_key_prints_as_a_group_to_paste_into_keys_json(capsys, keys, expected):
+    """The console output is what a user copies, which is why the field order has to be the one
+    keys.json uses."""
+    ConsoleReporter().event(
+        "capture_key", **keys, parent_quest_id="602", known=False, videos=["Cs_A"]
+    )
+    printed = orjson.loads(capsys.readouterr().err)
+    expected |= {"parentQuestId": "602", "videos": ["Cs_A"]}
+    assert list(printed.items()) == list(expected.items())

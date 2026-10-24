@@ -7,7 +7,7 @@ from Crypto.Cipher import AES
 
 from conftest import chunk, video_header
 from resources.keys import DecryptionKey
-from stages.usm import MASK_START, MIN_MASKED, USM, video_nonce
+from stages.usm import MASK_START, MIN_MASKED, USM, decrypt_stream, video_nonce
 from utils.errors import CharlotteError
 
 
@@ -63,15 +63,13 @@ def test_decrypt_video_matches_the_reference_chain(tmp_path, size):
     assert blocks == reference
 
 
-def test_decrypt_stream_counts_from_the_chunk_iv(tmp_path):
+def test_decrypt_stream_counts_from_the_chunk_iv():
     """Checked against AES-ECB of the counter blocks rather than a CTR cipher, which would
     share any mistake in how the IV is laid out."""
     key = bytes(range(16))
-    usm_key = DecryptionKey(bytes(4), bytes(4), key)
-    usm = USM(tmp_path / "Cs_Test.usm", usm_key, nonce=0x0102030405060708)
     data = bytearray(MASK_START + 0x20)
 
-    usm.decrypt_stream(data, frame_time=0x0A0B0C0D)
+    decrypt_stream(data, key, nonce=0x0102030405060708, frame_time=0x0A0B0C0D)
 
     ecb = AES.new(key, AES.MODE_ECB)
     iv = bytes.fromhex("0102030405060708 0a0b0c0d 00000000")

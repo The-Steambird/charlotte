@@ -19,7 +19,7 @@ def placeholders(text: str) -> set[str]:
 
 def lookups() -> list[ast.Call]:
     sources = list(ROOT.glob("*.py"))
-    for folder in ("stages", "resources", "utils", "vs"):
+    for folder in ("capture", "stages", "resources", "utils", "vs"):
         sources += (ROOT / folder).rglob("*.py")
     return [
         node

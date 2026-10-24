@@ -1,5 +1,10 @@
+import msvcrt
+import sys
+import time
+
 from contextlib import contextmanager
 
+import orjson
 import typer
 
 from rich.progress import (
@@ -40,6 +45,31 @@ class SpeedColumn(ProgressColumn):
         return Text(text, style="progress.data.speed")
 
 
+def key_pressed_within(seconds: float) -> bool:
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        if msvcrt.kbhit():
+            msvcrt.getch()
+            return True
+        time.sleep(0.1)
+    return False
+
+
+def pause_before_exit(seconds: int = 5) -> None:
+    for remaining in range(seconds, 0, -1):
+        sys.stderr.write(f"\r{translate('EXIT_COUNTDOWN', seconds=remaining)} ")
+        sys.stderr.flush()
+        if key_pressed_within(1):
+            break
+    sys.stderr.write("\n")
+
+
+def wait_for_key() -> None:
+    sys.stderr.write(translate("PRESS_ANY_KEY") + "\n")
+    sys.stderr.flush()
+    msvcrt.getch()
+
+
 def make_progress(unit):
     if unit == "B":
         counters = [DownloadColumn(), TransferSpeedColumn()]
@@ -72,3 +102,16 @@ class ConsoleReporter(Reporter):
 
     def ask(self, prompt, *, default=False):
         return typer.confirm(prompt, default=default)
+
+    def event(self, kind, **data):
+        # New keys printed as a keys.json group for copy & paste.
+        if kind != "capture_key" or data["known"]:
+            return
+        if data["video_key"] is not None:
+            keys = {"videoKey": data["video_key"]}
+        else:
+            keys = {"audioKey": data["audio_key"], "aesKey": data["aes_key"]}
+        group = {**keys, "parentQuestId": data["parent_quest_id"], "videos": data["videos"]}
+        text = orjson.dumps(group, option=orjson.OPT_INDENT_2).decode()
+        # Soft wrap so that rich doesn't break long lines. Breaks put newlines into copied content.
+        console.print(text, soft_wrap=True, highlight=False, markup=False)

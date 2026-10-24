@@ -2,7 +2,7 @@ import functools
 import re
 
 from typing import Any, NamedTuple
-lazy from collections.abc import Callable
+lazy from collections.abc import Callable, Iterator
 
 import orjson
 lazy import urllib3
@@ -18,9 +18,6 @@ KEY_MASK = (1 << 56) - 1
 
 
 class DecryptionKey(NamedTuple):
-    """key1 and key2 decrypt the audio and the video mask. Files from 7.1 on decrypt their video
-    with aes_key instead."""
-
     key1: bytes
     key2: bytes
     aes_key: bytes | None = None
@@ -67,11 +64,16 @@ def fetch_upstream_keys() -> bytes | None:
     return None
 
 
-def find_video(data: dict, filename: str) -> tuple[dict, dict] | None:
+def groups(data: dict) -> Iterator[tuple[dict, dict]]:
     for version in data.get("list", []):
         for group in [version, *version.get("videoGroups", [])]:
-            if filename in group.get("videos", []):
-                return version, group
+            yield version, group
+
+
+def find_video(data: dict, filename: str) -> tuple[dict, dict] | None:
+    for version, group in groups(data):
+        if filename in group.get("videos", []):
+            return version, group
     return None
 
 
