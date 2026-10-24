@@ -13,7 +13,7 @@ def varint(data: bytes, pos: int) -> tuple[int, int]:
             return value, pos
         shift += 7
         if shift > 63:
-            raise IndexError
+            raise ValueError
 
 
 class Fields(NamedTuple):

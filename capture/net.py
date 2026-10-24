@@ -4,6 +4,7 @@ import struct
 # PktMon's payload types.
 ETHERNET = 1
 IP = 3
+
 UDP = 17
 
 

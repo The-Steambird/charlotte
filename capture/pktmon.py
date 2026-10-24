@@ -129,8 +129,9 @@ class Capture:
         ):
             getattr(api, name).restype = ctypes.HRESULT
 
+        api_version_1_0 = 0x00010000
         try:
-            api.PacketMonitorInitialize(0x00010000, None, ctypes.byref(self.handle))
+            api.PacketMonitorInitialize(api_version_1_0, None, ctypes.byref(self.handle))
             api.PacketMonitorCreateLiveSession(self.handle, "charlotte", ctypes.byref(self.session))
             config = StreamConfiguration(
                 event_callback=ctypes.cast(self.on_event, c_void_p),
