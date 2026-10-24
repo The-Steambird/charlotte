@@ -186,7 +186,7 @@ def test_gitlab_failure_falls_back_to_the_mirror_for_changed_files(
 
 def test_cancel_during_a_mirror_download_stops_without_raising(tmp_app_root, reporter, monkeypatch):
     """A cold cache takes about a minute from the mirror. Cancelled raised here would escape
-    main.py, which leaves reporting the cancel to the batch's first checkpoint."""
+    main.py, and the batch's first checkpoint reports the cancel instead."""
     serve(
         monkeypatch,
         {

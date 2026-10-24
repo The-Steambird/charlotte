@@ -60,7 +60,7 @@ def read_keys(root):
 )
 def test_filename_key_of_real_files(stem, key):
     """Each value is the combined key --crack recovers from that file's own video minus its
-    videoKey in keys.json, which keeps them independent of the function under test."""
+    videoKey in keys.json. That keeps them independent of the function under test."""
     assert calculate_key_from_filename(stem) == key
 
 

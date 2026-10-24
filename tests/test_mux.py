@@ -70,10 +70,10 @@ def test_default_subtitle_sorted_first_and_flagged(ffmpeg, tmp_path):
 
 
 def test_encode_tail_puts_codec_args_between_maps_and_metadata(tmp_path):
-    """Video comes in on ffmpeg's stdin ahead of these args, which is why the tail has to
-    start with the other inputs, place the codec options after the last -i (before it they
-    would be read as input options) and end with the output. The .part name cannot tell
-    ffmpeg which muxer to use."""
+    """Video comes in on ffmpeg's stdin ahead of these args. The tail therefore starts with the
+    other inputs, places the codec options after the last -i (before it they would be read as
+    input options) and ends with the output. The .part name cannot tell ffmpeg which muxer to
+    use."""
     _, audio, subs = make_tracks(tmp_path)
     output = tmp_path / "Cs_Test.mkv.part"
     args = mux_args(output, ["-c:v", "libx265", "-c:a", "copy"], audio, subs, **TRACKS)
@@ -86,8 +86,8 @@ def test_encode_tail_puts_codec_args_between_maps_and_metadata(tmp_path):
 
 
 def test_fonts_only_ride_with_subtitle_tracks(tmp_path):
-    """The fonts exist only for the .ass tracks, which is why a hard-subbed output (or one
-    whose cutscene has no subtitles) must not carry them."""
+    """The fonts exist only for the .ass tracks. A hard-subbed output, or one whose cutscene
+    has no subtitles, must not carry them."""
     fonts = [tmp_path / "ja-jp.ttf", tmp_path / "zh-cn.ttf"]
     _, audio, subs = make_tracks(tmp_path)
     tracks = TRACKS | {"fonts": fonts}
@@ -96,8 +96,8 @@ def test_fonts_only_ride_with_subtitle_tracks(tmp_path):
 
 
 def test_font_subset_keeps_what_harfbuzz_splits_thai_into(tmp_path):
-    """The fonts have no shaping tables for Thai, which is why HarfBuzz splits ำ into ํ and า
-    itself and the subset has to keep both."""
+    """HarfBuzz splits ำ into ํ and า itself because the fonts have no shaping tables for Thai,
+    and the subset has to keep both."""
     font = tmp_path / "zh-cn.ttf"
     build_font(font, "Aำํา")
     subtitle = tmp_path / "Cs_Test_TH.ass"

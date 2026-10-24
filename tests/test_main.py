@@ -1,6 +1,7 @@
 import os
 import types
 
+import orjson
 import pytest
 
 from typer.testing import CliRunner
@@ -11,6 +12,7 @@ import pipeline
 from conftest import FakeReporter, forbid_call
 from pipeline import Options
 from utils.errors import Cancelled, CharlotteError, Skipped
+from utils.strings import translate
 from utils.version import __version__
 
 
@@ -114,6 +116,33 @@ def test_capture_from_the_gui_without_admin_rights_fails_instead_of_prompting(mo
     result = runner.invoke(main.app, ["--capture", "--json"])
     assert result.exit_code == 1
     assert '{"type":"error","file":"","message":' in result.stdout
+
+
+@pytest.mark.parametrize(
+    "error, message",
+    [
+        (CharlotteError("refused"), "refused"),
+        (RuntimeError("bug"), translate("CAPTURE_CRASHED", error="RuntimeError('bug')")),
+    ],
+    ids=["expected", "crash"],
+)
+def test_a_failed_capture_reaches_the_gui_as_an_error_event(monkeypatch, error, message):
+    """The GUI cannot read the stderr of the elevated engine it started."""
+
+    def run():
+        raise error
+
+    monkeypatch.setattr(main, "is_admin", lambda: True)
+    monkeypatch.setattr(main, "Keys", lambda reporter: types.SimpleNamespace(data={}))
+    monkeypatch.setattr(
+        main, "KeyCapture", lambda data, reporter, legacy: types.SimpleNamespace(run=run)
+    )
+
+    result = runner.invoke(main.app, ["--capture", "--json"])
+
+    assert result.exit_code == 1
+    events = [orjson.loads(line) for line in result.stdout.splitlines()]
+    assert {"type": "error", "file": "", "message": message} in events
 
 
 def test_no_input_is_an_error():
@@ -296,7 +325,7 @@ def test_cancel_after_a_failure_still_exits_1(pipeline_stub, monkeypatch, tmp_pa
 
 def test_probe_shares_one_keys_and_carries_on_past_a_failed_file(monkeypatch, tmp_path):
     """One Keys serves the whole run and probe_usm gets the object rather than a snapshot of
-    its data, which is how an update accepted partway through reaches the later files."""
+    its data. That is how an update accepted partway through reaches the later files."""
     keys = types.SimpleNamespace(data={"list": []})
     probed = []
 

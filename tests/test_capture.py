@@ -199,14 +199,17 @@ def test_ethernet_and_bare_ip_give_back_the_udp_payload_and_wifi_does_not():
     packet = bytes([0x45, 0, 0, 20 + len(datagram), 0, 0, 0, 0, 64, 17]) + bytes(10) + datagram
     frame = bytes(12) + b"\x08\x00" + packet
 
+    ipv6 = bytes([0x60, 0, 0, 0]) + struct.pack(">HBB", len(datagram), 17, 64) + bytes(32)
+
     assert udp(ETHERNET, frame) == (payload, SERVER_PORT, CLIENT_PORT)
     assert udp(IP, packet) == (payload, SERVER_PORT, CLIENT_PORT)
+    assert udp(IP, ipv6 + datagram) == (payload, SERVER_PORT, CLIENT_PORT)
     assert udp(2, frame) is None
 
 
 def test_the_windows_10_filter_matches_the_crates_pinned_layout():
-    """The driver reads the filter by offset, and these come from the pktmon crate's own tests,
-    which is the only record of the undocumented layout."""
+    """The driver reads the filter by offset. These come from the pktmon crate's own tests, the
+    only record of the undocumented layout."""
     assert ctypes.sizeof(Filter) == 0xC8
     offsets = {name: getattr(Filter, name).offset for name, _ in Filter._fields_}
     assert offsets == {
@@ -321,8 +324,8 @@ def test_a_message_that_fails_to_decrypt_leaves_the_session_running(reporter):
 
 
 def test_messages_that_overtake_the_login_reply_wait_for_it(reporter):
-    """Each direction is reassembled on its own, which lets the client's first message under the
-    session key arrive before the server's reply that holds the seed."""
+    """Each direction is reassembled on its own. The client's first message under the session key
+    can then arrive before the server's reply that holds the seed."""
     sniffer, _, packets = login(reporter)
     hello, reply, first = packets
 
@@ -364,8 +367,8 @@ def test_a_lost_login_names_its_cause_and_only_then_says_to_log_in_again(
 
 
 def test_a_segment_the_capture_missed_costs_only_its_own_message():
-    """Message B spans segments 1 and 2, and segment 1 never arrives. A retransmission would have
-    filled the gap within GAP_SECONDS, which is why nothing moves before then."""
+    """Message B spans segments 1 and 2, and segment 1 never arrives. Nothing moves before
+    GAP_SECONDS, because a retransmission would have filled the gap by then."""
     kcp = Kcp(7)
     assert kcp.feed(kcp_segment(7, 0, 0, b"A"), now=0.0) == [b"A"]
     assert kcp.feed(kcp_segment(7, 2, 0, b"B2"), now=0.0) == []
@@ -424,7 +427,7 @@ def test_a_key_matches_the_file_it_decrypts_and_no_other(tmp_path):
 
 
 def test_frames_inside_the_clear_part_match_no_key(tmp_path):
-    """Their superframe index is never encrypted, which would let any key pass it."""
+    """Their superframe index is never encrypted, and any key would pass it."""
     tiny = stream_file(tmp_path / "Cs_Tiny.usm", AES.decode(), half=20)
     assert list(match_keys([tiny], {2: "00" * 16}, lambda: None)) == []
 
@@ -445,7 +448,7 @@ def key_capture(reporter, tmp_path):
     return capture_run
 
 
-def capture_events(reporter):
+def reported_videos(reporter):
     return [data["videos"] for kind, data in reporter.events]
 
 
@@ -455,10 +458,10 @@ def test_a_new_key_waits_for_its_files_and_goes_out_once(key_capture, reporter, 
 
     monkeypatch.setattr(capture.run, "match_keys", found)
     key_capture.add_key(FoundKey(int(AUDIO), AES.decode(), 7099))
-    assert capture_events(reporter) == []
+    assert reported_videos(reporter) == []
 
     key_capture.match_pending()
-    assert capture_events(reporter) == [["Cs_Ours"]]
+    assert reported_videos(reporter) == [["Cs_Ours"]]
     assert key_capture.candidates == []
 
 
@@ -470,7 +473,7 @@ def test_a_stop_during_matching_still_reports_the_key(key_capture, reporter, mon
     key_capture.add_key(FoundKey(int(AUDIO), AES.decode(), 7099))
     with pytest.raises(Cancelled):
         key_capture.match_pending()
-    assert capture_events(reporter) == [[]]
+    assert reported_videos(reporter) == [[]]
 
 
 def test_the_count_comes_before_what_went_wrong(key_capture, reporter):
@@ -487,4 +490,37 @@ def test_a_new_old_scheme_key_is_not_matched(key_capture, reporter, monkeypatch)
     monkeypatch.setattr(capture.run, "match_keys", forbid_call)
     key_capture.add_key(FoundKey(int(VIDEO_KEY), None, 602))
     key_capture.match_pending()
-    assert capture_events(reporter) == [[]]
+    assert reported_videos(reporter) == [[]]
+
+
+def test_keys_json_groups_are_known_and_each_key_is_reported_once(reporter):
+    """The GUI's "only new keys" filter hides what this marks known, and the server sends the
+    whole list again at every login."""
+    groups = [
+        {"audioKey": int(AUDIO), "aesKey": AES.decode().upper(), "videos": ["Cs_A"]},
+        {"videoKey": int(VIDEO_KEY), "parentQuestId": "602", "videos": ["Cs_B"]},
+    ]
+    key_capture = KeyCapture({"list": [{"version": "7.1", "videoGroups": groups}]}, reporter)
+
+    for _ in range(2):
+        key_capture.add_key(FoundKey(int(AUDIO), AES.decode(), 7017))
+    key_capture.add_key(FoundKey(int(VIDEO_KEY), None, None))
+
+    assert [data for kind, data in reporter.events] == [
+        {
+            "video_key": None,
+            "audio_key": int(AUDIO),
+            "aes_key": AES.decode(),
+            "parent_quest_id": "7017",
+            "known": True,
+            "videos": ["Cs_A"],
+        },
+        {
+            "video_key": int(VIDEO_KEY),
+            "audio_key": None,
+            "aes_key": None,
+            "parent_quest_id": "602",
+            "known": True,
+            "videos": ["Cs_B"],
+        },
+    ]

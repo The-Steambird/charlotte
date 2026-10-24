@@ -31,7 +31,7 @@ def lookups() -> list[ast.Call]:
     ]
 
 
-# The GUI generates a member per key, which makes its build catch a wrong key or argument. Here
+# The GUI's build catches a wrong key or argument because it generates a member per key. Here
 # nothing would until that message comes up.
 def test_every_lookup_names_an_english_key_with_its_placeholders():
     used = set()
@@ -57,8 +57,8 @@ def test_translations_keep_the_english_keys_and_placeholders():
 
 
 def test_a_translation_falls_back_to_english_key_by_key(monkeypatch):
-    """Every other test runs in English, which leaves this as the only run that builds the
-    strings of another language. A crash there would hit those users when main.py imports."""
+    """Every other test runs in English, and this is the only run that builds the strings of
+    another language. A crash there would hit those users when main.py imports."""
     japanese = load("ja-JP")
 
     def load_with_gaps(language):
