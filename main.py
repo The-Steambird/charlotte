@@ -31,11 +31,6 @@ lazy from capture.run import KeyCapture
 app = typer.Typer(help=translate("APP_HELP"))
 
 
-AUDIO_CODEC_CHOICES = list(AUDIO_CODECS)
-AUDIO_CHOICES = list(AUDIO_LANGUAGES.values())
-SUBTITLE_CHOICES = list(SUBTITLES_LANGUAGES)
-
-
 def choice_normalizer(choices: list[str]) -> Callable[[str], str]:
     canonical_by_key = {choice.casefold(): choice for choice in choices}
     allowed = ", ".join(choice.lower() for choice in choices)
@@ -80,7 +75,7 @@ def collect_files(input_paths: list[Path], reporter: Reporter) -> list[Path]:
                 die(translate("NO_USM_IN_DIRECTORY", path=path), reporter, str(path))
             files.extend(found)
         else:
-            die(translate("NOT_FILE_OR_DIRECTORY", path=path), reporter, str(path))
+            die(translate("NOT_FILE_OR_DIRECTORY", path=path), reporter, path.name)
 
     return list(dict.fromkeys(files))
 
@@ -192,7 +187,7 @@ def run(
             "--default-audio",
             "-da",
             help=translate("HELP_DEFAULT_AUDIO"),
-            choices=AUDIO_CHOICES,
+            choices=list(AUDIO_LANGUAGES.values()),
         ),
     ] = "ja",
     default_subtitle: Annotated[
@@ -201,7 +196,7 @@ def run(
             "--default-sub",
             "-ds",
             help=translate("HELP_DEFAULT_SUB"),
-            choices=SUBTITLE_CHOICES,
+            choices=list(SUBTITLES_LANGUAGES),
         ),
     ] = "en",
     audio_codec: Annotated[
@@ -210,7 +205,7 @@ def run(
             "--audio-codec",
             "-ac",
             help=translate("HELP_AUDIO_CODEC"),
-            choices=AUDIO_CODEC_CHOICES,
+            choices=list(AUDIO_CODECS),
         ),
     ] = "flac",
     skip_existing: Annotated[
