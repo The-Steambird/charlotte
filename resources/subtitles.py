@@ -10,18 +10,9 @@ from utils.errors import CharlotteError
 from utils.logger import log
 from utils.paths import app_root
 from utils.strings import translate
+lazy from utils.http import RETRIES
 lazy from utils.reporter import Reporter
 
-
-SUBTITLE_ARCHIVE_URL = (
-    "https://gitlab.com/Dimbreath/animegamedata2/-/archive/main/"
-    "animegamedata2-main.zip?path=Subtitle"
-)
-
-SUBTITLE_COMMITS_URL = (
-    "https://gitlab.com/api/v4/projects/Dimbreath%2Fanimegamedata2/repository/commits"
-    "?path=Subtitle&ref_name=main&per_page=1"
-)
 
 BASENAME_FIXES = {
     "Cs_4131904_HaiDaoChuXian_Boy": "Cs_Activity_4001103_Summertime_Boy",
@@ -59,8 +50,12 @@ def write_commit(commit: str) -> None:
 
 
 def latest_commit() -> str:
+    commits_url = (
+        "https://gitlab.com/api/v4/projects/Dimbreath%2Fanimegamedata2/repository/commits"
+        "?path=Subtitle&ref_name=main&per_page=1"
+    )
     try:
-        response = urllib3.request("GET", SUBTITLE_COMMITS_URL, timeout=10.0)
+        response = urllib3.request("GET", commits_url, timeout=10.0, retries=RETRIES)
     except urllib3.exceptions.HTTPError as e:
         raise CharlotteError(translate("SUBTITLE_CHECK_FAILED", error=e)) from e
 
@@ -74,8 +69,12 @@ def latest_commit() -> str:
 
 
 def fetch_archive() -> zipfile.ZipFile:
+    archive_url = (
+        "https://gitlab.com/Dimbreath/animegamedata2/-/archive/main/"
+        "animegamedata2-main.zip?path=Subtitle"
+    )
     try:
-        response = urllib3.request("GET", SUBTITLE_ARCHIVE_URL, timeout=120.0)
+        response = urllib3.request("GET", archive_url, timeout=120.0, retries=RETRIES)
     except urllib3.exceptions.HTTPError as e:
         raise CharlotteError(translate("SUBTITLE_DOWNLOAD_FAILED", error=e)) from e
 

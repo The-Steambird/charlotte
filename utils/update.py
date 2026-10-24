@@ -13,6 +13,7 @@ from utils.logger import log
 from utils.reporter.console import pause_before_exit
 from utils.strings import translate
 from utils.version import __version__
+lazy from utils.http import RETRIES
 lazy from utils.reporter import Reporter
 
 
@@ -41,7 +42,7 @@ def fetch_latest_release() -> dict:
     }
     log.info(translate("UPDATE_CHECKING"))
     try:
-        response = urllib3.request("GET", url, headers=headers, timeout=10.0)
+        response = urllib3.request("GET", url, headers=headers, timeout=10.0, retries=RETRIES)
     except urllib3.exceptions.HTTPError as e:
         raise CharlotteError(translate("UPDATE_GITHUB_UNREACHABLE", error=e)) from e
     if response.status != 200:
@@ -65,7 +66,7 @@ def check_for_update() -> UpdateInfo:
     except CharlotteError as e:
         return UpdateInfo(current=__version__, reason=str(e))
 
-    latest = release["tag_name"].lstrip("vV")
+    latest = release["tag_name"]
     try:
         available = parse_version(latest) > parse_version(__version__)
     except ValueError:
@@ -147,7 +148,7 @@ def download_bundle(url: str, dest: Path, reporter: Reporter) -> str:
     headers = {"User-Agent": f"charlotte/{__version__}"}
     try:
         with urllib3.request(
-            "GET", url, headers=headers, preload_content=False, timeout=60.0
+            "GET", url, headers=headers, preload_content=False, timeout=60.0, retries=RETRIES
         ) as response:
             if response.status != 200:
                 raise CharlotteError(

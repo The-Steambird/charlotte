@@ -53,7 +53,7 @@ def test_update_available(monkeypatch):
         "browser_download_url": "https://example/dl",
         "digest": "sha256:abc",
     }
-    with_asset = release("v99.0.0") | {"assets": [asset]}
+    with_asset = release("99.0.0") | {"assets": [asset]}
     monkeypatch.setattr(utils.update, "fetch_latest_release", lambda: with_asset)
     assert check_for_update() == UpdateInfo(
         current=__version__,
@@ -67,7 +67,7 @@ def test_update_available(monkeypatch):
     )
 
 
-@pytest.mark.parametrize("tag", [f"v{__version__}", "v0.0.1"], ids=["same", "older"])
+@pytest.mark.parametrize("tag", [__version__, "0.0.1"], ids=["same", "older"])
 def test_not_available_when_current_or_ahead(monkeypatch, tag):
     monkeypatch.setattr(utils.update, "fetch_latest_release", lambda: release(tag))
     info = check_for_update()
@@ -92,7 +92,7 @@ def test_declined_check_reports_reason(monkeypatch, fetch, reason):
 
 
 @pytest.mark.parametrize(
-    "fetch", [lambda: release("v99.0.0"), unreachable], ids=["available", "failed"]
+    "fetch", [lambda: release("99.0.0"), unreachable], ids=["available", "failed"]
 )
 def test_event_shape_fixed_regardless_of_outcome(monkeypatch, reporter, fetch):
     monkeypatch.setattr(utils.update, "fetch_latest_release", fetch)
@@ -244,7 +244,7 @@ def test_clear_stale_files_removes_every_old_file(monkeypatch, tmp_path):
 
 
 def update_available(monkeypatch, frozen: bool = True) -> None:
-    monkeypatch.setattr(utils.update, "fetch_latest_release", lambda: release("v99.0.0"))
+    monkeypatch.setattr(utils.update, "fetch_latest_release", lambda: release("99.0.0"))
     monkeypatch.setattr(sys, "frozen", frozen, raising=False)
 
 
@@ -258,7 +258,7 @@ def test_run_update_from_source_only_reports(monkeypatch, reporter):
 
 
 def test_run_update_no_prompt_when_up_to_date(monkeypatch, reporter):
-    monkeypatch.setattr(utils.update, "fetch_latest_release", lambda: release(f"v{__version__}"))
+    monkeypatch.setattr(utils.update, "fetch_latest_release", lambda: release(__version__))
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     monkeypatch.setattr(utils.update, "apply_update", forbid_call)
 
