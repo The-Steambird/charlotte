@@ -6,7 +6,7 @@
   <a href="https://github.com/The-Steambird/charlotte/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/The-Steambird/charlotte/ci.yml?branch=master&label=ci&logo=githubactions&logoColor=white" alt="CI" /></a>
   <a href="https://github.com/The-Steambird/charlotte/releases/latest"><img src="https://img.shields.io/github/v/release/The-Steambird/charlotte?label=release" alt="Release" /></a>
   <a href="https://github.com/The-Steambird/charlotte/releases"><img src="https://img.shields.io/github/downloads/The-Steambird/charlotte/total" alt="Downloads" /></a>
-  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.14%2B-3776AB?logo=python&logoColor=white" alt="Python 3.14+" /></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.15%2B-3776AB?logo=python&logoColor=white" alt="Python 3.15+" /></a>
   <a href="https://docs.astral.sh/ruff/"><img src="https://img.shields.io/badge/lint-ruff-D7FF64?logo=ruff&logoColor=111111" alt="Lint: Ruff" /></a>
   <a href="https://github.com/astral-sh/uv"><img src="https://img.shields.io/badge/package%20manager-uv-4B5DFF" alt="Package Manager: uv" /></a>
   <a href="https://github.com/The-Steambird/charlotte/blob/master/LICENSE"><img src="https://img.shields.io/github/license/The-Steambird/charlotte" alt="License" /></a>
@@ -15,17 +15,17 @@
 
 # Charlotte
 
-[<img src="https://raw.githubusercontent.com/The-Steambird/charlotte/master/docs/imgs/download.svg"/>](https://github.com/The-Steambird/charlotte/releases/download/1.2.0/charlotte-1.2.0.zip)
-> Stable build version: `1.2.0` (Released on: October 6th, 2026).
+[<img src="https://raw.githubusercontent.com/The-Steambird/charlotte/master/docs/imgs/download.svg"/>](https://github.com/The-Steambird/charlotte/releases/download/2.0.0/charlotte-2.0.1.zip)
+> Stable build version: `2.0.1` (Released on: October 25th, 2026).
 
 Why Charlotte, you ask? Who else would record all these cutscenes but Teyvat's beloved paparazzi?~
 
 Charlotte is a Genshin Impact utility that losslessly decrypts `.usm` cutscene files into playable
 `.mkv` videos, covering all known cutscenes from versions 1.0 through 7.1. Each video contains all 4
 language audio tracks, subtitles in 15 languages styled to match nearly perfectly with official
-style. There's also an optional [VapourSynth](https://www.vapoursynth.com/about/) filter pass to
-clean up banding and macroblocking introduced by Hoyo's incompetent encoding. If you're a fan of
-high quality picture, rejoice.
+style. Charlotte can do packet sniffing to capture video keys from the game natively. There's also
+an optional [VapourSynth](https://www.vapoursynth.com/about/) filter pass to clean up banding and macroblocking introduced by
+Hoyo's incompetent encoding. If you're a fan of high quality picture, rejoice.
 
 <p align="center">
    <img width="49%" alt="main UI" src="docs/imgs/main-ui.png" />
@@ -39,6 +39,7 @@ high quality picture, rejoice.
 - EN, CN, JP, KR audio tracks + softsub in 15 languages
 - Near perfect official subtitle styling
 - Key crack for USM files without a key (up to 7.0)
+- Packet sniffing to get keys
 - Subtitles fetched from Dimbreath automatically
 - Font subsetting using only necessary text characters (a few hundred KBs per file)
 - Automatically fetches new video keys
@@ -103,6 +104,16 @@ To check for a newer release, and install it in place after confirmation:
 charlotte-cli --update
 ```
 
+To capture keys from the game's network traffic, run this before clicking on the door (admin
+permission required):
+
+```sh
+charlotte-cli --capture
+```
+
+**Note**: On Windows 10 and below it falls back to a legacy capture method that is untested and not
+guaranteed to work.
+
 For help:
 
 ```sh
@@ -128,13 +139,14 @@ terminal on the front so that Windows' Process Scheduling Priority will prioriti
 | Option   | `--key [KEY]`            | `-k`      | Decryption key for a single file. Use `audioKey:aesKey` format for a 7.1+ file.                                                |
 | Option   | `--vapoursynth`          | `-vs`     | Apply the VapourSynth filter preset in `vs/default.py`.                                                                        |
 | Option   | `--hard-sub`             | `-hs`     | Burn the default subtitle language into the video with x265 and skip softsub muxing.                                           |
-| Option   | `--crf [VALUE]`          | `-crf`    | x265 CRF value for re-encoded output, i.e. `-vs` or `-hs` (default: `13`).                                                   |
+| Option   | `--crf [VALUE]`          | `-crf`    | x265 CRF value for re-encoded output, i.e. `-vs` or `-hs` (default: `13`).                                                     |
 | Option   | `--preset [PRESET]`      | `-preset` | x265 preset for re-encoded output, i.e. `-vs` or `-hs` (default: `slower`).                                                    |
 | Option   | `--x265-params [PARAMS]` | `-x265`   | Custom x265 params (colon-separated). Overrides the built-in defaults below.                                                   |
 | Option   | `--probe`                | `-p`      | Only report what is available for each file (decryption key, local subtitles).                                                 |
 | Option   | `--crack`                | `-c`      | Recover key from USM file and report it, without demuxing or converting.                                                       |
 | Option   | `--json`                 | `-json`   | Emit newline-delimited JSON events on stdout for a GUI/automation frontend.                                                    |
 | Option   | `--update`               | `-u`      | Check GitHub for a newer release and update.                                                                                   |
+| Option   | `--capture`              | `-cap`    | Capture keys from the game's login traffic and print them as `keys.json` groups. Requires admin permission.                    |
 | Option   | `--version`              | `-v`      | Print the Charlotte version and exit.                                                                                          |
 
 ### Encoding defaults
@@ -158,7 +170,7 @@ have strong video encoding knowledge.
 
 ## Building from source
 
-- Python 3.14 or higher
+- Python 3.15 or higher
 - [uv](https://github.com/astral-sh/uv)
 - `ffmpeg.exe` (details below)
 
