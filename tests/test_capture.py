@@ -299,7 +299,7 @@ def test_login_yields_the_video_key(reporter):
     assert [command.id for command in commands] == [99, 100, 300, 200]
     assert find_keys(commands[-1].body) == [FoundKey(int(AUDIO), AES.decode(), 7017)]
     assert reporter.logs == [
-        ("info", translate("CAPTURE_LOGIN_SEEN")),
+        ("info", translate("CAPTURE_LOGIN_DETECTED")),
         ("info", translate("CAPTURE_SESSION_KEY_FOUND")),
     ]
 

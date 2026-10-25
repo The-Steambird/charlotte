@@ -140,7 +140,7 @@ class Sniffer:
                 self.report_unrecovered()
                 self.reset()
                 if not self.logged_in:
-                    self.reporter.log("info", translate("CAPTURE_LOGIN_SEEN"))
+                    self.reporter.log("info", translate("CAPTURE_LOGIN_DETECTED"))
                 self.logged_in = True
             return []
         if not self.logged_in:

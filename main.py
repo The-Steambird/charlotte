@@ -85,7 +85,7 @@ def run_capture(reporter: Reporter, json_output: bool, pause: bool, legacy: bool
         if json_output:
             die(translate("CAPTURE_NEEDS_ADMIN"), reporter)
         if not relaunch_as_admin(["--pause"]):
-            die(translate("CAPTURE_ELEVATION_DECLINED"), reporter)
+            die(translate("CAPTURE_NEEDS_ADMIN"), reporter)
         log.info(translate("CAPTURE_ELEVATED_WINDOW"))
         return
 

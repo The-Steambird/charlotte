@@ -118,7 +118,7 @@ def test_crack_key_declines_the_stream_cipher(tmp_path, reporter):
     recovery = crack_key(usm_file, reporter)
 
     assert recovery.key is None
-    assert "7.1 encryption" in recovery.reason
+    assert "cannot be cracked" in recovery.reason
 
 
 def test_crack_key_declines_too_little_video(tmp_path, reporter):
@@ -172,7 +172,7 @@ def test_split_half_rejects_disagreeing_noise():
     mask, reason = evaluate(Sample(left, right, True, used))
 
     assert mask is None
-    assert "disagree" in reason
+    assert "mismatching video halves" in reason
 
 
 def test_is_masked_matches_decrypt_video(tmp_path):
