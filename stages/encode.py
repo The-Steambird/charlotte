@@ -216,7 +216,7 @@ def worker(
     queue.put(("result", True))
 
 
-def vapoursynth_filter(
+def encode(
     source: Path,
     reporter: Reporter,
     ffmpeg_args: list[str],

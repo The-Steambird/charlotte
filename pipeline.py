@@ -9,7 +9,7 @@ from resources.keys import DecryptionKey, Keys, find_video_version, join_key, vi
 from resources.subtitles import local_subtitle_path
 from stages.ass import ASS
 from stages.crack import Recovery, crack_key
-from stages.encode import encode_args, subtitle_filter, vapoursynth_filter
+from stages.encode import encode, encode_args, subtitle_filter
 from stages.hca import AUDIO_CODECS, HCA
 from stages.mux import mux, mux_args, subset_fonts, track_code
 from stages.usm import USM, video_nonce
@@ -127,9 +127,7 @@ def encode_video(
         default_audio=opts.default_audio,
         default_subtitle=opts.default_subtitle,
     )
-    if vapoursynth_filter(
-        source=video, reporter=reporter, ffmpeg_args=ffmpeg_args, filtered=opts.vapoursynth
-    ):
+    if encode(source=video, reporter=reporter, ffmpeg_args=ffmpeg_args, filtered=opts.vapoursynth):
         return True
     log.warning(translate("ENCODE_FALLBACK", stem=stem))
     return False

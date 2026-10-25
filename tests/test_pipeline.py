@@ -119,7 +119,7 @@ def stub_stages(monkeypatch):
 
     monkeypatch.setattr(pipeline, "process_audio", audio)
     monkeypatch.setattr(pipeline, "process_subtitles", subtitles)
-    monkeypatch.setattr(pipeline, "vapoursynth_filter", encode)
+    monkeypatch.setattr(pipeline, "encode", encode)
     monkeypatch.setattr(pipeline, "mux", mux)
     return calls
 
@@ -412,7 +412,7 @@ def test_hard_sub_with_vapoursynth_encodes_once(stub_stages, tmp_path, reporter)
 def test_hard_sub_without_the_default_language_skips_the_encode(
     stub_stages, tmp_path, reporter, monkeypatch, caplog
 ):
-    monkeypatch.setattr(pipeline, "vapoursynth_filter", forbid_call)
+    monkeypatch.setattr(pipeline, "encode", forbid_call)
     usm_file, opts, keys = make_run(tmp_path, hard_sub=True, default_subtitle="DE")
 
     process_usm(usm_file, opts, keys, reporter)
