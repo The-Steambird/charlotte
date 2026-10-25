@@ -1,6 +1,6 @@
 [project]
 name = "charlotte"
-version = "1.2.0"
+version = "2.0.0"
 description = "A cutscene encoder tool for a certain popular anime game."
 authors = [{ name = "lunarmint", email = "me@chocomint.dev" }]
 requires-python = ">=3.15"
@@ -10,7 +10,7 @@ dependencies = [
     "fonttools>=4.67.0",
     "numpy>=2.5.4",
     "orjson>=3.13.0",
-    "pycryptodome>=4.1.0",
+    "pycryptodome>=4.2.0",
     "typer>=0.27.3",
     "urllib3>=2.8.0",
     "vapoursynth>=81",
