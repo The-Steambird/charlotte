@@ -3,6 +3,7 @@ import io
 import zipfile
 
 from concurrent.futures import ThreadPoolExecutor
+lazy from collections.abc import Iterable
 lazy from pathlib import Path
 
 import orjson
@@ -138,10 +139,15 @@ def github_changes(http: urllib3.PoolManager, commit: str) -> list[str]:
     return changed
 
 
-def write_subtitles(files: dict[str, bytes], commit: str, reporter: Reporter) -> None:
+def write_subtitles(
+    files: Iterable[tuple[str, bytes]], count: int, commit: str, reporter: Reporter
+) -> None:
     try:
-        with reporter.task("subtitles", len(files), unit="file") as task:
-            for rel, data in files.items():
+        with reporter.task("subtitles", count, unit="file") as task:
+            for rel, data in files:
+                # The batch's first checkpoint reports the cancel.
+                if reporter.cancel_requested():
+                    return
                 target = app_root() / rel
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(data)
@@ -151,7 +157,7 @@ def write_subtitles(files: dict[str, bytes], commit: str, reporter: Reporter) ->
         return
 
     write_commit(commit)
-    log.info(translate("SUBTITLES_SYNCED", count=len(files), path=subtitle_dir()))
+    log.info(translate("SUBTITLES_SYNCED", count=count, path=subtitle_dir()))
 
 
 def sync_from_gitlab(http: urllib3.PoolManager, reporter: Reporter) -> None:
@@ -165,7 +171,7 @@ def sync_from_gitlab(http: urllib3.PoolManager, reporter: Reporter) -> None:
     if not files:
         log.warning(translate("SUBTITLE_ARCHIVE_EMPTY"))
         return
-    write_subtitles(files, commit, reporter)
+    write_subtitles(files.items(), len(files), commit, reporter)
 
 
 def sync_from_github(http: urllib3.PoolManager, reporter: Reporter) -> None:
@@ -180,21 +186,11 @@ def sync_from_github(http: urllib3.PoolManager, reporter: Reporter) -> None:
     def download(rel: str) -> bytes:
         return fetch(http, f"https://raw.githubusercontent.com/{MIRROR}/{commit}/{rel}")
 
-    files = {}
     # A few downloads are queued at a time. A failure or a cancel would still wait
     # for remaining files to download.
-    with (
-        reporter.task("subtitles", len(changed), unit="file") as task,
-        ThreadPoolExecutor(PARALLEL_DOWNLOADS) as executor,
-    ):
+    with ThreadPoolExecutor(PARALLEL_DOWNLOADS) as executor:
         downloads = executor.map(download, changed, buffersize=PARALLEL_DOWNLOADS)
-        for rel, data in zip(changed, downloads, strict=True):
-            # The batch's first checkpoint reports the cancel.
-            if reporter.cancel_requested():
-                return
-            files[rel] = data
-            task.advance()
-    write_subtitles(files, commit, reporter)
+        write_subtitles(zip(changed, downloads, strict=True), len(changed), commit, reporter)
 
 
 def sync_subtitles(reporter: Reporter) -> None:

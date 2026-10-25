@@ -203,6 +203,29 @@ def test_cancel_during_a_mirror_download_stops_without_raising(tmp_app_root, rep
     assert stored_commit() == ""
 
 
+def test_a_failed_mirror_sync_resumes_where_it_stopped(tmp_app_root, reporter, monkeypatch):
+    new_blob = "3e5126c4e761fd09582fc517918a1601b218dff0"
+    file_a = f"{GITHUB_RAW}Subtitle/EN/Cs_A_EN.srt"
+    file_b = f"{GITHUB_RAW}Subtitle/EN/Cs_B_EN.srt"
+    responses = {
+        GITHUB_COMMITS: b'[{"sha": "abc123"}]',
+        GITHUB_TREE: mirror_tree(("EN/Cs_A_EN.srt", new_blob), ("EN/Cs_B_EN.srt", new_blob)),
+        file_a: b"new",
+    }
+    serve(monkeypatch, responses)
+
+    sync_subtitles(reporter)
+
+    assert local_subtitle_path("Cs_A", "EN").read_bytes() == b"new"
+    assert stored_commit() == ""
+
+    requested = serve(monkeypatch, responses | {file_b: b"new"})
+    sync_subtitles(reporter)
+
+    assert [url for url in requested if url.startswith(GITHUB_RAW)] == [file_b]
+    assert stored_commit() == "abc123"
+
+
 @pytest.mark.parametrize(
     "mirror",
     [
