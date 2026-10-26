@@ -6,16 +6,14 @@
   <a href="https://github.com/The-Steambird/charlotte/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/The-Steambird/charlotte/ci.yml?branch=master&label=ci&logo=githubactions&logoColor=white" alt="CI" /></a>
   <a href="https://github.com/The-Steambird/charlotte/releases/latest"><img src="https://img.shields.io/github/v/release/The-Steambird/charlotte?label=release" alt="Release" /></a>
   <a href="https://github.com/The-Steambird/charlotte/releases"><img src="https://img.shields.io/github/downloads/The-Steambird/charlotte/total" alt="Downloads" /></a>
-  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.15%2B-3776AB?logo=python&logoColor=white" alt="Python 3.15+" /></a>
-  <a href="https://docs.astral.sh/ruff/"><img src="https://img.shields.io/badge/lint-ruff-D7FF64?logo=ruff&logoColor=111111" alt="Lint: Ruff" /></a>
-  <a href="https://github.com/astral-sh/uv"><img src="https://img.shields.io/badge/package%20manager-uv-4B5DFF" alt="Package Manager: uv" /></a>
+  <a href="https://github.com/The-Steambird/charlotte/releases/latest"><img src="https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white" alt="Platform: Windows" /></a>
+  <a href="https://crowdin.com/project/charlotte-lang"><img src="https://badges.crowdin.net/charlotte-lang/localized.svg" alt="Crowdin" /></a>
   <a href="https://github.com/The-Steambird/charlotte/blob/master/LICENSE"><img src="https://img.shields.io/github/license/The-Steambird/charlotte" alt="License" /></a>
-  <a href="https://github.com/The-Steambird/charlotte/stargazers"><img src="https://img.shields.io/github/stars/The-Steambird/charlotte?style=social" alt="GitHub stars" /></a>
 </p>
 
 # Charlotte
 
-[<img src="https://raw.githubusercontent.com/The-Steambird/charlotte/master/docs/imgs/download.svg"/>](https://github.com/The-Steambird/charlotte/releases/download/2.0.0/charlotte-2.0.1.zip)
+[<img src="https://raw.githubusercontent.com/The-Steambird/charlotte/master/docs/imgs/download.svg"/>](https://github.com/The-Steambird/charlotte/releases/download/2.0.1/charlotte-2.0.1.zip)
 > Stable build version: `2.0.1` (Released on: October 25th, 2026).
 
 Why Charlotte, you ask? Who else would record all these cutscenes but Teyvat's beloved paparazzi?~
@@ -232,7 +230,8 @@ If you have missing video keys, pull requests are welcome.
 If you enjoyed using Charlotte, your support would mean so much to me. It keeps me motivated to
 invest more time into the project and keep it alive for as long as I can.
 
-**[GitHub Sponsors](https://github.com/sponsors/lunarmint)**
+<a href="https://ko-fi.com/lunarmint"><img height="30" src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support me on Ko-fi" /></a>
+<a href="https://github.com/sponsors/lunarmint"><img height="30" src="https://img.shields.io/badge/Sponsor_on_GitHub-30363D?style=for-the-badge&logo=githubsponsors&logoColor=EA4AAA" alt="Sponsor on GitHub" /></a>
 
 ## Disclaimer
 
