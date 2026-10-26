@@ -206,7 +206,7 @@ from [gyan.dev](https://www.gyan.dev/ffmpeg/builds/#release-builds), which is mu
 ### Build Command
 
 ```sh
-uv run pyinstaller charlotte.spec
+uv run --no-dev --exact pyinstaller charlotte.spec
 ```
 
 ## Credits

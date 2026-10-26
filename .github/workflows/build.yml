@@ -44,7 +44,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
       - name: Build with PyInstaller
-        run: uv run pyinstaller charlotte.spec
+        run: uv run --no-dev pyinstaller charlotte.spec
 
       - name: Smoke test
         run: dist/charlotte-cli.exe --help
