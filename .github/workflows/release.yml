@@ -33,7 +33,7 @@ jobs:
           path: gui
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: true
 
@@ -65,7 +65,7 @@ jobs:
       # ---- MonsieurVerite bundle -----
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
           cache: true
@@ -83,7 +83,7 @@ jobs:
           Compress-Archive -Path bundle/charlotte -DestinationPath dist/charlotte-${{ env.VERSION }}.zip
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: charlotte
           path: dist/*
