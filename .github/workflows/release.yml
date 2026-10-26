@@ -86,7 +86,8 @@ jobs:
         uses: actions/upload-artifact@v7.0.2
         with:
           name: charlotte
-          path: dist/*
+          path: dist/*.zip
+          compression-level: 0
 
       - name: Release
         uses: softprops/action-gh-release@v3.0.3
