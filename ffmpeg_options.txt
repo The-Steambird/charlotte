@@ -1,6 +1,10 @@
 # Lines starting with this character are ignored
 
 --disable-everything
+--disable-autodetect
+--disable-network
+--disable-schannel
+--enable-w32threads
 --enable-demuxer=hca,yuv4mpegpipe,ivf,matroska,flac,ass
 --enable-parser=vp9,opus
 --enable-muxer=matroska,flac,rawvideo
