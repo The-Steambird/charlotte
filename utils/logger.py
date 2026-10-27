@@ -32,6 +32,5 @@ class ReporterHandler(logging.Handler):
 
 
 logging.getLogger("vapoursynth").setLevel(logging.ERROR)
-logging.getLogger("fontTools").setLevel(logging.WARNING)
 # urllib3 logs redirects at INFO, which would print GitHub's signed asset URL on --update.
 logging.getLogger("urllib3").setLevel(logging.WARNING)

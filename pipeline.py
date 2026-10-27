@@ -195,18 +195,14 @@ def process_usm(usm_file: Path, opts: Options, keys: Keys, reporter: Reporter) -
         extension = AUDIO_CODECS[opts.audio_codec][0]
         audio_files = [hca_file.with_suffix(extension) for hca_file in hca_files]
         created += audio_files
-        # Subtitles run during audio conversion as it mostly waits on ffmpeg. During the demux, font
-        # subsetting would hold the GIL and slow the chunk walk.
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            subtitles = executor.submit(prepare_subtitles, stem, output_path, opts.fonts)
-            process_audio(
-                hca_files,
-                audio_files,
-                key,
-                keep_decrypted=opts.no_cleanup,
-                codec=opts.audio_codec,
-            )
-        subtitle_files, font_subsets = subtitles.result()
+        process_audio(
+            hca_files,
+            audio_files,
+            key,
+            keep_decrypted=opts.no_cleanup,
+            codec=opts.audio_codec,
+        )
+        subtitle_files, font_subsets = prepare_subtitles(stem, output_path, opts.fonts)
         reporter.checkpoint()
 
         encoded = encode_video(

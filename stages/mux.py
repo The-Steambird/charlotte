@@ -3,8 +3,7 @@ import unicodedata
 lazy from collections.abc import Sequence
 lazy from pathlib import Path
 
-lazy from fontTools.subset import Subsetter
-lazy from fontTools.ttLib import TTFont
+lazy import uharfbuzz as hb
 
 from utils.ffmpeg import run_ffmpeg
 from utils.languages import AUDIO_LANGUAGES, get_language
@@ -20,14 +19,13 @@ def track_code(path: Path) -> str:
 def subset_fonts(fonts: Sequence[Path], subtitle_files: list[Path], folder: Path) -> list[Path]:
     text = "".join(path.read_text(encoding="utf-8") for path in subtitle_files)
     text += unicodedata.normalize("NFKD", text)
+    subset_input = hb.SubsetInput()
+    subset_input.unicode_set.update(map(ord, text))
     subsets = []
     for font in fonts:
         subset = folder / font.name
-        with TTFont(font, recalcTimestamp=False) as ttf:
-            subsetter = Subsetter()
-            subsetter.populate(text=text)
-            subsetter.subset(ttf)
-            ttf.save(subset)
+        face = hb.Face(hb.Blob.from_file_path(font))
+        subset.write_bytes(hb.subset(face, subset_input).blob.data)
         subsets.append(subset)
     return subsets
 

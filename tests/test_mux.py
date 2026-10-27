@@ -1,9 +1,7 @@
 from itertools import pairwise
 from pathlib import Path
 
-from fontTools.fontBuilder import FontBuilder
-from fontTools.pens.ttGlyphPen import TTGlyphPen
-from fontTools.ttLib import TTFont
+import uharfbuzz as hb
 
 from conftest import flag_value, input_files
 from stages.mux import mux, mux_args, subset_fonts
@@ -18,21 +16,6 @@ def make_tracks(tmp_path):
     audio = [tmp_path / f"Cs_Test_{channel}.flac" for channel in ("0", "1", "2")]
     subtitles = [tmp_path / "subs" / f"Cs_Test_{lang}.ass" for lang in ("EN", "JP")]
     return video, audio, subtitles
-
-
-def build_font(path: Path, text: str) -> None:
-    names = {ord(char): f"uni{ord(char):04X}" for char in text}
-    order = [".notdef", *names.values()]
-    builder = FontBuilder(1000, isTTF=True)
-    builder.setupGlyphOrder(order)
-    builder.setupCharacterMap(names)
-    builder.setupGlyf({name: TTGlyphPen(None).glyph() for name in order})
-    builder.setupHorizontalMetrics(dict.fromkeys(order, (500, 0)))
-    builder.setupHorizontalHeader(ascent=800, descent=-200)
-    builder.setupNameTable({"familyName": "Test", "styleName": "Regular"})
-    builder.setupOS2()
-    builder.setupPost()
-    builder.save(path)
 
 
 def test_default_audio_sorted_first_and_flagged(ffmpeg, tmp_path):
@@ -96,19 +79,16 @@ def test_fonts_only_ride_with_subtitle_tracks(tmp_path):
 
 
 def test_font_subset_keeps_what_harfbuzz_splits_thai_into(tmp_path):
-    """HarfBuzz splits ำ into ํ and า itself because the fonts have no shaping tables for Thai,
-    and the subset has to keep both."""
-    font = tmp_path / "zh-cn.ttf"
-    build_font(font, "Aำํา")
+    """HarfBuzz splits ำ into ํ and า itself because the game fonts have no shaping tables for
+    Thai, and the subset has to keep both. Tahoma ships with Windows and has all three."""
     subtitle = tmp_path / "Cs_Test_TH.ass"
     subtitle.write_text("ำ", encoding="utf-8")
     folder = tmp_path / "subs"
     folder.mkdir()
 
-    [subset] = subset_fonts([font], [subtitle], folder)
+    [subset] = subset_fonts([Path("C:/Windows/Fonts/tahoma.ttf")], [subtitle], folder)
 
-    with TTFont(subset) as ttf:
-        assert set(ttf.getBestCmap()) == {ord("ำ"), ord("ํ"), ord("า")}
+    assert set(hb.Face(subset.read_bytes()).unicodes) == {ord("ำ"), ord("ํ"), ord("า")}
 
 
 def test_all_streams_mapped(ffmpeg, tmp_path):
