@@ -252,6 +252,7 @@ CLAUDE.md
 *.json
 /test/
 /sweep
+/packets
 
 # Include
 !/locales/*.json
