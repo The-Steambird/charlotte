@@ -1,7 +1,7 @@
 """Decrypts the game's network traffic. Each message is XORed with a 4096-byte key.
 
 A login starts under a fixed dispatch key in gi.json. After that, both sides use a session key built
-from a seed in two halves. The server sends its half in the login reply, locked with RSA, where
+from a seed in two halves. The server sends its half in the login reply body, locked with RSA, where
 private keys are in secrets/. Client's half cannot be read from traffic and is determined with
 C#'s random number generator seeded with its clock in ms, so it can be found by trying every ms
 near the server's reply timestamp.
