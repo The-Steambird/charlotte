@@ -25,6 +25,7 @@ BASENAME_FIXES = {
     "Cs_4131904_HaiDaoChuXian_Boy": "Cs_Activity_4001103_Summertime_Boy",
     "Cs_4131904_HaiDaoChuXian_Girl": "Cs_Activity_4001103_Summertime_Girl",
     "Cs_200211_WanYeXianVideo": "Cs_DQAQ200211_WanYeXianVideo",
+    "Cs_MD_EQ4002802_WinterCampAlbedoConfront": "Cs_MD_EQ4002802_WinterCampAlbedoConfront_Boy",
 }
 
 
@@ -32,9 +33,23 @@ def subtitle_dir() -> Path:
     return app_root() / "Subtitle"
 
 
-def local_subtitle_path(stem: str, lang: str) -> Path:
+def subtitle_path(name: str, lang: str) -> Path:
+    return subtitle_dir() / lang / f"{name}_{lang}.srt"
+
+
+def local_subtitle_path(stem: str, lang: str) -> Path | None:
     stem = BASENAME_FIXES.get(stem, stem)
-    return subtitle_dir() / lang / f"{stem}_{lang}.srt"
+    path = subtitle_path(stem, lang)
+    if path.exists():
+        return path
+
+    # Fix USM file mismatch where some subtitle files do not have the _Boy and _Girl suffix.
+    for suffix in ("_Boy", "_Girl"):
+        if stem.endswith(suffix):
+            shared = subtitle_path(stem.removesuffix(suffix), lang)
+            if shared.exists():
+                return shared
+    return None
 
 
 def sync_marker() -> Path:

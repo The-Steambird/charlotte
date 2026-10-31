@@ -22,7 +22,7 @@ from pipeline import (
     process_usm,
 )
 from resources.keys import DecryptionKey, Keys, calculate_key_from_filename, split_key
-from resources.subtitles import local_subtitle_path
+from resources.subtitles import local_subtitle_path, subtitle_path
 from stages.crack import Recovery
 from utils.errors import Cancelled, CharlotteError, Skipped
 from utils.reporter import JsonReporter
@@ -34,7 +34,7 @@ AES_KEY = bytes(range(16))
 
 
 def write_subtitle(stem, lang, text=SRT):
-    path = local_subtitle_path(stem, lang)
+    path = subtitle_path(stem, lang)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
 
@@ -201,6 +201,17 @@ def test_probe_remaps_subtitle_stem_only(tmp_app_root, reporter, monkeypatch):
     data = last_event(reporter, "probe")
     assert data["stem"] == "Cs_200211_WanYeXianVideo"
     assert data["subtitles"] == ["EN"]
+
+
+@pytest.mark.parametrize("stem", ["Cs_A_Boy", "Cs_A_Girl"])
+def test_gendered_video_falls_back_to_the_shared_subtitle(tmp_app_root, stem):
+    write_subtitle("Cs_A", "EN")
+    write_subtitle("Cs_A", "JP")
+    write_subtitle(stem, "JP")
+
+    assert local_subtitle_path(stem, "EN") == subtitle_path("Cs_A", "EN")
+    assert local_subtitle_path(stem, "JP") == subtitle_path(stem, "JP")
+    assert local_subtitle_path(stem, "KR") is None
 
 
 # --- cancel and key fallback ---

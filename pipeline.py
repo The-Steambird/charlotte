@@ -59,7 +59,7 @@ def process_subtitles(stem: str, folder: Path) -> list[Path]:
     subtitle_files = []
     for lang in SUBTITLES_LANGUAGES:
         sub_path = local_subtitle_path(stem, lang)
-        if sub_path.exists():
+        if sub_path is not None:
             subtitle_files.append((sub_path, lang))
 
     log.info(translate("FOUND_SUBTITLES", count=len(subtitle_files)))
@@ -320,7 +320,9 @@ def probe_usm(usm_file: Path, keys: Keys, reporter: Reporter) -> None:
     lookup = keys.stream_keys if stream_cipher else keys.get
     has_key = lookup(stem) is not None
     version = find_video_version(keys.data, stem)
-    subtitles = [lang for lang in SUBTITLES_LANGUAGES if local_subtitle_path(stem, lang).exists()]
+    subtitles = [
+        lang for lang in SUBTITLES_LANGUAGES if local_subtitle_path(stem, lang) is not None
+    ]
 
     key_text = translate("PROBE_KEY_FOUND") if has_key else translate("PROBE_KEY_MISSING")
     subtitle_text = ",".join(subtitles) or translate("PROBE_NONE")

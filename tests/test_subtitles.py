@@ -8,8 +8,8 @@ import resources.subtitles
 
 from resources.subtitles import (
     gitlab_commit,
-    local_subtitle_path,
     stored_commit,
+    subtitle_path,
     sync_subtitles,
     write_commit,
 )
@@ -78,7 +78,7 @@ def test_empty_commit_list_is_an_error_not_a_crash(monkeypatch):
 
 
 def test_sync_writes_files_and_marker(tmp_app_root, reporter, monkeypatch):
-    stale = local_subtitle_path("Cs_A", "EN")
+    stale = subtitle_path("Cs_A", "EN")
     stale.parent.mkdir(parents=True)
     stale.write_bytes(b"old")
     serve_gitlab(
@@ -92,7 +92,7 @@ def test_sync_writes_files_and_marker(tmp_app_root, reporter, monkeypatch):
     sync_subtitles(reporter)
 
     assert stale.read_bytes() == b"english"
-    assert local_subtitle_path("Cs_A", "JP").read_bytes() == b"japanese"
+    assert subtitle_path("Cs_A", "JP").read_bytes() == b"japanese"
     assert stored_commit() == "abc123"
 
 
@@ -120,7 +120,7 @@ def test_sync_filters_archive_entries(tmp_app_root, reporter, monkeypatch):
 
     sync_subtitles(reporter)
 
-    assert local_subtitle_path("Cs_A", "EN").read_bytes() == b"kept"
+    assert subtitle_path("Cs_A", "EN").read_bytes() == b"kept"
     assert not (tmp_app_root / "evil.srt").exists()
     assert not (tmp_app_root / "Subtitle" / "EN" / "notes.txt").exists()
     assert stored_commit() == "abc123"
@@ -140,7 +140,7 @@ def test_sync_write_failure_skips_marker(tmp_app_root, reporter, monkeypatch):
             f"{ARCHIVE_ROOT}/Subtitle/EN/Cs_B_EN.srt": b"fails to write",
         },
     )
-    local_subtitle_path("Cs_B", "EN").mkdir(parents=True)
+    subtitle_path("Cs_B", "EN").mkdir(parents=True)
 
     sync_subtitles(reporter)
 
@@ -159,7 +159,7 @@ def mirror_tree(*entries):
 def test_gitlab_failure_falls_back_to_the_mirror_for_changed_files(
     tmp_app_root, reporter, monkeypatch
 ):
-    current = local_subtitle_path("Cs_A", "EN")
+    current = subtitle_path("Cs_A", "EN")
     current.parent.mkdir(parents=True)
     current.write_bytes(b"same")
     requested = serve(
@@ -180,7 +180,7 @@ def test_gitlab_failure_falls_back_to_the_mirror_for_changed_files(
     downloaded = [url for url in requested if url.startswith(GITHUB_RAW)]
     assert downloaded == [f"{GITHUB_RAW}Subtitle/EN/Cs_B_EN.srt"]
     assert current.read_bytes() == b"same"
-    assert local_subtitle_path("Cs_B", "EN").read_bytes() == b"new"
+    assert subtitle_path("Cs_B", "EN").read_bytes() == b"new"
     assert stored_commit() == "abc123"
 
 
@@ -199,7 +199,7 @@ def test_cancel_during_a_mirror_download_stops_without_raising(tmp_app_root, rep
 
     sync_subtitles(reporter)
 
-    assert not local_subtitle_path("Cs_B", "EN").exists()
+    assert not subtitle_path("Cs_B", "EN").exists()
     assert stored_commit() == ""
 
 
@@ -216,7 +216,7 @@ def test_a_failed_mirror_sync_resumes_where_it_stopped(tmp_app_root, reporter, m
 
     sync_subtitles(reporter)
 
-    assert local_subtitle_path("Cs_A", "EN").read_bytes() == b"new"
+    assert subtitle_path("Cs_A", "EN").read_bytes() == b"new"
     assert stored_commit() == ""
 
     requested = serve(monkeypatch, responses | {file_b: b"new"})
