@@ -39,16 +39,12 @@ def subtitle_path(name: str, lang: str) -> Path:
 
 def local_subtitle_path(stem: str, lang: str) -> Path | None:
     stem = BASENAME_FIXES.get(stem, stem)
-    path = subtitle_path(stem, lang)
-    if path.exists():
-        return path
-
-    # Fix USM file mismatch where some subtitle files do not have the _Boy and _Girl suffix.
-    for suffix in ("_Boy", "_Girl"):
-        if stem.endswith(suffix):
-            shared = subtitle_path(stem.removesuffix(suffix), lang)
-            if shared.exists():
-                return shared
+    # Fix USM file mismatch where some subtitle files do not have the _Boy or _Girl suffix.
+    shared = stem.removesuffix("_Boy").removesuffix("_Girl")
+    for name in (stem, shared):
+        path = subtitle_path(name, lang)
+        if path.exists():
+            return path
     return None
 
 
