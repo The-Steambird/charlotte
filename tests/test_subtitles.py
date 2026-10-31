@@ -8,6 +8,7 @@ import resources.subtitles
 
 from resources.subtitles import (
     gitlab_commit,
+    local_subtitle_path,
     stored_commit,
     subtitle_path,
     sync_subtitles,
@@ -54,6 +55,19 @@ def serve_gitlab(monkeypatch, entries):
         monkeypatch,
         {GITLAB_COMMITS: b'[{"id": "abc123"}]', GITLAB_ARCHIVE: make_archive(entries)},
     )
+
+
+# --- the local lookup ---
+
+
+@pytest.mark.parametrize("stem", ["Cs_A_Boy", "Cs_A_Girl"])
+def test_gendered_video_falls_back_to_the_shared_subtitle(tmp_app_root, stem):
+    shared = subtitle_path("Cs_A", "EN")
+    shared.parent.mkdir(parents=True)
+    shared.write_bytes(b"")
+
+    assert local_subtitle_path(stem, "EN") == shared
+    assert local_subtitle_path(stem, "KR") is None
 
 
 # --- the sync marker ---
