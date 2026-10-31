@@ -3,6 +3,11 @@ import re
 lazy from pathlib import Path
 
 
+# Nine cues of Cs_Natlan_AQ50113101_BSSU_Boy were somehow appended to the Vietnamese subtitle.
+# They start after the MVBT video ends at 1:06.53.
+VIDEO_END_FIXES = {"Cs_Natlan_AQ50120901_MVBT_VI": "00:01:06,53"}
+
+
 class ASS:
     timing = re.compile(r"\d\d:\d\d:\d\d,\d\d")
     shadow = r"{\xshad-0.05\yshad-0.05\blur0.5}"
@@ -26,6 +31,7 @@ class ASS:
         # Some SRT files carry a BOM which breaks the digit check on the first block.
         content = self.srt_file.read_text(encoding="utf-8-sig")
         content = "\n".join(content.splitlines()).strip()
+        video_end = VIDEO_END_FIXES.get(self.srt_file.stem)
 
         for block in re.split(r"\n{2,}", content):
             lines = block.split("\n")
@@ -34,6 +40,8 @@ class ASS:
 
             timings = self.timing.findall(lines[1])
             if len(timings) != 2:
+                continue
+            if video_end is not None and timings[0] >= video_end:
                 continue
 
             # HH:MM:SS,cc -> H:MM:SS.cc
