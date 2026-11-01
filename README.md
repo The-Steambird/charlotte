@@ -21,8 +21,8 @@ Why Charlotte, you ask? Who else would record all these cutscenes but Teyvat's b
 Charlotte is a Genshin Impact utility that losslessly decrypts `.usm` cutscene files into playable
 `.mkv` videos, covering all known cutscenes from versions 1.0 through 7.1. Each video contains all 4
 language audio tracks, subtitles in 15 languages styled to match nearly perfectly with official
-style. Charlotte can do packet sniffing to capture video keys from the game natively. There's also
-an optional [VapourSynth](https://www.vapoursynth.com/about/) filter pass to clean up banding and macroblocking introduced by
+style. Charlotte also allows packet capturing to capture video keys from the game natively. There's
+also an optional [VapourSynth](https://www.vapoursynth.com/about/) filter pass to clean up banding and macroblocking introduced by
 Hoyo's incompetent encoding. If you're a fan of high quality picture, rejoice.
 
 <p align="center">
@@ -37,7 +37,7 @@ Hoyo's incompetent encoding. If you're a fan of high quality picture, rejoice.
 - EN, CN, JP, KR audio tracks + softsub in 15 languages
 - Near perfect official subtitle styling
 - Key crack for USM files without a key (up to 7.0)
-- Packet sniffing to get keys
+- Packet capturing to get keys
 - Subtitles fetched from Dimbreath automatically
 - Font subsetting using only necessary text characters (a few hundred KBs per file)
 - Automatically fetches new video keys
