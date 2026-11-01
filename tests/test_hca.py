@@ -171,7 +171,7 @@ def test_zero_block_size_raises(tmp_path):
     """The C# allows it, but save() divides the stream by it, and a bare ZeroDivisionError
     there escapes the per-file handler and kills the whole batch."""
     path = write_hca(tmp_path, hca_bytes(block_size=0, block_count=0))
-    with pytest.raises(CharlotteError, match="no audio blocks"):
+    with pytest.raises(CharlotteError, match="block size is zero"):
         HCA(path, KEY)
 
 
@@ -234,7 +234,7 @@ def test_convert_reports_ffmpeg_failure(ffmpeg, tmp_path, caplog):
     ffmpeg.returncode = 1
     ffmpeg.stderr = b"Invalid data found when processing input"
 
-    with pytest.raises(CharlotteError, match="Audio conversion failed"):
+    with pytest.raises(CharlotteError, match="Audio encoding failed"):
         make_hca(tmp_path).convert(tmp_path / "Cs_Test_0.flac", codec="flac")
 
     assert "Invalid data found" in caplog.text

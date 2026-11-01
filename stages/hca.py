@@ -124,7 +124,7 @@ class HCA:
 
     def read_header(self) -> None:
         if not self.match_chunk(0, b"HCA\x00"):
-            raise CharlotteError(translate("HCA_HEADER_INVALID", name=self.file_path.name))
+            raise CharlotteError(translate("HCA_HEADER_CORRUPT", name=self.file_path.name))
         offset = 8
 
         if not self.match_chunk(offset, b"fmt\x00"):
@@ -142,7 +142,7 @@ class HCA:
         offset += chunk_size
 
         if self.block_size == 0:
-            raise CharlotteError(translate("HCA_NO_BLOCKS", name=self.file_path.name))
+            raise CharlotteError(translate("HCA_BLOCK_SIZE_ZERO", name=self.file_path.name))
 
         if self.match_chunk(offset, b"vbr\x00"):
             offset += 8
@@ -199,4 +199,4 @@ class HCA:
 
     def convert(self, output_file: Path, codec: str) -> None:
         args = ["-f", "hca", "-i", "pipe:0", *AUDIO_CODECS[codec][1], str(output_file)]
-        run_ffmpeg(args, translate("AUDIO_CONVERSION_FAILED"), input=self.header + self.data)
+        run_ffmpeg(args, translate("AUDIO_ENCODE_FAILED"), input=self.header + self.data)

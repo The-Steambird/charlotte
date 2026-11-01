@@ -447,7 +447,7 @@ def test_empty_subtitle_named_not_converted(tmp_app_root, out_dir, caplog):
     ass_files = process_subtitles("Cs_A", out_dir)
 
     assert [path.name for path in ass_files] == ["Cs_A_DE.ass"]
-    assert "Subtitles empty, skipping: English" in caplog.text
+    assert "Skipping empty subtitles: English" in caplog.text
 
 
 def test_unparseable_subtitle_warned_apart_from_empty_ones(tmp_app_root, out_dir, caplog):
@@ -456,8 +456,8 @@ def test_unparseable_subtitle_warned_apart_from_empty_ones(tmp_app_root, out_dir
     write_subtitle("Cs_A", "EN", text="nothing that parses")
 
     assert process_subtitles("Cs_A", out_dir) == []
-    assert "has an incorrect format" in caplog.text
-    assert "Subtitles empty" not in caplog.text
+    assert "Could not parse subtitle: Cs_A_EN.srt" in caplog.text
+    assert "empty subtitles" not in caplog.text
 
 
 def test_one_bad_subtitle_does_not_sink_the_rest(tmp_app_root, out_dir, monkeypatch, caplog):
@@ -475,7 +475,7 @@ def test_one_bad_subtitle_does_not_sink_the_rest(tmp_app_root, out_dir, monkeypa
     ass_files = process_subtitles("Cs_A", out_dir)
 
     assert [path.name for path in ass_files] == ["Cs_A_EN.ass"]
-    assert "Failed to convert Cs_A_DE.srt: locked" in caplog.text
+    assert "Failed to process Cs_A_DE.srt: locked" in caplog.text
 
 
 # --- key recovery ---
@@ -516,8 +516,8 @@ def test_crack_failure_keeps_the_same_event_shape(tmp_app_root, reporter, monkey
     "error, event",
     [
         (
-            CharlotteError("Corrupt USM chunk: Cs_Bad.usm"),
-            ("error", {"file": "Cs_Bad.usm", "message": "Corrupt USM chunk: Cs_Bad.usm"}),
+            CharlotteError("Corrupt USM chunk"),
+            ("error", {"file": "Cs_Bad.usm", "message": "Corrupt USM chunk"}),
         ),
         (Skipped(), ("job_skipped", {"file": "Cs_Bad.usm", "reason": "requested"})),
     ],

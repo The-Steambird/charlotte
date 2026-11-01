@@ -83,7 +83,7 @@ def unreachable():
     "fetch, reason",
     [
         (unreachable, "HTTP 503"),
-        (lambda: release("nightly"), "unrecognized release tag"),
+        (lambda: release("nightly"), "unrecognized release tag nightly"),
     ],
 )
 def test_declined_check_reports_reason(monkeypatch, fetch, reason):

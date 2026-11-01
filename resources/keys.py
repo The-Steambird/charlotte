@@ -59,7 +59,7 @@ def fetch_upstream_keys() -> bytes | None:
         if response.status == 200:
             log.info(translate("KEYS_FETCHED"))
             return response.data
-        log.warning(translate("KEYS_HTTP_ERROR", status=response.status))
+        log.warning(translate("KEYS_DOWNLOAD_FAILED", error=f"HTTP {response.status}"))
     except urllib3.exceptions.HTTPError as e:
         log.error(translate("KEYS_DOWNLOAD_FAILED", error=e))
     return None
@@ -132,6 +132,7 @@ class Keys:
         self.data: dict = {}
         self.raw = b""
         self.declined = False
+        self.nothing_upstream = False
         if manual_key is None:
             self.bootstrap()
 
@@ -185,19 +186,25 @@ class Keys:
             log.info(translate("KEYS_UPDATE_DECLINED", stem=stem))
             return None
 
+        if self.nothing_upstream:
+            return None
+
         log.info(translate("KEY_CHECKING_UPSTREAM", stem=stem))
         upstream_bytes = fetch_upstream_keys()
         if not upstream_bytes:
+            self.nothing_upstream = True
             return None
 
         if upstream_bytes == self.raw:
             log.info(translate("KEYS_UPSTREAM_IDENTICAL"))
+            self.nothing_upstream = True
             return None
 
         try:
             upstream_data = orjson.loads(upstream_bytes)
         except orjson.JSONDecodeError:
             log.error(translate("KEYS_UPSTREAM_INVALID"))
+            self.nothing_upstream = True
             return None
 
         found = lookup(upstream_data, stem)
@@ -205,7 +212,7 @@ class Keys:
             log.info(translate("KEY_NOT_UPSTREAM", stem=stem))
             return None
 
-        accepted = self.reporter.ask(translate("KEYS_UPDATE_PROMPT"), default=False)
+        accepted = self.reporter.ask(translate("KEYS_UPDATE_PROMPT", stem=stem), default=False)
         if not accepted:
             self.declined = True
             log.info(translate("KEYS_UPDATE_DECLINED", stem=stem))

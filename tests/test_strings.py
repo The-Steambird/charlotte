@@ -64,7 +64,7 @@ def test_a_translation_falls_back_to_english_key_by_key(monkeypatch):
     def load_with_gaps(language):
         table = load(language)
         if language == "ja-JP":
-            del table["PROBE_WITH_KEY"]
+            del table["NO_INPUT_FILES"]
             table["KEY_WITH_MANY_FILES"] = ""
         return table
 
@@ -72,8 +72,8 @@ def test_a_translation_falls_back_to_english_key_by_key(monkeypatch):
     monkeypatch.setenv("CHARLOTTE_LANG", "ja-JP")
     utils.strings.strings.cache_clear()
     try:
-        assert translate("CRACK_WITH_OTHER_MODES") == japanese["CRACK_WITH_OTHER_MODES"]
-        assert translate("PROBE_WITH_KEY") == ENGLISH["PROBE_WITH_KEY"]
+        assert translate("PIPE_ONLY_WITH_CAPTURE") == japanese["PIPE_ONLY_WITH_CAPTURE"]
+        assert translate("NO_INPUT_FILES") == ENGLISH["NO_INPUT_FILES"]
         assert translate("KEY_WITH_MANY_FILES") == ENGLISH["KEY_WITH_MANY_FILES"]
     finally:
         utils.strings.strings.cache_clear()

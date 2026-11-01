@@ -155,7 +155,7 @@ def test_crack_key_declines_a_repeated_payload(tmp_path, reporter):
     recovery = crack_key(usm_file, reporter)
 
     assert recovery.key is None
-    assert "only one distinct video payload" in recovery.reason
+    assert "only one distinct frame" in recovery.reason
 
 
 def test_split_half_rejects_disagreeing_noise():
@@ -172,7 +172,7 @@ def test_split_half_rejects_disagreeing_noise():
     mask, reason = evaluate(Sample(left, right, True, used))
 
     assert mask is None
-    assert "mismatching video halves" in reason
+    assert "two halves" in reason
 
 
 def test_is_masked_matches_decrypt_video(tmp_path):

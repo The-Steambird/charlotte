@@ -75,9 +75,9 @@ def process_subtitles(stem: str, folder: Path) -> list[Path]:
             if ass.parse_srt():
                 ass_files.append(ass.convert_to_ass(folder))
             else:
-                log.warning(translate("SUBTITLE_FORMAT_INVALID", path=sub_file))
+                log.warning(translate("SUBTITLE_FORMAT_INVALID", name=sub_file.name))
         except (OSError, UnicodeDecodeError) as e:
-            log.error(translate("SUBTITLE_CONVERT_FAILED", name=sub_file.name, error=e))
+            log.error(translate("PROCESS_FAILED", name=sub_file.name, error=e))
 
     if empty_langs:
         log.info(translate("SUBTITLES_EMPTY", languages=", ".join(empty_langs)))
@@ -154,7 +154,7 @@ def cleanup_files(created: list[Path], output_path: Path) -> None:
         if subs_dir.is_dir():
             shutil.rmtree(subs_dir)
     except OSError as e:
-        log.error(translate("REMOVE_DIRECTORY_FAILED", name=subs_dir.name, error=e))
+        log.error(translate("DELETE_FAILED", name=subs_dir.name, error=e))
 
     with suppress(OSError):
         output_path.rmdir()

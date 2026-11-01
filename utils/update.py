@@ -70,7 +70,9 @@ def check_for_update() -> UpdateInfo:
     try:
         available = parse_version(latest) > parse_version(__version__)
     except ValueError:
-        return UpdateInfo(current=__version__, reason=translate("UPDATE_TAG_UNRECOGNIZED"))
+        return UpdateInfo(
+            current=__version__, reason=translate("UPDATE_TAG_UNRECOGNIZED", tag=latest)
+        )
 
     asset = zip_asset(release)
     digest = asset.get("digest") or ""
@@ -93,8 +95,8 @@ def report_update(reporter: Reporter) -> UpdateInfo:
     if info.reason is not None:
         log.warning(translate("UPDATE_CHECK_FAILED", reason=info.reason))
     elif info.available:
-        link = f" ({info.url})" if info.url else ""
-        log.info(translate("UPDATE_AVAILABLE", current=info.current, latest=info.latest, link=link))
+        url = info.url or "https://github.com/The-Steambird/charlotte/releases/latest"
+        log.info(translate("UPDATE_AVAILABLE", current=info.current, latest=info.latest, url=url))
     else:
         log.info(translate("UP_TO_DATE", version=info.current))
 
@@ -182,7 +184,14 @@ def roll_back(installed: list[tuple[Path, Path | None]]) -> None:
             else:
                 stale.replace(target)
         except OSError as e:
-            log.error(translate("UPDATE_ROLLBACK_FAILED", name=target.name, error=e))
+            if stale is None:
+                log.error(translate("DELETE_FAILED", name=target.name, error=e))
+            else:
+                log.error(
+                    translate(
+                        "UPDATE_ROLLBACK_FAILED", name=target.name, backup=stale.name, error=e
+                    )
+                )
 
 
 def install_bundle(bundle: Path, folder: Path) -> None:

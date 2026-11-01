@@ -284,7 +284,7 @@ def crack_key(usm_file: Path, reporter: Reporter) -> Recovery:
 
     mask, reason = evaluate(sample)
     if mask is None:
-        return decline(usm_file, translate("CRACK_UNCONFIRMED", reason=reason))
+        return decline(usm_file, reason)
 
     blocks = sample.left.blocks + sample.right.blocks
     log.info(translate("CRACK_RECOVERED", blocks=blocks))

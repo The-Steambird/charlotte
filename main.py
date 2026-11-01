@@ -236,18 +236,19 @@ def run(
 
     if update:
         if usm_paths or probe or crack or capture or key is not None:
-            die(translate("UPDATE_WITH_OTHER_MODES"), reporter)
+            die(translate("MODE_WITH_OTHER_MODES", flag="--update"), reporter)
         run_update(reporter, json_output)
         return
     if capture:
         if usm_paths or probe or crack or key is not None:
-            die(translate("CAPTURE_WITH_OTHER_MODES"), reporter)
+            die(translate("MODE_WITH_OTHER_MODES", flag="--capture"), reporter)
         run_capture(reporter, json_output, pause, legacy_capture)
         return
     if crack and (probe or key is not None):
-        die(translate("CRACK_WITH_OTHER_MODES"), reporter)
+        other = "--probe" if probe else "--key"
+        die(translate("FLAGS_CONFLICT", flag="--crack", other=other), reporter)
     if probe and key is not None:
-        die(translate("PROBE_WITH_KEY"), reporter)
+        die(translate("FLAGS_CONFLICT", flag="--probe", other="--key"), reporter)
 
     usm_files = collect_files(usm_paths or [], reporter)
     if key is not None and len(usm_files) > 1:
