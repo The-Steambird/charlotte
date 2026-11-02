@@ -226,8 +226,9 @@ class USM:
     ) -> tuple[Path, list[Path]]:
         """Returns the .ivf and .hca files, and adds each to `created` as soon as it opens."""
         base_name = self.file_path.stem
-        video = output_path / f"{base_name}.ivf"
-        streams: dict[Path, BufferedWriter] = {}
+        # Streams are keyed by file name, because building and hashing a Path for every chunk cost
+        # more than decrypting the video.
+        streams: dict[str, BufferedWriter] = {}
         known = {b"CRID", b"@SFV", b"@SFA", b"@CUE", b"@ALP"}
         file_size = self.file_path.stat().st_size
 
@@ -236,11 +237,12 @@ class USM:
             ExitStack() as open_streams,
         ):
 
-            def write_to(path: Path, payload: bytes) -> None:
-                if path not in streams:
-                    streams[path] = open_streams.enter_context(open(path, "wb"))
+            def write_to(name: str, payload: bytes) -> None:
+                if name not in streams:
+                    path = output_path / name
+                    streams[name] = open_streams.enter_context(open(path, "wb"))
                     created.append(path)
-                streams[path].write(payload)
+                streams[name].write(payload)
 
             for count, (header, data) in enumerate(read_chunks(self.file_path), start=1):
                 if header.signature == b"@SFV" and header.is_data:
@@ -249,9 +251,9 @@ class USM:
                         self.decrypt_video(buffer)
                     else:
                         decrypt_stream(buffer, self.aes_key, self.nonce, header.frame_time)
-                    write_to(video, buffer)
+                    write_to(f"{base_name}.ivf", buffer)
                 elif header.signature == b"@SFA" and header.is_data:
-                    write_to(output_path / f"{base_name}_{header.channel_no}.hca", data)
+                    write_to(f"{base_name}_{header.channel_no}.hca", data)
                 elif header.signature not in known:
                     known.add(header.signature)  # warn once per signature
                     signature = repr(header.signature)
@@ -263,4 +265,5 @@ class USM:
 
             task.set_completed(file_size)
 
-        return video, [path for path in streams if path.suffix == ".hca"]
+        audio = [output_path / name for name in streams if name.endswith(".hca")]
+        return output_path / f"{base_name}.ivf", audio
