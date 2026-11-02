@@ -11,6 +11,7 @@ import pipeline
 from conftest import FakeReporter, forbid_call
 from pipeline import Options
 from utils.errors import Cancelled, CharlotteError, Skipped
+from utils.logger import log
 from utils.strings import load, translate
 
 
@@ -21,6 +22,13 @@ def make_usm(directory, name="Cs_Test.usm"):
     path = directory / name
     path.write_bytes(b"")
     return path
+
+
+@pytest.fixture(autouse=True)
+def fresh_log_handlers(monkeypatch):
+    """Every --json run adds a ReporterHandler to the shared logger. This drops each test's
+    handler before the next test."""
+    monkeypatch.setattr(log, "handlers", [])
 
 
 @pytest.fixture
@@ -345,3 +353,21 @@ def test_probe_shares_one_keys_and_carries_on_past_a_failed_file(monkeypatch, tm
     files = [make_usm(tmp_path, "Cs_A.usm"), make_usm(tmp_path, "Cs_B.usm")]
     assert runner.invoke(main.app, [*map(str, files), "--probe"]).exit_code == 0
     assert probed == [(files[0], keys), (files[1], keys)]
+
+
+def test_a_gui_run_sends_its_warnings_to_the_log(monkeypatch, tmp_path):
+    """The GUI shows the engine's stderr only after a crash."""
+
+    def probe(usm_file, keys, reporter):
+        log.info("a step")
+        log.warning("worth knowing")
+
+    monkeypatch.setattr(pipeline, "probe_usm", probe)
+    monkeypatch.setattr(main, "Keys", lambda reporter: None)
+    usm = make_usm(tmp_path)
+
+    result = runner.invoke(main.app, ["--json", "--probe", str(usm)])
+
+    events = [orjson.loads(line) for line in result.stdout.splitlines()]
+    logs = [event for event in events if event["type"] == "log"]
+    assert logs == [{"type": "log", "level": "warning", "message": "worth knowing"}]

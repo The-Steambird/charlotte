@@ -19,7 +19,7 @@ lazy import numpy as np
 
 from resources.keys import DecryptionKey
 from stages.usm import BLOCK, CIPHER_START, is_masked, read_chunks, video_nonce
-from utils.logger import log
+from utils.logger import SENT_AS_EVENT, log
 from utils.strings import translate
 lazy from utils.reporter import Reporter
 
@@ -224,7 +224,7 @@ class Recovery(NamedTuple):
 
 
 def decline(usm_file: Path, reason: str) -> Recovery:
-    log.warning(translate("CRACK_DECLINED", name=usm_file.name, reason=reason))
+    log.warning(translate("CRACK_DECLINED", name=usm_file.name, reason=reason), extra=SENT_AS_EVENT)
     return Recovery(None, reason)
 
 

@@ -9,7 +9,7 @@ import orjson
 import pytest
 
 from utils.errors import Cancelled, Skipped
-from utils.logger import ReporterHandler
+from utils.logger import SENT_AS_EVENT, ReporterHandler
 from utils.reporter import ConsoleReporter, JsonReporter
 from utils.reporter.json import open_pipe
 from utils.version import __version__
@@ -214,11 +214,11 @@ def test_a_pipe_name_cannot_be_a_path(name):
 
 def test_log_lines_reach_a_reporter_whose_stderr_nobody_reads(reporter):
     logger = logging.getLogger("charlotte.test")
-    handler = ReporterHandler(reporter)
+    handler = ReporterHandler(reporter, "INFO")
     logger.addHandler(handler)
     try:
         logger.warning("keys.json not found")
-        logger.error("boom", extra={"sent_as_event": True})
+        logger.error("boom", extra=SENT_AS_EVENT)
     finally:
         logger.removeHandler(handler)
     assert reporter.logs == [("warning", "keys.json not found")]

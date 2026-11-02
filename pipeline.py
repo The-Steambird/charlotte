@@ -15,7 +15,7 @@ from stages.mux import mux, mux_args, subset_fonts, track_code
 from stages.usm import USM, video_nonce
 from utils.errors import Cancelled, CharlotteError, Skipped
 from utils.languages import SUBTITLES_LANGUAGES
-from utils.logger import log
+from utils.logger import SENT_AS_EVENT, log
 from utils.strings import translate
 lazy from utils.reporter import Reporter
 
@@ -171,7 +171,7 @@ def process_usm(usm_file: Path, opts: Options, keys: Keys, reporter: Reporter) -
     nonce = video_nonce(usm_file)
     key = find_keys(usm_file, nonce, keys, reporter)
     if key is None:
-        log.warning(translate("NO_KEYS_SKIPPING", name=usm_file.name))
+        log.warning(translate("NO_KEYS_SKIPPING", name=usm_file.name), extra=SENT_AS_EVENT)
         reporter.event("job_skipped", file=usm_file.name, reason="no_key")
         return
     reporter.checkpoint()
@@ -249,7 +249,7 @@ def process_all(usm_files: list[Path], opts: Options, keys: Keys, reporter: Repo
             log.info(translate("SKIPPED_ON_REQUEST", name=usm_file.name))
             reporter.event("job_skipped", file=usm_file.name, reason="requested")
         except (CharlotteError, OSError) as e:
-            log.error(translate("PROCESS_FAILED", name=usm_file.name, error=e))
+            log.error(translate("PROCESS_FAILED", name=usm_file.name, error=e), extra=SENT_AS_EVENT)
             reporter.event("error", file=usm_file.name, message=str(e))
             failures += 1
     return failures
@@ -292,7 +292,7 @@ def crack_all(usm_files: list[Path], reporter: Reporter) -> None:
             failures[usm_file.name] = translate("CRACK_SKIPPED")
             continue
         except (CharlotteError, OSError) as e:
-            log.error(translate("READ_FAILED", name=usm_file.name, error=e))
+            log.error(translate("READ_FAILED", name=usm_file.name, error=e), extra=SENT_AS_EVENT)
             reporter.event("error", file=usm_file.name, message=str(e))
             failures[usm_file.name] = str(e)
             continue
@@ -303,9 +303,9 @@ def crack_all(usm_files: list[Path], reporter: Reporter) -> None:
     recovered = len(usm_files) - len(failures)
     log.info(translate("CRACK_RECOVERED_COUNT", recovered=recovered, total=len(usm_files)))
     if failures:
-        log.warning(translate("CRACK_NEED_OTHER_SOURCE", count=len(failures)))
+        log.warning(translate("CRACK_NEED_OTHER_SOURCE", count=len(failures)), extra=SENT_AS_EVENT)
         for name, reason in failures.items():
-            log.warning(f"  {name}: {reason}")
+            log.warning(f"  {name}: {reason}", extra=SENT_AS_EVENT)
 
     reporter.event("crack_summary", recovered=recovered, unrecovered=len(failures))
 
@@ -326,7 +326,7 @@ def probe_usm(usm_file: Path, keys: Keys, reporter: Reporter) -> None:
     if has_key:
         log.info(message)
     else:
-        log.warning(message)
+        log.warning(message, extra=SENT_AS_EVENT)
     reporter.event(
         "probe",
         file=usm_file.name,
@@ -343,5 +343,5 @@ def probe_all(usm_files: list[Path], keys: Keys, reporter: Reporter) -> None:
         try:
             probe_usm(usm_file, keys, reporter)
         except (CharlotteError, OSError) as e:
-            log.error(translate("READ_FAILED", name=usm_file.name, error=e))
+            log.error(translate("READ_FAILED", name=usm_file.name, error=e), extra=SENT_AS_EVENT)
             reporter.event("error", file=usm_file.name, message=str(e))

@@ -16,14 +16,15 @@ logging.basicConfig(
 )
 
 log = logging.getLogger("charlotte")
+SENT_AS_EVENT = {"sent_as_event": True}
 
 
 class ReporterHandler(logging.Handler):
     """Sends log lines to the GUI as events, for a run whose stderr nobody reads. A line logged
-    with `sent_as_event` already reached the GUI as an error event and is not sent twice."""
+    with SENT_AS_EVENT already reached the GUI through an event of its own and is not sent twice."""
 
-    def __init__(self, reporter: Reporter):
-        super().__init__()
+    def __init__(self, reporter: Reporter, level: str):
+        super().__init__(level)
         self.reporter = reporter
 
     def emit(self, record: logging.LogRecord):

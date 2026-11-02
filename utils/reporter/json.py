@@ -47,8 +47,9 @@ def parse_command(line: str | bytes) -> dict | None:
 class JsonReporter(Reporter):
     """Writes NDJSON events to stdout and reads commands (answers, cancel and skip) from stdin
     on demand. Ordinary log lines go to stderr through the shared console in logger.py, which
-    keeps stdout pure JSON. A capture on the GUI's named pipe sends its events and reads its
-    commands there instead, and its log lines reach the GUI as events through ReporterHandler."""
+    keeps stdout pure JSON, and ReporterHandler also sends the warnings and errors as events.
+    A capture on the GUI's named pipe sends its events and reads its commands there instead,
+    and every one of its log lines reaches the GUI as an event."""
 
     def __init__(self, out=None, stdin=None, hangup_cancels=False):
         self.out = out if out is not None else sys.stdout

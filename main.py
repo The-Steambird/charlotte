@@ -17,7 +17,7 @@ from stages.hca import AUDIO_CODECS
 from utils.elevation import is_admin, relaunch_as_admin
 from utils.errors import CharlotteError
 from utils.languages import AUDIO_LANGUAGES, SUBTITLES_LANGUAGES
-from utils.logger import ReporterHandler, log
+from utils.logger import SENT_AS_EVENT, ReporterHandler, log
 from utils.reporter import ConsoleReporter, JsonReporter, Reporter
 from utils.reporter.console import wait_for_key
 from utils.reporter.json import open_pipe
@@ -47,7 +47,7 @@ def choice_option(*names: str, help: str, choices: list[str]) -> OptionInfo:
 
 def die(message: str, reporter: Reporter, name: str = "") -> NoReturn:
     reporter.event("error", file=name, message=message)
-    log.error(message, extra={"sent_as_event": True})
+    log.error(message, extra=SENT_AS_EVENT)
     raise typer.Exit(1)
 
 
@@ -90,7 +90,7 @@ def run_capture(reporter: Reporter, json_output: bool, pause: bool, legacy: bool
         # The traceback is logged here because typer would print it only after the pause below.
         message = translate("CAPTURE_CRASHED", error=repr(e))
         reporter.event("error", file="", message=message)
-        log.exception(message, extra={"sent_as_event": True})
+        log.exception(message, extra=SENT_AS_EVENT)
         raise typer.Exit(1) from e
     finally:
         # The elevated window closes with the process, and the keys in it would go too.
@@ -99,15 +99,20 @@ def run_capture(reporter: Reporter, json_output: bool, pause: bool, legacy: bool
 
 
 def open_reporter(json_output: bool, pipe: str | None, capture: bool) -> Reporter:
+    if pipe is None and not json_output:
+        return ConsoleReporter()
     if pipe is None:
-        return JsonReporter() if json_output else ConsoleReporter()
+        reporter = JsonReporter()
+        log.addHandler(ReporterHandler(reporter, "WARNING"))
+        return reporter
+
     if not (capture and json_output):
         die(translate("PIPE_ONLY_WITH_CAPTURE"), ConsoleReporter())
     try:
         reporter = open_pipe(pipe)
     except (ValueError, OSError) as e:
         die(translate("PIPE_OPEN_FAILED", name=pipe, error=e), ConsoleReporter())
-    log.addHandler(ReporterHandler(reporter))
+    log.addHandler(ReporterHandler(reporter, "INFO"))
     return reporter
 
 

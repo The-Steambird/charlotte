@@ -9,7 +9,7 @@ import orjson
 lazy import urllib3
 
 from utils.errors import Cancelled, CharlotteError
-from utils.logger import log
+from utils.logger import SENT_AS_EVENT, log
 from utils.reporter.console import pause_before_exit
 from utils.strings import translate
 from utils.version import __version__
@@ -93,7 +93,7 @@ def check_for_update() -> UpdateInfo:
 def report_update(reporter: Reporter) -> UpdateInfo:
     info = check_for_update()
     if info.reason is not None:
-        log.warning(translate("UPDATE_CHECK_FAILED", reason=info.reason))
+        log.warning(translate("UPDATE_CHECK_FAILED", reason=info.reason), extra=SENT_AS_EVENT)
     elif info.available:
         log.info(
             translate("UPDATE_AVAILABLE", current=info.current, latest=info.latest, url=info.url)
