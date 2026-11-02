@@ -92,5 +92,5 @@ def test_a_translation_falls_back_to_english_key_by_key(monkeypatch):
         ("fr-FR", None),
     ],
 )
-def test_the_closest_language_is_the_one_the_gui_picks(requested, expected):
+def test_a_language_without_its_own_file_takes_the_closest_one(requested, expected):
     assert closest(requested, ["en-US", "de-DE", "zh-CN", "zh-TW", "pt-BR"]) == expected
