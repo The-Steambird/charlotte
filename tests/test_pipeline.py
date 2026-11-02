@@ -111,8 +111,8 @@ def stub_stages(monkeypatch):
         Path(ffmpeg_args[-1]).write_bytes(b"hevc" if calls.ok else b"trunc")
         return calls.ok
 
-    def mux(video, output_file, *args, **kwargs):
-        calls.mux = kwargs
+    def mux(video, output_file, audio_files, subtitle_files, **kwargs):
+        calls.mux = kwargs | {"subtitle_files": subtitle_files}
         output_file.write_bytes(b"mkv")
         if calls.mux_error:
             raise calls.mux_error
@@ -303,9 +303,7 @@ def test_run_writes_mkv_and_clears_intermediates(stub_stages, tmp_path, reporter
     process_usm(usm_file, opts, keys, reporter)
 
     work_dir = tmp_path / "out" / "Cs_Test"
-    assert (work_dir / "Cs_Test.mkv").is_file()
-    assert list(work_dir.glob("*.ivf")) == []
-    assert list(work_dir.glob("*.hca")) == []
+    assert [path.name for path in work_dir.iterdir()] == ["Cs_Test.mkv"]
     assert ("result", {
         "file": "Cs_Test.usm",
         "stem": "Cs_Test",
@@ -418,7 +416,8 @@ def test_failed_encode_falls_back_to_soft_subtitles(stub_stages, tmp_path, repor
     process_usm(usm_file, opts, keys, reporter)
 
     work_dir = tmp_path / "out" / "Cs_Test"
-    assert stub_stages.mux is not None
+    soft_subtitles = [path.name for path in stub_stages.mux["subtitle_files"]]
+    assert soft_subtitles == ["Cs_Test_EN.ass", "Cs_Test_JP.ass"]
     assert (work_dir / "Cs_Test.mkv").read_bytes() == b"mkv"
     assert not (work_dir / "Cs_Test.mkv.part").exists()
 
