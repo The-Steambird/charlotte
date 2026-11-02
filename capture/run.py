@@ -10,7 +10,7 @@ from capture.proto import FoundKey, find_keys
 from capture.sniffer import PORTS, Sniffer
 from resources.game import game_video_dir
 from resources.keys import groups
-from utils.errors import Cancelled
+from utils.errors import Cancelled, CharlotteError
 from utils.strings import translate
 lazy from utils.reporter import Reporter
 
@@ -35,7 +35,7 @@ def listed_stems(data: dict) -> set[str]:
 
 
 class KeyCapture:
-    def __init__(self, data: dict, reporter: Reporter, legacy: bool = False):
+    def __init__(self, data: dict, reporter: Reporter, legacy: bool):
         self.reporter = reporter
         self.legacy = legacy
         self.known = known_groups(data)
@@ -58,6 +58,8 @@ class KeyCapture:
             with contextlib.suppress(Cancelled, KeyboardInterrupt):
                 self.match_pending()
             self.summarize(capture)
+            if capture.failed:
+                raise CharlotteError(translate("CAPTURE_STOPPED_BY_PKTMON"))
 
     def open_capture(self) -> Capture | LegacyCapture:
         if not self.legacy and realtime_available():
@@ -165,13 +167,9 @@ class KeyCapture:
                 self.report_key(key, quest_id, known=False, videos=videos[number])
 
     def summarize(self, capture: Capture | LegacyCapture):
-        """The count goes first, because the GUI's status bar shows the last line and that should
-        be what went wrong."""
         self.reporter.log("info", translate("CAPTURE_SUMMARY", keys=len(self.found)))
         self.sniffer.finish()
         if not self.packets:
             self.reporter.log("warning", translate("CAPTURE_NO_TRAFFIC"))
         elif capture.missed or capture.oversized or self.sniffer.skipped or self.sniffer.broken:
             self.reporter.log("warning", translate("CAPTURE_LOSSY_HINT"))
-        if capture.failed:
-            self.reporter.log("error", translate("CAPTURE_STOPPED_BY_PKTMON"))

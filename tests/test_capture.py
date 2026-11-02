@@ -1,4 +1,5 @@
 import base64
+import contextlib
 import ctypes
 import struct
 
@@ -21,7 +22,7 @@ from capture.run import KeyCapture
 from capture.sniffer import GAP_SECONDS, RECOVERY_TRIES, Kcp, Sniffer
 from conftest import chunk, forbid_call, video_header
 from stages.usm import decrypt_stream
-from utils.errors import Cancelled
+from utils.errors import Cancelled, CharlotteError
 from utils.strings import translate
 
 
@@ -444,7 +445,7 @@ def test_only_unlisted_files_with_the_71_scheme_are_candidates(tmp_path):
 
 @pytest.fixture
 def key_capture(reporter, tmp_path):
-    capture_run = KeyCapture({"list": []}, reporter)
+    capture_run = KeyCapture({"list": []}, reporter, legacy=False)
     capture_run.candidates = [Candidate(tmp_path / "Cs_Ours.usm", 0)]
     return capture_run
 
@@ -479,12 +480,22 @@ def test_a_stop_during_matching_still_reports_the_key(key_capture, reporter, mon
 
 def test_the_count_comes_before_what_went_wrong(key_capture, reporter):
     key_capture.packets = 1
-    key_capture.summarize(SimpleNamespace(missed=3, oversized=0, failed=True))
+    key_capture.summarize(SimpleNamespace(missed=3, oversized=0))
     assert reporter.logs == [
         ("info", translate("CAPTURE_SUMMARY", keys=0)),
         ("warning", translate("CAPTURE_LOSSY_HINT")),
-        ("error", translate("CAPTURE_STOPPED_BY_PKTMON")),
     ]
+
+
+def test_a_capture_packet_monitor_ended_fails_after_its_summary(key_capture, monkeypatch):
+    """The GUI's capture dialog shows only an error event as the reason a capture stopped."""
+    stopped = SimpleNamespace(failed=True, missed=0, oversized=0)
+    monkeypatch.setattr(key_capture, "open_capture", lambda: contextlib.nullcontext(stopped))
+    monkeypatch.setattr(capture.run, "game_video_dir", lambda: None)
+
+    with pytest.raises(CharlotteError) as failure:
+        key_capture.run()
+    assert str(failure.value) == translate("CAPTURE_STOPPED_BY_PKTMON")
 
 
 def test_a_new_old_scheme_key_is_not_matched(key_capture, reporter, monkeypatch):
@@ -501,7 +512,8 @@ def test_keys_json_groups_are_known_and_each_key_is_reported_once(reporter):
         {"audioKey": int(AUDIO), "aesKey": AES.decode().upper(), "videos": ["Cs_A"]},
         {"videoKey": int(VIDEO_KEY), "parentQuestId": "602", "videos": ["Cs_B"]},
     ]
-    key_capture = KeyCapture({"list": [{"version": "7.1", "videoGroups": groups}]}, reporter)
+    keys = {"list": [{"version": "7.1", "videoGroups": groups}]}
+    key_capture = KeyCapture(keys, reporter, legacy=False)
 
     for _ in range(2):
         key_capture.add_key(FoundKey(int(AUDIO), AES.decode(), 7017))
