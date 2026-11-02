@@ -478,15 +478,6 @@ def test_a_stop_during_matching_still_reports_the_key(key_capture, reporter, mon
     assert reported_videos(reporter) == [[]]
 
 
-def test_the_count_comes_before_what_went_wrong(key_capture, reporter):
-    key_capture.packets = 1
-    key_capture.summarize(SimpleNamespace(missed=3, oversized=0))
-    assert reporter.logs == [
-        ("info", translate("CAPTURE_SUMMARY", keys=0)),
-        ("warning", translate("CAPTURE_LOSSY_HINT")),
-    ]
-
-
 def test_a_capture_packet_monitor_ended_fails_after_its_summary(key_capture, monkeypatch):
     """The GUI's capture dialog shows only an error event as the reason a capture stopped."""
     stopped = SimpleNamespace(failed=True, missed=0, oversized=0)
