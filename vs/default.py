@@ -44,7 +44,7 @@ def filter_chain(input_path: Path) -> VideoNode:
 
 
 if __name__ in {"__main__", "__vapoursynth__", "__vsview__"}:
-    stem = globals().get("stem") or Path(__file__).stem
+    stem = globals()["stem"]
     final = filter_chain(Path(__file__).parent.parent / "output" / stem / f"{stem}.ivf")
 
     if __name__ != "__vsview__":
