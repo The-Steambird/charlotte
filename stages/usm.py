@@ -137,7 +137,8 @@ def video_nonce(file_path: Path) -> int | None:
 def decrypt_stream(data: bytearray, aes_key: bytes, nonce: int, frame_time: int) -> None:
     iv = struct.pack(">QI4x", nonce, frame_time)
     cipher = AES.new(aes_key, AES.MODE_CTR, nonce=b"", initial_value=iv)
-    data[MASK_START:] = cipher.decrypt(data[MASK_START:])
+    body = memoryview(data)[MASK_START:]
+    cipher.decrypt(body, output=body)
 
 
 class USM:
