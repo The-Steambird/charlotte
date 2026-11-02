@@ -86,7 +86,7 @@ def unreachable():
         (lambda: release("nightly"), "unrecognized release tag nightly"),
     ],
 )
-def test_declined_check_reports_reason(monkeypatch, fetch, reason):
+def test_a_failed_check_reports_its_reason(monkeypatch, fetch, reason):
     monkeypatch.setattr(utils.update, "fetch_latest_release", fetch)
     assert check_for_update() == UpdateInfo(current=__version__, reason=reason)
 
@@ -156,14 +156,19 @@ def test_install_bundle_replaces_every_file_and_keeps_the_old_ones(tmp_path):
 
 def test_install_bundle_rolls_back_when_a_write_fails(tmp_path):
     (tmp_path / "charlotte-cli.exe").write_bytes(b"old cli")
-    (tmp_path / "blocked").write_bytes(b"")  # a file where the second member needs a folder
-    members = {"charlotte/charlotte-cli.exe": b"new cli", "charlotte/blocked/x": b"x"}
+    (tmp_path / "blocked").write_bytes(b"")  # a file where the last member needs a folder
+    members = {
+        "charlotte/charlotte-cli.exe": b"new cli",
+        "charlotte/new.dll": b"new",
+        "charlotte/blocked/x": b"x",
+    }
     zip_path = bundle(tmp_path / "b.zip", **members)
 
     with pytest.raises(CharlotteError):
         install_bundle(zip_path, tmp_path)
     assert (tmp_path / "charlotte-cli.exe").read_bytes() == b"old cli"
     assert not (tmp_path / "charlotte-cli.exe.old").exists()
+    assert not (tmp_path / "new.dll").exists()
 
 
 @pytest.mark.parametrize(
