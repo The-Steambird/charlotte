@@ -17,6 +17,14 @@ def game_data_dir() -> Path | None:
     return data_dir if data_dir.is_dir() else None
 
 
+def game_font_dir() -> Path | None:
+    data_dir = game_data_dir()
+    if data_dir is None:
+        return None
+    font_dir = data_dir / "StreamingAssets" / "MiHoYoSDKRes" / "HttpServerResources" / "font"
+    return font_dir if font_dir.is_dir() else None
+
+
 def game_video_dir() -> Path | None:
     data_dir = game_data_dir()
     if data_dir is None:
