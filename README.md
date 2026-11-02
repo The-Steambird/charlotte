@@ -13,8 +13,8 @@
 
 # Charlotte
 
-[<img src="https://raw.githubusercontent.com/The-Steambird/charlotte/master/docs/imgs/download.svg"/>](https://github.com/The-Steambird/charlotte/releases/download/2.0.2/charlotte-2.0.2.zip)
-> Stable build version: `2.0.2` (Released on: November 1st, 2026).
+[<img src="https://raw.githubusercontent.com/The-Steambird/charlotte/master/docs/imgs/download.svg"/>](https://github.com/The-Steambird/charlotte/releases/download/2.0.3/charlotte-2.0.3.zip)
+> Stable build version: `2.0.3` (Released on: November 2nd, 2026).
 
 Why Charlotte, you ask? Who else would record all these cutscenes but Teyvat's beloved paparazzi?~
 
