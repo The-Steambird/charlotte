@@ -177,7 +177,6 @@ def write_subtitles(
 def sync_from_gitlab(http: urllib3.PoolManager, reporter: Reporter) -> None:
     commit = gitlab_commit(http)
     if commit == stored_commit():
-        log.debug("Subtitles already up to date.")
         return
 
     log.info(translate("SUBTITLE_UPDATE_FOUND", source="GitLab"))
@@ -191,7 +190,6 @@ def sync_from_gitlab(http: urllib3.PoolManager, reporter: Reporter) -> None:
 def sync_from_github(http: urllib3.PoolManager, reporter: Reporter) -> None:
     commit = github_commit(http)
     if commit == stored_commit():
-        log.debug("Subtitles already up to date.")
         return
 
     log.info(translate("SUBTITLE_UPDATE_FOUND", source="GitHub"))
