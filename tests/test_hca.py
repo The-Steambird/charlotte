@@ -13,7 +13,7 @@ from stages.hca import HCA, build_cipher_table, crc16
 from utils.errors import CharlotteError
 
 
-KEY = DecryptionKey(bytes([0x11, 0x22, 0x33, 0x44]), bytes([0x55, 0x66, 0x77, 0x00]))
+KEY = DecryptionKey(0x77665544332211)
 
 # Chunks carry no length of their own, and these are the strides read_header walks by.
 CHUNK_SIZES = {b"fmt\x00": 16, b"comp": 16, b"ciph": 6}
@@ -130,7 +130,8 @@ def random_keys(count: int) -> list[tuple[bytes, bytes]]:
     ],
 )
 def test_cipher_table_matches_the_reference(key1, key2):
-    assert build_cipher_table(key1, key2) == cipher_table_reference(key1, key2)
+    key = int.from_bytes(key1 + key2, "little")
+    assert build_cipher_table(key) == cipher_table_reference(key1, key2)
 
 
 # --- checksum ---

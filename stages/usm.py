@@ -143,22 +143,23 @@ def decrypt_stream(data: bytearray, aes_key: bytes, nonce: int, frame_time: int)
 class USM:
     def __init__(self, file_path: Path, key: DecryptionKey, nonce: int | None = None):
         self.file_path = file_path
-        self.video_mask1 = self.build_mask(key.key1, key.key2)
+        self.video_mask1 = self.build_mask(key.combined)
         self.video_mask2 = bytes(b ^ 0xFF for b in self.video_mask1)
         self.aes_key = key.aes_key
         self.nonce = nonce
 
     @staticmethod
-    def build_mask(key1: bytes, key2: bytes) -> bytes:
+    def build_mask(key: int) -> bytes:
+        k = key.to_bytes(8, "little")
         m = bytearray(0x20)
 
-        m[0x00] = key1[0]
-        m[0x01] = key1[1]
-        m[0x02] = key1[2]
-        m[0x03] = (key1[3] - 0x34) & 0xFF
-        m[0x04] = (key2[0] + 0xF9) & 0xFF
-        m[0x05] = key2[1] ^ 0x13
-        m[0x06] = (key2[2] + 0x61) & 0xFF
+        m[0x00] = k[0]
+        m[0x01] = k[1]
+        m[0x02] = k[2]
+        m[0x03] = (k[3] - 0x34) & 0xFF
+        m[0x04] = (k[4] + 0xF9) & 0xFF
+        m[0x05] = k[5] ^ 0x13
+        m[0x06] = (k[6] + 0x61) & 0xFF
         m[0x07] = m[0x00] ^ 0xFF
         m[0x08] = (m[0x02] + m[0x01]) & 0xFF
         m[0x09] = (m[0x01] - m[0x07]) & 0xFF

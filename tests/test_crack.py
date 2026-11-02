@@ -24,7 +24,7 @@ from stages.crack import (
 from stages.usm import BLOCK, CIPHER_START, MASK_START, MIN_MASKED, USM, is_masked
 
 
-KEY1, KEY2 = bytes([0x11, 0x22, 0x33, 0x44]), bytes([0x55, 0x66, 0x77, 0x00])
+KEY = 0x77665544332211
 
 # The value each stage feeds its expansion, read back out of a known-good mask.
 SEEDS = {
@@ -37,16 +37,9 @@ SEEDS = {
 }
 
 
-def key_pairs(count: int) -> list[tuple[bytes, bytes]]:
+def random_keys(count: int) -> list[int]:
     rng = random.Random(0)
-    # Byte 3 of key2 always comes back as 0, because build_mask never reads it.
-    return [
-        (
-            bytes(rng.randrange(256) for _ in range(4)),
-            bytes(rng.randrange(256) for _ in range(3)) + b"\x00",
-        )
-        for _ in range(count)
-    ]
+    return [rng.getrandbits(56) for _ in range(count)]
 
 
 def video_plaintext(rng, blocks: int) -> bytes:
@@ -59,10 +52,10 @@ def video_plaintext(rng, blocks: int) -> bytes:
     return bytes(data)
 
 
-def encrypt(plain: bytes, key1: bytes, key2: bytes) -> bytes:
+def encrypt(plain: bytes, key: int) -> bytes:
     """Inverse of the chained region of USM.decrypt_video. The running mask starts at
     video_mask2 and resets to plaintext ^ video_mask2 after every block."""
-    mask2 = bytes(b ^ 0xFF for b in USM.build_mask(key1, key2))
+    mask2 = bytes(b ^ 0xFF for b in USM.build_mask(key))
     payload = bytearray(CIPHER_START)  # the head is masked separately and stays blank here
     m = mask2
     for i in range(0, len(plain), BLOCK):
@@ -73,7 +66,7 @@ def encrypt(plain: bytes, key1: bytes, key2: bytes) -> bytes:
 
 
 def video_chunk(rng, blocks: int = 900) -> bytes:
-    return chunk(b"@SFV", b"DKIF" + encrypt(video_plaintext(rng, blocks), KEY1, KEY2)[4:])
+    return chunk(b"@SFV", b"DKIF" + encrypt(video_plaintext(rng, blocks), KEY)[4:])
 
 
 def test_stages_cover_every_mask_entry_exactly_once():
@@ -87,9 +80,9 @@ def test_pair_schedule_covers_every_adjacent_pair_exactly_once():
     assert sorted(scored) == list(range(BLOCK - 1))
 
 
-@pytest.mark.parametrize("key1, key2", key_pairs(12))
-def test_expansions_reproduce_build_mask(key1, key2):
-    truth = USM.build_mask(key1, key2)
+@pytest.mark.parametrize("key", random_keys(12))
+def test_expansions_reproduce_build_mask(key):
+    truth = USM.build_mask(key)
 
     mask = np.zeros((BLOCK, 1), dtype=np.int32)
     for stage in STAGES:
@@ -98,9 +91,9 @@ def test_expansions_reproduce_build_mask(key1, key2):
     assert bytes(mask[:, 0].tolist()) == truth
 
 
-@pytest.mark.parametrize("key1, key2", key_pairs(12))
-def test_key_from_mask_inverts_build_mask(key1, key2):
-    assert key_from_mask(list(USM.build_mask(key1, key2))) == DecryptionKey(key1, key2)
+@pytest.mark.parametrize("key", random_keys(12))
+def test_key_from_mask_inverts_build_mask(key):
+    assert key_from_mask(list(USM.build_mask(key))) == DecryptionKey(key)
 
 
 def test_crack_key_recovers_from_a_usm(tmp_path, reporter):
@@ -108,7 +101,7 @@ def test_crack_key_recovers_from_a_usm(tmp_path, reporter):
     usm_file = tmp_path / "Cs_Test.usm"
     usm_file.write_bytes(video_header() + b"".join(video_chunk(rng) for _ in range(8)))
 
-    assert crack_key(usm_file, reporter) == Recovery(DecryptionKey(KEY1, KEY2), "")
+    assert crack_key(usm_file, reporter) == Recovery(DecryptionKey(KEY), "")
 
 
 def test_crack_key_declines_the_stream_cipher(tmp_path, reporter):
@@ -178,7 +171,7 @@ def test_split_half_rejects_disagreeing_noise():
 def test_is_masked_matches_decrypt_video(tmp_path):
     """A sampler that disagrees with decrypt_video about which payloads are masked poisons
     the statistics."""
-    usm = USM(tmp_path / "Cs_Test.usm", DecryptionKey(bytes([1, 2, 3, 4]), bytes([5, 6, 7, 0])))
+    usm = USM(tmp_path / "Cs_Test.usm", DecryptionKey(0x07060504030201))
     threshold = MASK_START + MIN_MASKED
 
     for size in (threshold - 1, threshold, threshold + BLOCK):

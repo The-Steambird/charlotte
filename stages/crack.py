@@ -199,9 +199,16 @@ def solve(unigram: np.ndarray, bigram: np.ndarray) -> list[int]:
 def key_from_mask(mask: list[int]) -> DecryptionKey:
     """Invert `USM.build_mask`. Byte 7 is never read by the mask and is always zero
     anyway, because a real key is only 56 bits (see `KEY_MASK`)."""
-    key1 = bytes([mask[0x00], mask[0x01], mask[0x02], (mask[0x03] + 0x34) & 0xFF])
-    key2 = bytes([(mask[0x04] - 0xF9) & 0xFF, mask[0x05] ^ 0x13, (mask[0x06] - 0x61) & 0xFF, 0])
-    return DecryptionKey(key1, key2)
+    key_bytes = [
+        mask[0x00],
+        mask[0x01],
+        mask[0x02],
+        (mask[0x03] + 0x34) & 0xFF,
+        (mask[0x04] - 0xF9) & 0xFF,
+        mask[0x05] ^ 0x13,
+        (mask[0x06] - 0x61) & 0xFF,
+    ]
+    return DecryptionKey(int.from_bytes(bytes(key_bytes), "little"))
 
 
 class Sample(NamedTuple):

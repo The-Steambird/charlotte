@@ -5,7 +5,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 lazy from pathlib import Path
 
-from resources.keys import DecryptionKey, Keys, find_video_version, join_key, video_key_from
+from resources.keys import DecryptionKey, Keys, find_video_version, video_key_from
 from resources.subtitles import local_subtitle_path
 from stages.ass import ASS
 from stages.crack import Recovery, crack_key
@@ -258,10 +258,9 @@ def crack_usm(usm_file: Path, reporter: Reporter) -> Recovery:
     stem = usm_file.stem
     recovery = crack_key(usm_file, reporter)
 
-    key = recovery.key
     combined = video_key = None
-    if key is not None:
-        combined = join_key(key)
+    if recovery.key is not None:
+        combined = recovery.key.combined
         video_key = video_key_from(combined, stem)
         log.info(f"{usm_file.name}: videoKey={video_key}")
 

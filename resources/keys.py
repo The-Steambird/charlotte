@@ -19,8 +19,7 @@ KEY_MASK = (1 << 56) - 1
 
 
 class DecryptionKey(NamedTuple):
-    key1: bytes
-    key2: bytes
+    combined: int
     aes_key: bytes | None = None
 
 
@@ -94,15 +93,6 @@ def find_video_version(data: dict, filename: str) -> str | None:
     return version.get("version")
 
 
-def split_key(key: int) -> tuple[bytes, bytes]:
-    key_bytes = key.to_bytes(8, "little")
-    return key_bytes[:4], key_bytes[4:]
-
-
-def join_key(key: DecryptionKey) -> int:
-    return int.from_bytes(key.key1 + key.key2, "little")
-
-
 def parse_stream_keys(audio_key: object, aes_key: object) -> DecryptionKey | None:
     if not (
         isinstance(audio_key, int)
@@ -112,8 +102,7 @@ def parse_stream_keys(audio_key: object, aes_key: object) -> DecryptionKey | Non
     ):
         return None
     # audioKey is used as it is, because 7.1 keys have no filename term.
-    key1, key2 = split_key(audio_key)
-    return DecryptionKey(key1, key2, bytes.fromhex(aes_key))
+    return DecryptionKey(audio_key, bytes.fromhex(aes_key))
 
 
 def find_stream_keys(data: dict, filename: str) -> DecryptionKey | None:
@@ -234,4 +223,4 @@ class Keys:
 
         filename_key = calculate_key_from_filename(stem)
         combined = wrap_key(filename_key + video_key)
-        return DecryptionKey(*split_key(combined))
+        return DecryptionKey(combined)

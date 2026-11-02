@@ -21,7 +21,7 @@ from pipeline import (
     process_subtitles,
     process_usm,
 )
-from resources.keys import DecryptionKey, Keys, calculate_key_from_filename, split_key
+from resources.keys import DecryptionKey, Keys, calculate_key_from_filename
 from resources.subtitles import subtitle_path
 from stages.crack import Recovery
 from utils.errors import Cancelled, CharlotteError, Skipped
@@ -84,7 +84,7 @@ def make_run(tmp_path, chunks=None, **overrides):
     usm_file.write_bytes(
         chunks or video_header() + chunk(b"@SFV", b"video") + chunk(b"@SFA", b"audio")
     )
-    keys = SimpleNamespace(decryption_key=lambda stem: DecryptionKey(bytes(4), bytes(4)))
+    keys = SimpleNamespace(decryption_key=lambda stem: DecryptionKey(0))
     return usm_file, make_options(tmp_path, **overrides), keys
 
 
@@ -281,7 +281,7 @@ def test_stream_cipher_decrypts_with_the_keys_of_its_group(
 ):
     """The nonce comes from the video header and the frame time from each chunk header."""
     nonce, frame_time = 0x0102030405060708, 0x21
-    key1, key2 = b"key1", b"key2"
+    audio_key = 5281416956962385
     iv = nonce.to_bytes(8, "big") + frame_time.to_bytes(4, "big") + bytes(4)
     plain = bytes(range(0x80))
     cipher = AES.new(AES_KEY, AES.MODE_CTR, nonce=b"", initial_value=iv)
@@ -295,15 +295,15 @@ def test_stream_cipher_decrypts_with_the_keys_of_its_group(
     audio_keys = []
 
     def audio(hca_files, audio_files, key, **kwargs):
-        audio_keys.append(key.key1 + key.key2)
+        audio_keys.append(key.combined)
 
     monkeypatch.setattr(pipeline, "process_audio", audio)
-    keys = SimpleNamespace(stream_keys=lambda stem: DecryptionKey(key1, key2, AES_KEY))
+    keys = SimpleNamespace(stream_keys=lambda stem: DecryptionKey(audio_key, AES_KEY))
 
     process_usm(usm_file, opts, keys, reporter)
 
     assert (tmp_path / "out" / "Cs_Test" / "Cs_Test.ivf").read_bytes() == plain
-    assert audio_keys == [key1 + key2]
+    assert audio_keys == [audio_key]
 
 
 # --- full run: output layout and cleanup ---
@@ -484,8 +484,7 @@ def test_one_bad_subtitle_does_not_sink_the_rest(tmp_app_root, out_dir, monkeypa
 def test_crack_reports_key_and_video_key(tmp_app_root, reporter, monkeypatch):
     """videoKey is the keys.json half, the combined key minus the filename hash."""
     combined = (calculate_key_from_filename("Cs_A") + 777) & 0xFFFFFFFFFFFFFF
-    key = DecryptionKey(*split_key(combined))
-    monkeypatch.setattr(pipeline, "crack_key", lambda f, r: Recovery(key, ""))
+    monkeypatch.setattr(pipeline, "crack_key", lambda f, r: Recovery(DecryptionKey(combined), ""))
 
     crack_usm(tmp_app_root / "Cs_A.usm", reporter)
 
@@ -529,7 +528,7 @@ def test_crack_batch_carries_on_past_a_failed_file(
     def crack(usm_file, reporter):
         if usm_file.name == "Cs_Bad.usm":
             raise error
-        return Recovery(DecryptionKey(bytes(4), bytes(4)), "")
+        return Recovery(DecryptionKey(0), "")
 
     monkeypatch.setattr(pipeline, "crack_key", crack)
 

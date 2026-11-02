@@ -50,9 +50,8 @@ def create_table56(key: int) -> bytearray:
     return table
 
 
-def build_cipher_table(key1: bytes, key2: bytes) -> bytearray:
-    key = int.from_bytes(key1 + key2, "little") - 1
-    t1 = (key & KEY_MASK).to_bytes(7, "little")
+def build_cipher_table(key: int) -> bytearray:
+    t1 = ((key - 1) & KEY_MASK).to_bytes(7, "little")
 
     t2 = bytearray(
         [
@@ -174,7 +173,7 @@ class HCA:
         if self.ciph_type == 0:
             return
 
-        table = build_cipher_table(self.key.key1, self.key.key2)
+        table = build_cipher_table(self.key.combined)
         self.data = self.data.translate(table)
 
         self.ciph_type = 0
