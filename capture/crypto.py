@@ -41,7 +41,7 @@ MT_M = 156
 
 def load_dispatch_keys() -> dict[int, bytes]:
     data = orjson.loads((SECRETS / "gi.json").read_bytes())
-    return {int(version): base64.b64decode(key) for version, key in data.items()}
+    return {int(key_id): base64.b64decode(key) for key_id, key in data.items()}
 
 
 def load_rsa_keys() -> list:
