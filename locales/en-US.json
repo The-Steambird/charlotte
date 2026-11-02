@@ -112,7 +112,7 @@
   "KEYS_NOT_FOUND_AT": "keys.json not found at {path}.",
   "KEYS_FETCH_FAILED": "Continuing without keys.json.",
   "KEYS_SAVE_FAILED": "Failed to save keys.json: {error}",
-  "KEYS_LOCAL_INVALID": "Error decoding local keys.json.",
+  "KEYS_LOCAL_INVALID": "{path} is not valid JSON and was left unchanged. Fix it and run again: {error}",
   "KEYS_UPDATE_DECLINED": "No keys.json entry for {stem}: update was declined.",
   "KEY_CHECKING_UPSTREAM": "Key for {stem} not found. Checking upstream...",
   "KEYS_UPSTREAM_IDENTICAL": "Upstream keys.json is identical to local file.",

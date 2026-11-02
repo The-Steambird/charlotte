@@ -111,7 +111,7 @@
   "KEYS_NOT_FOUND_AT": "在 {path} 找不到 keys.json。",
   "KEYS_FETCH_FAILED": "將在沒有 keys.json 的情況下繼續。",
   "KEYS_SAVE_FAILED": "儲存 keys.json 失敗：{error}",
-  "KEYS_LOCAL_INVALID": "解析本機 keys.json 時發生錯誤。",
+  "KEYS_LOCAL_INVALID": "{path} 不是有效的 JSON，已保持原樣。請修正後重新執行：{error}",
   "KEYS_UPDATE_DECLINED": "keys.json 中沒有 {stem} 的項目：已拒絕更新。",
   "KEY_CHECKING_UPSTREAM": "找不到 {stem} 的金鑰。正在檢查上游…",
   "KEYS_UPSTREAM_IDENTICAL": "上游 keys.json 與本機檔案相同。",

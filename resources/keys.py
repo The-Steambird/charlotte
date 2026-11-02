@@ -141,10 +141,10 @@ class Keys:
 
         try:
             self.data = orjson.loads(self.raw)
-        except orjson.JSONDecodeError:
-            log.error(translate("KEYS_LOCAL_INVALID"))
-            self.data = {}
-            self.raw = b""
+        except orjson.JSONDecodeError as e:
+            log.error(translate("KEYS_LOCAL_INVALID", path=self.path, error=e))
+            # A broken hand-edited file is left to the user, because an update would replace it.
+            self.nothing_upstream = True
 
     def get(self, stem: str) -> int | None:
         if self.manual_key is not None:

@@ -179,20 +179,19 @@ def bundle_targets(archive: zipfile.ZipFile, folder: Path) -> list[tuple[str, Pa
 
 def roll_back(installed: list[tuple[Path, Path | None]]) -> None:
     for target, stale in installed:
-        try:
-            if stale is None:
+        if stale is None:
+            try:
                 target.unlink(missing_ok=True)
-            else:
-                stale.replace(target)
-        except OSError as e:
-            if stale is None:
+            except OSError as e:
                 log.error(translate("DELETE_FAILED", name=target.name, error=e))
-            else:
-                log.error(
-                    translate(
-                        "UPDATE_ROLLBACK_FAILED", name=target.name, backup=stale.name, error=e
-                    )
-                )
+            continue
+
+        try:
+            stale.replace(target)
+        except OSError as e:
+            log.error(
+                translate("UPDATE_ROLLBACK_FAILED", name=target.name, backup=stale.name, error=e)
+            )
 
 
 def install_bundle(bundle: Path, folder: Path) -> None:

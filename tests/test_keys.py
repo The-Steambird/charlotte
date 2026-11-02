@@ -148,6 +148,17 @@ def test_broken_upstream_file_reads_as_no_key(tmp_app_root, reporter, monkeypatc
     assert reporter.prompts == []
 
 
+def test_a_broken_local_file_is_left_for_the_user_to_fix(tmp_app_root, reporter, monkeypatch):
+    """Users paste captured keys into keys.json by hand, and an update offered over a file
+    with a typo in it would replace those keys."""
+    broken = b'{"list": [{"videoKey": 111, "videos": ["Cs_A"]},]}'
+    (tmp_app_root / "keys.json").write_bytes(broken)
+    monkeypatch.setattr(resources.keys, "fetch_upstream_keys", forbid_call)
+
+    assert Keys(reporter).get("Cs_A") is None
+    assert (tmp_app_root / "keys.json").read_bytes() == broken
+
+
 def test_new_upstream_key_accepted_once_for_the_run(tmp_app_root, reporter, monkeypatch):
     write_keys(tmp_app_root, FLAT_KEYS)
     monkeypatch.setattr(

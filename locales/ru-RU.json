@@ -111,7 +111,7 @@
   "KEYS_NOT_FOUND_AT": "keys.json не найден по пути {path}.",
   "KEYS_FETCH_FAILED": "Работа продолжается без keys.json.",
   "KEYS_SAVE_FAILED": "Не удалось сохранить keys.json: {error}",
-  "KEYS_LOCAL_INVALID": "Ошибка чтения локального keys.json.",
+  "KEYS_LOCAL_INVALID": "{path} не является корректным JSON и оставлен без изменений. Исправьте его и запустите снова: {error}",
   "KEYS_UPDATE_DECLINED": "В keys.json нет записи для {stem}: обновление отклонено.",
   "KEY_CHECKING_UPSTREAM": "Ключ для {stem} не найден. Проверка удалённого keys.json...",
   "KEYS_UPSTREAM_IDENTICAL": "Удалённый keys.json совпадает с локальным файлом.",

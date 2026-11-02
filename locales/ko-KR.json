@@ -111,7 +111,7 @@
   "KEYS_NOT_FOUND_AT": "{path}에서 keys.json을 찾을 수 없습니다.",
   "KEYS_FETCH_FAILED": "keys.json 없이 계속합니다.",
   "KEYS_SAVE_FAILED": "keys.json 저장 실패: {error}",
-  "KEYS_LOCAL_INVALID": "로컬 keys.json을 해석하는 중 오류가 발생했습니다.",
+  "KEYS_LOCAL_INVALID": "{path}은(는) 올바른 JSON이 아니어서 변경하지 않았습니다. 수정한 뒤 다시 실행하세요: {error}",
   "KEYS_UPDATE_DECLINED": "keys.json에 {stem} 항목이 없습니다: 업데이트를 거부했습니다.",
   "KEY_CHECKING_UPSTREAM": "{stem}의 키를 찾을 수 없습니다. 업스트림을 확인하는 중...",
   "KEYS_UPSTREAM_IDENTICAL": "업스트림 keys.json이 로컬 파일과 같습니다.",

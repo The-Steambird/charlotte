@@ -111,7 +111,7 @@
   "KEYS_NOT_FOUND_AT": "{path} に keys.json が見つかりません。",
   "KEYS_FETCH_FAILED": "keys.json なしで続行します。",
   "KEYS_SAVE_FAILED": "keys.json を保存できませんでした: {error}",
-  "KEYS_LOCAL_INVALID": "ローカルの keys.json を解析できませんでした。",
+  "KEYS_LOCAL_INVALID": "{path} は有効な JSON ではないため、変更せずにそのままにしました。修正してからもう一度実行してください: {error}",
   "KEYS_UPDATE_DECLINED": "keys.json に {stem} のエントリがありません: 更新は拒否されました。",
   "KEY_CHECKING_UPSTREAM": "{stem} のキーが見つかりません。リモートを確認しています…",
   "KEYS_UPSTREAM_IDENTICAL": "リモートの keys.json はローカルのファイルと同じです。",

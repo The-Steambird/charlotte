@@ -111,7 +111,7 @@
   "KEYS_NOT_FOUND_AT": "keys.json não encontrado em {path}.",
   "KEYS_FETCH_FAILED": "A continuar sem keys.json.",
   "KEYS_SAVE_FAILED": "Não foi possível guardar o keys.json: {error}",
-  "KEYS_LOCAL_INVALID": "Erro ao ler o keys.json local.",
+  "KEYS_LOCAL_INVALID": "{path} não é um JSON válido e foi deixado sem alterações. Corrija-o e tente novamente: {error}",
   "KEYS_UPDATE_DECLINED": "Não há entrada no keys.json para {stem}: a atualização foi recusada.",
   "KEY_CHECKING_UPSTREAM": "Chave de {stem} não encontrada. A consultar o keys.json remoto...",
   "KEYS_UPSTREAM_IDENTICAL": "O keys.json remoto é idêntico ao ficheiro local.",
