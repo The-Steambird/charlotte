@@ -97,8 +97,9 @@ def gitlab_commit(http: urllib3.PoolManager) -> str:
         "https://gitlab.com/api/v4/projects/Dimbreath%2Fanimegamedata2/repository/commits"
         "?path=Subtitle&ref_name=main&per_page=1"
     )
+    data = fetch(http, url)
     try:
-        return orjson.loads(fetch(http, url))[0]["id"]
+        return orjson.loads(data)[0]["id"]
     except ValueError, KeyError, IndexError:
         raise CharlotteError(translate("SUBTITLE_RESPONSE_UNKNOWN")) from None
 
@@ -127,16 +128,18 @@ def gitlab_archive(http: urllib3.PoolManager) -> dict[str, bytes]:
 
 def github_commit(http: urllib3.PoolManager) -> str:
     url = f"https://api.github.com/repos/{MIRROR}/commits?path=Subtitle&sha=main&per_page=1"
+    data = fetch(http, url)
     try:
-        return orjson.loads(fetch(http, url))[0]["sha"]
+        return orjson.loads(data)[0]["sha"]
     except ValueError, KeyError, IndexError:
         raise CharlotteError(translate("SUBTITLE_RESPONSE_UNKNOWN")) from None
 
 
 def github_changes(http: urllib3.PoolManager, commit: str) -> list[str]:
     url = f"https://api.github.com/repos/{MIRROR}/git/trees/{commit}:Subtitle?recursive=1"
+    data = fetch(http, url)
     try:
-        entries = orjson.loads(fetch(http, url))["tree"]
+        entries = orjson.loads(data)["tree"]
     except ValueError, KeyError:
         raise CharlotteError(translate("SUBTITLE_RESPONSE_UNKNOWN")) from None
 
