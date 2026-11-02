@@ -96,19 +96,15 @@ def mux(
     default_subtitle: str,
 ) -> None:
     """Mux the lossless IVF video with the audio and subtitle tracks."""
-    args = [
-        "-i",
-        str(video),
-        *mux_args(
-            output_file,
-            ["-c", "copy"],
-            audio_files,
-            subtitle_files,
-            fonts=fonts,
-            default_audio=default_audio,
-            default_subtitle=default_subtitle,
-        ),
-    ]
+    output_args = mux_args(
+        output_file,
+        ["-c", "copy"],
+        audio_files,
+        subtitle_files,
+        fonts=fonts,
+        default_audio=default_audio,
+        default_subtitle=default_subtitle,
+    )
 
     log.info(translate("MUXING", stem=video.stem))
-    run_ffmpeg(args, translate("MUX_FAILED"))
+    run_ffmpeg(["-i", str(video), *output_args], translate("MUX_FAILED"))
