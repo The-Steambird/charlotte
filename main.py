@@ -32,7 +32,9 @@ app = typer.Typer(help=translate("APP_HELP"))
 
 def choice_option(*names: str, help: str, choices: list[str]) -> OptionInfo:
     canonical_by_key = {choice.casefold(): choice for choice in choices}
-    allowed = ", ".join(choice.lower() for choice in choices)
+    shown = [choice.lower() for choice in choices]
+    allowed = ", ".join(shown)
+    metavar = "[" + "|".join(shown) + "]"
 
     def normalize(value: str) -> str:
         canonical = canonical_by_key.get(value.casefold())
@@ -40,12 +42,7 @@ def choice_option(*names: str, help: str, choices: list[str]) -> OptionInfo:
             raise typer.BadParameter(translate("CHOICE_INVALID", choices=allowed))
         return canonical
 
-    return typer.Option(
-        *names,
-        help=help,
-        metavar=f"[{'|'.join(choice.lower() for choice in choices)}]",
-        callback=normalize,
-    )
+    return typer.Option(*names, help=help, metavar=metavar, callback=normalize)
 
 
 def die(message: str, reporter: Reporter, name: str = "") -> NoReturn:
@@ -262,6 +259,7 @@ def run(
 
     output.mkdir(parents=True, exist_ok=True)
     sync_subtitles(reporter)
+    fonts = fetch_fonts()
     opts = Options(
         output=output,
         no_cleanup=no_cleanup,
@@ -269,7 +267,7 @@ def run(
         crf=crf,
         preset=preset,
         x265_params=x265_params,
-        fonts=fetch_fonts(),
+        fonts=fonts,
         default_audio=default_audio,
         default_subtitle=default_subtitle,
         audio_codec=audio_codec,

@@ -110,9 +110,10 @@ def encode_video(
 
     video_filter = subtitle_filter(burnt_subtitle, opts.fonts) if burnt_subtitle else None
     soft_subtitles = [] if burnt_subtitle else subtitle_files
+    codec_args = encode_args(opts.crf, opts.preset, opts.x265_params, video_filter)
     ffmpeg_args = mux_args(
         partial_mkv,
-        encode_args(opts.crf, opts.preset, opts.x265_params, video_filter),
+        codec_args,
         audio_files,
         soft_subtitles,
         fonts=font_subsets,
