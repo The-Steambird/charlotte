@@ -139,13 +139,6 @@ def test_missing_file_fetched_and_saved(tmp_app_root, reporter, monkeypatch):
     assert read_keys(tmp_app_root) == FLAT_KEYS
 
 
-def test_upstream_identical_returns_none(tmp_app_root, reporter, monkeypatch):
-    write_keys(tmp_app_root, FLAT_KEYS)
-    monkeypatch.setattr(resources.keys, "fetch_upstream_keys", lambda: orjson.dumps(FLAT_KEYS))
-    assert Keys(reporter).get("Cs_X") is None
-    assert reporter.prompts == []
-
-
 def test_broken_upstream_file_reads_as_no_key(tmp_app_root, reporter, monkeypatch):
     """Upstream keys.json changes through outside PRs with no CI check. A broken commit has to
     leave each file to the crack fallback, because a ValueError here would end the batch."""

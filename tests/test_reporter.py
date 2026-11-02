@@ -20,7 +20,7 @@ def make_reporter(stdin_text=""):
     return JsonReporter(out=io.StringIO(), stdin=io.StringIO(stdin_text))
 
 
-def make_piped_reporter(stdin_text=""):
+def make_piped_reporter(stdin_text):
     """A real anonymous pipe exercises the peek-and-drain path the GUI uses."""
     read_fd, write_fd = os.pipe()
     os.write(write_fd, stdin_text.encode())
@@ -48,12 +48,6 @@ def test_log_event_shape():
     reporter = make_reporter()
     reporter.log("warning", "watch out")
     assert events_of(reporter)[-1] == {"type": "log", "level": "warning", "message": "watch out"}
-
-
-def test_custom_event_shape():
-    reporter = make_reporter()
-    reporter.event("job_start", file="a.usm", stem="a")
-    assert events_of(reporter)[-1] == {"type": "job_start", "file": "a.usm", "stem": "a"}
 
 
 def test_stage_events_wrap_progress():

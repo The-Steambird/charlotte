@@ -65,8 +65,8 @@ def encrypt(plain: bytes, key: int) -> bytes:
     return bytes(payload)
 
 
-def video_chunk(rng, blocks: int = 900) -> bytes:
-    return chunk(b"@SFV", b"DKIF" + encrypt(video_plaintext(rng, blocks), KEY)[4:])
+def video_chunk(rng) -> bytes:
+    return chunk(b"@SFV", b"DKIF" + encrypt(video_plaintext(rng, 900), KEY)[4:])
 
 
 def test_stages_cover_every_mask_entry_exactly_once():

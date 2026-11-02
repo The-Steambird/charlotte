@@ -21,14 +21,16 @@ def lookups() -> list[ast.Call]:
     sources = list(ROOT.glob("*.py"))
     for folder in ("capture", "stages", "resources", "utils", "vs"):
         sources += (ROOT / folder).rglob("*.py")
-    return [
-        node
-        for path in sources
-        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id == "translate"
-    ]
+
+    calls = []
+    for path in sources:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
+                continue
+            if node.func.id == "translate":
+                calls.append(node)
+    return calls
 
 
 # The GUI's build catches a wrong key or argument because it generates a member per key. Here

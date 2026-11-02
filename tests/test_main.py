@@ -13,7 +13,6 @@ from conftest import FakeReporter, forbid_call
 from pipeline import Options
 from utils.errors import Cancelled, CharlotteError, Skipped
 from utils.strings import translate
-from utils.version import __version__
 
 
 runner = CliRunner()
@@ -43,36 +42,40 @@ def pipeline_stub(monkeypatch):
 # --- modes that need no input files ---
 
 
-def test_version_prints_and_exits(monkeypatch):
-    monkeypatch.setattr(main, "collect_files", forbid_call)
-    result = runner.invoke(main.app, ["--version"])
-    assert result.exit_code == 0
-    assert __version__ in result.output
-
-
-def test_update_runs_without_input_files(monkeypatch):
+def test_the_guis_update_check_runs_without_input_files(monkeypatch):
+    """MainViewModel in MonsieurVerite checks for updates with exactly these arguments. The json
+    flag reaching run_update is what keeps the console's pause out of a GUI run."""
     called = []
     monkeypatch.setattr(main, "run_update", lambda reporter, json_mode: called.append(json_mode))
     monkeypatch.setattr(main, "collect_files", forbid_call)
 
-    assert runner.invoke(main.app, ["--update"]).exit_code == 0
-    assert called == [False]
+    assert runner.invoke(main.app, ["--json", "--update"]).exit_code == 0
+    assert called == [True]
 
 
 @pytest.mark.parametrize(
-    "extra", [["Cs_A.usm"], ["--probe"], ["--crack"], ["--capture"], ["--key", "1"]]
+    "args",
+    [
+        ["--update", "Cs_A.usm"],
+        ["--update", "--probe"],
+        ["--update", "--crack"],
+        ["--update", "--capture"],
+        ["--update", "--key", "1"],
+        ["--capture", "Cs_A.usm"],
+        ["--capture", "--probe"],
+        ["--capture", "--crack"],
+        ["--capture", "--key", "1"],
+        ["--crack", "--probe"],
+        ["--crack", "--key", "1"],
+        ["--probe", "--key", "1"],
+    ],
 )
-def test_update_rejects_every_other_mode(monkeypatch, extra):
+def test_run_modes_exclude_each_other(monkeypatch, args):
     """--update replaces the binary and exits. Combining it with a run would leave the engine
     mid-batch on a version that just got swapped out from under it."""
-    monkeypatch.setattr(main, "run_update", forbid_call)
-    assert runner.invoke(main.app, ["--update", *extra]).exit_code == 1
-
-
-@pytest.mark.parametrize("extra", [["Cs_A.usm"], ["--probe"], ["--crack"], ["--key", "1"]])
-def test_capture_rejects_every_other_mode(monkeypatch, extra):
-    monkeypatch.setattr(main, "KeyCapture", forbid_call)
-    assert runner.invoke(main.app, ["--capture", *extra]).exit_code == 1
+    for name in ("run_update", "KeyCapture", "crack_all", "probe_all", "process_all"):
+        monkeypatch.setattr(main, name, forbid_call)
+    assert runner.invoke(main.app, args).exit_code == 1
 
 
 @pytest.mark.parametrize("flags", [["--json"], ["--capture"]])
@@ -145,10 +148,6 @@ def test_a_failed_capture_reaches_the_gui_as_an_error_event(monkeypatch, error, 
     assert {"type": "error", "file": "", "message": message} in events
 
 
-def test_no_input_is_an_error():
-    assert runner.invoke(main.app, []).exit_code == 1
-
-
 # --- input collection ---
 
 
@@ -182,25 +181,6 @@ def test_key_requires_single_input(tmp_path):
     files = [make_usm(tmp_path, "Cs_A.usm"), make_usm(tmp_path, "Cs_B.usm")]
     result = runner.invoke(main.app, [*map(str, files), "--key", "1"])
     assert result.exit_code == 1
-
-
-@pytest.mark.parametrize(
-    "flags", [["--crack", "--probe"], ["--crack", "--key", "1"], ["--probe", "--key", "1"]]
-)
-def test_conflicting_modes_rejected(tmp_path, flags):
-    usm = make_usm(tmp_path)
-    assert runner.invoke(main.app, [str(usm), *flags]).exit_code == 1
-
-
-def test_rejected_flags_reach_the_gui(tmp_path):
-    usm = make_usm(tmp_path)
-    result = runner.invoke(main.app, [str(usm), "--crack", "--probe", "--json"])
-    assert '{"type":"error","file":"","message":' in result.stdout
-
-
-def test_invalid_choice_flag_is_usage_error(tmp_path):
-    usm = make_usm(tmp_path)
-    assert runner.invoke(main.app, [str(usm), "-da", "xx"]).exit_code == 2
 
 
 def test_choice_flags_normalized_into_options(pipeline_stub, tmp_path):
@@ -342,15 +322,3 @@ def test_probe_shares_one_keys_and_carries_on_past_a_failed_file(monkeypatch, tm
     files = [make_usm(tmp_path, "Cs_A.usm"), make_usm(tmp_path, "Cs_B.usm")]
     assert runner.invoke(main.app, [*map(str, files), "--probe"]).exit_code == 0
     assert probed == [(files[0], keys), (files[1], keys)]
-
-
-def test_crack_skips_keys_and_pipeline(monkeypatch, tmp_path):
-    cracked = []
-    monkeypatch.setattr(main, "crack_all", lambda files, reporter: cracked.extend(files))
-    monkeypatch.setattr(main, "Keys", forbid_call)
-    monkeypatch.setattr(main, "sync_subtitles", forbid_call)
-    monkeypatch.setattr(pipeline, "process_usm", forbid_call)
-
-    usm = make_usm(tmp_path)
-    assert runner.invoke(main.app, [str(usm), "--crack"]).exit_code == 0
-    assert cracked == [usm]

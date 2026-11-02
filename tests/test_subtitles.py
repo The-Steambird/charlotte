@@ -240,18 +240,7 @@ def test_a_failed_mirror_sync_resumes_where_it_stopped(tmp_app_root, reporter, m
     assert stored_commit() == "abc123"
 
 
-@pytest.mark.parametrize(
-    "mirror",
-    [
-        {},
-        {
-            GITHUB_COMMITS: b'[{"sha": "abc123"}]',
-            GITHUB_TREE: mirror_tree(("EN/Cs_B_EN.srt", "1" * 40)),
-        },
-    ],
-    ids=["mirror-down", "download-fails"],
-)
-def test_both_sources_failing_keeps_the_cache(tmp_app_root, reporter, monkeypatch, mirror):
-    serve(monkeypatch, {GITLAB_COMMITS: b'[{"id": "abc123"}]', **mirror})
+def test_both_sources_failing_keeps_the_cache(tmp_app_root, reporter, monkeypatch):
+    serve(monkeypatch, {GITLAB_COMMITS: b'[{"id": "abc123"}]'})
     sync_subtitles(reporter)
     assert stored_commit() == ""

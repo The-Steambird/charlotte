@@ -30,8 +30,8 @@ from utils.version import __version__
 UPDATE_FIELDS = {"current", "latest", "available", "url", "notes", "download", "reason"}
 
 
-def release(tag: str, url: str = "https://example/rel", body: str = "notes") -> dict:
-    return {"tag_name": tag, "html_url": url, "body": body}
+def release(tag: str) -> dict:
+    return {"tag_name": tag, "html_url": "https://example/rel", "body": "notes"}
 
 
 @pytest.mark.parametrize(

@@ -275,7 +275,7 @@ def logged_in(reporter):
     return sniffer, session, commands
 
 
-def test_login_yields_the_video_key(reporter):
+def test_login_yields_a_71_key(reporter):
     """The key record is nested like the server's, and its message arrives split, reordered and
     repeated."""
     sniffer, session, commands = logged_in(reporter)
@@ -401,9 +401,10 @@ def test_gaps_skipped_before_a_relog_still_count(reporter):
     assert sniffer.skipped == 1
 
 
-def stream_file(path, aes_key: str, half: int = 256, nonce: int = 0x1122334455667788):
+def stream_file(path, aes_key: str, half: int = 256):
     """A 7.1 file whose frames each hold two frames of `half` bytes behind a superframe index,
     encrypted the way the game encrypts them. The first payload starts with the IVF file header."""
+    nonce = 0x1122334455667788
     marker = 0xC0 | 1 << 3 | 1  # two frames, with two bytes for each size
     frame = bytes(2 * half) + bytes([marker]) + struct.pack("<HH", half, half) + bytes([marker])
 

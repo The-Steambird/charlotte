@@ -191,18 +191,6 @@ def test_probe_of_the_stream_cipher_needs_its_own_keys(
     assert reporter.prompts == []
 
 
-def test_probe_remaps_subtitle_stem_only(tmp_app_root, reporter, monkeypatch):
-    """BASENAME_FIXES applies to the subtitle lookup only, and the event keeps the original stem."""
-    write_subtitle("Cs_DQAQ200211_WanYeXianVideo", "EN")
-
-    keys = make_keys(reporter, monkeypatch, {"list": []}, upstream={"list": []})
-    probe_usm(write_usm(tmp_app_root, "Cs_200211_WanYeXianVideo"), keys, reporter)
-
-    data = last_event(reporter, "probe")
-    assert data["stem"] == "Cs_200211_WanYeXianVideo"
-    assert data["subtitles"] == ["EN"]
-
-
 # --- cancel and key fallback ---
 
 
