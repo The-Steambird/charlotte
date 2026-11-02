@@ -69,7 +69,8 @@ def process_subtitles(stem: str, folder: Path) -> list[Path]:
     for sub_file, lang in subtitle_files:
         try:
             if sub_file.stat().st_size == 0:
-                empty_langs.append(SUBTITLES_LANGUAGES[lang][1])
+                _, native_name = SUBTITLES_LANGUAGES[lang]
+                empty_langs.append(native_name)
                 continue
             ass = ASS(sub_file, lang)
             if ass.parse_srt():
@@ -83,15 +84,6 @@ def process_subtitles(stem: str, folder: Path) -> list[Path]:
         log.info(translate("SUBTITLES_EMPTY", languages=", ".join(empty_langs)))
 
     return ass_files
-
-
-def prepare_subtitles(
-    stem: str, output_path: Path, fonts: list[Path]
-) -> tuple[list[Path], list[Path]]:
-    folder = output_path / "subs"
-    subtitle_files = process_subtitles(stem, folder)
-    subsets = subset_fonts(fonts, subtitle_files, folder) if subtitle_files else []
-    return subtitle_files, subsets
 
 
 def encode_video(
@@ -192,7 +184,7 @@ def process_usm(usm_file: Path, opts: Options, keys: Keys, reporter: Reporter) -
         video, hca_files = usm.demux(output_path=output_path, reporter=reporter, created=created)
         reporter.checkpoint()
 
-        extension = AUDIO_CODECS[opts.audio_codec][0]
+        extension, _ = AUDIO_CODECS[opts.audio_codec]
         audio_files = [hca_file.with_suffix(extension) for hca_file in hca_files]
         created += audio_files
         process_audio(
@@ -202,7 +194,11 @@ def process_usm(usm_file: Path, opts: Options, keys: Keys, reporter: Reporter) -
             keep_decrypted=opts.no_cleanup,
             codec=opts.audio_codec,
         )
-        subtitle_files, font_subsets = prepare_subtitles(stem, output_path, opts.fonts)
+        subs_folder = output_path / "subs"
+        subtitle_files = process_subtitles(stem, subs_folder)
+        font_subsets = []
+        if subtitle_files:
+            font_subsets = subset_fonts(opts.fonts, subtitle_files, subs_folder)
         reporter.checkpoint()
 
         encoded = encode_video(

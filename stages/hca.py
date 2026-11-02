@@ -198,5 +198,6 @@ class HCA:
             f.write(self.data)
 
     def convert(self, output_file: Path, codec: str) -> None:
-        args = ["-f", "hca", "-i", "pipe:0", *AUDIO_CODECS[codec][1], str(output_file)]
+        _, encoder_args = AUDIO_CODECS[codec]
+        args = ["-f", "hca", "-i", "pipe:0", *encoder_args, str(output_file)]
         run_ffmpeg(args, translate("AUDIO_ENCODE_FAILED"), input=self.header + self.data)

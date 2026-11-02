@@ -17,8 +17,3 @@ SUBTITLES_LANGUAGES = {
     "TR": ("tr", "Türkçe"),
     "VI": ("vi", "Tiếng Việt"),
 }
-
-
-def get_language(lang: str) -> str:
-    """Translate the subtitle file-name code to a BCP-47 language tag."""
-    return SUBTITLES_LANGUAGES[lang][0]

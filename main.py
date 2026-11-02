@@ -3,7 +3,6 @@ import os
 
 from pathlib import Path
 from typing import Annotated, NoReturn
-lazy from collections.abc import Callable
 
 import typer
 
@@ -31,7 +30,7 @@ lazy from capture.run import KeyCapture
 app = typer.Typer(help=translate("APP_HELP"))
 
 
-def choice_normalizer(choices: list[str]) -> Callable[[str], str]:
+def choice_option(*names: str, help: str, choices: list[str]) -> OptionInfo:
     canonical_by_key = {choice.casefold(): choice for choice in choices}
     allowed = ", ".join(choice.lower() for choice in choices)
 
@@ -41,15 +40,11 @@ def choice_normalizer(choices: list[str]) -> Callable[[str], str]:
             raise typer.BadParameter(translate("CHOICE_INVALID", choices=allowed))
         return canonical
 
-    return normalize
-
-
-def choice_option(*names: str, help: str, choices: list[str]) -> OptionInfo:
     return typer.Option(
         *names,
         help=help,
         metavar=f"[{'|'.join(choice.lower() for choice in choices)}]",
-        callback=choice_normalizer(choices),
+        callback=normalize,
     )
 
 

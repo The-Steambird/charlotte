@@ -6,7 +6,7 @@ lazy from pathlib import Path
 lazy import uharfbuzz as hb
 
 from utils.ffmpeg import run_ffmpeg
-from utils.languages import AUDIO_LANGUAGES, get_language
+from utils.languages import AUDIO_LANGUAGES, SUBTITLES_LANGUAGES
 from utils.logger import log
 from utils.strings import translate
 
@@ -64,7 +64,8 @@ def mux_args(
         args.extend([f"-disposition:a:{i}", "default" if i == 0 else "0"])
 
     for i, (_, code) in enumerate(subtitles):
-        args.extend([f"-metadata:s:s:{i}", f"language={get_language(code)}"])
+        tag, _ = SUBTITLES_LANGUAGES[code]
+        args.extend([f"-metadata:s:s:{i}", f"language={tag}"])
         args.extend([f"-disposition:s:{i}", "default" if code == default_subtitle else "0"])
 
     attached = fonts if subtitles else []
