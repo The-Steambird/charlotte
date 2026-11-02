@@ -219,13 +219,14 @@ def install_bundle(bundle: Path, folder: Path) -> None:
 
 
 def apply_update(info: UpdateInfo, reporter: Reporter) -> None:
+    if info.download is None:
+        raise CharlotteError(translate("UPDATE_NO_ZIP"))
+    if info.sha256 is None:
+        raise CharlotteError(translate("UPDATE_NO_DIGEST"))
+
     folder = running_exe().parent
     bundle = folder / "charlotte-update.zip"
     try:
-        if info.download is None:
-            raise CharlotteError(translate("UPDATE_NO_ZIP"))
-        if info.sha256 is None:
-            raise CharlotteError(translate("UPDATE_NO_DIGEST"))
         actual = download_bundle(info.download, bundle, reporter)
         if actual != info.sha256.lower():
             raise CharlotteError(
