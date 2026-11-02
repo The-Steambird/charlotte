@@ -30,7 +30,7 @@ def fetch_fonts() -> list[Path]:
 
     available = [font for font in fonts if font.exists()]
     if len(available) < len(fonts):
-        log.info(
+        log.warning(
             translate(
                 "FONTS_FALLBACK",
                 path=r"Genshin Impact\Genshin Impact game\GenshinImpact_Data\StreamingAssets"
