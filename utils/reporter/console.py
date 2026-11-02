@@ -55,8 +55,8 @@ def key_pressed_within(seconds: float) -> bool:
     return False
 
 
-def pause_before_exit(seconds: int = 5) -> None:
-    for remaining in range(seconds, 0, -1):
+def pause_before_exit() -> None:
+    for remaining in range(5, 0, -1):
         sys.stderr.write(f"\r{translate('EXIT_COUNTDOWN', seconds=remaining)} ")
         sys.stderr.flush()
         if key_pressed_within(1):

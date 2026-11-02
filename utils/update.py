@@ -95,8 +95,9 @@ def report_update(reporter: Reporter) -> UpdateInfo:
     if info.reason is not None:
         log.warning(translate("UPDATE_CHECK_FAILED", reason=info.reason))
     elif info.available:
-        url = info.url or "https://github.com/The-Steambird/charlotte/releases/latest"
-        log.info(translate("UPDATE_AVAILABLE", current=info.current, latest=info.latest, url=url))
+        log.info(
+            translate("UPDATE_AVAILABLE", current=info.current, latest=info.latest, url=info.url)
+        )
     else:
         log.info(translate("UP_TO_DATE", version=info.current))
 
