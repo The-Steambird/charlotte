@@ -165,7 +165,8 @@ class Stats:
             zero_weight, ff_weight = BIGRAM_FALLBACK
         else:
             low, high = BIGRAM_RATIO
-            ratio = min(max(self.zero_pairs / max(self.ff_pairs, 1), low), high)
+            ratio = self.zero_pairs / max(self.ff_pairs, 1)
+            ratio = min(max(ratio, low), high)
             zero_weight = round(BIGRAM_WEIGHT * ratio / (1.0 + ratio))
             ff_weight = BIGRAM_WEIGHT - zero_weight
 

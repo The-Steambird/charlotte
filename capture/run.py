@@ -28,7 +28,10 @@ def known_groups(data: dict) -> dict[str | int, dict]:
 
 
 def listed_stems(data: dict) -> set[str]:
-    return {stem for _, group in groups(data) for stem in group.get("videos", [])}
+    stems = set()
+    for _, group in groups(data):
+        stems.update(group.get("videos", []))
+    return stems
 
 
 class KeyCapture:
@@ -146,14 +149,15 @@ class KeyCapture:
         pending, self.pending = self.pending, {}
         aes_keys = {number: key.aes_key for number, (key, _) in pending.items()}
         videos = {number: [] for number in pending}
+        matched = set()
         self.reporter.log(
             "info", translate("CAPTURE_MATCHING", keys=len(pending), files=len(self.candidates))
         )
         try:
             for number, stem in match_keys(self.candidates, aes_keys, self.reporter.checkpoint):
                 videos[number].append(stem)
+                matched.add(stem)
         finally:
-            matched = {stem for stems in videos.values() for stem in stems}
             self.candidates = [
                 candidate for candidate in self.candidates if candidate.path.stem not in matched
             ]

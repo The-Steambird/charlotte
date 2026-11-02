@@ -154,12 +154,14 @@ def mersenne(seeds: np.ndarray, outputs: list[int]) -> np.ndarray:
 
     words = {}
     word = seeds
-    for i in range(max(j for j in needed if j < MT_N) + 1):
+    last_seeded = max(j for j in needed if j < MT_N)
+    for i in range(last_seeded + 1):
         if i:
             word = 6364136223846793005 * (word ^ (word >> 62)) + i
         if i in needed:
             words[i] = word
-    for j in sorted(j for j in needed if j >= MT_N):
+    generated = sorted(j for j in needed if j >= MT_N)
+    for j in generated:
         y = (words[j - MT_N] & 0xFFFFFFFF80000000) | (words[j - MT_N + 1] & 0x7FFFFFFF)
         words[j] = words[j - MT_M] ^ (y >> 1) ^ ((y & 1) * 0xB5026F5AA96619E9)
     return np.stack([temper(words[MT_N + position]) for position in outputs])
