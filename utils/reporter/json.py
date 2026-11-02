@@ -87,7 +87,7 @@ class JsonReporter(Reporter):
         self.emit({"type": "log", "level": level, "message": msg})
 
     @contextmanager
-    def task(self, stage, total, unit="it"):
+    def task(self, stage, total, unit):
         self.emit(
             {"type": "stage", "stage": stage, "status": "start", "total": total, "unit": unit}
         )

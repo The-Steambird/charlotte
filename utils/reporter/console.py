@@ -91,7 +91,7 @@ class ConsoleReporter(Reporter):
         getattr(log, level)(msg)
 
     @contextmanager
-    def task(self, stage: str, total, unit="it"):
+    def task(self, stage: str, total, unit):
         with make_progress(unit) as progress:
             task_id = progress.add_task(STAGE_LABELS.get(stage, stage), total=total)
             yield Task(self, (progress, task_id), total)

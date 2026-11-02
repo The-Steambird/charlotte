@@ -171,7 +171,7 @@ def test_split_half_rejects_disagreeing_noise():
 def test_is_masked_matches_decrypt_video(tmp_path):
     """A sampler that disagrees with decrypt_video about which payloads are masked poisons
     the statistics."""
-    usm = USM(tmp_path / "Cs_Test.usm", DecryptionKey(0x07060504030201))
+    usm = USM(tmp_path / "Cs_Test.usm", DecryptionKey(0x07060504030201), None)
     threshold = MASK_START + MIN_MASKED
 
     for size in (threshold - 1, threshold, threshold + BLOCK):

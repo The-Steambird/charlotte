@@ -17,7 +17,7 @@ class QueueReporter(Reporter):
         self.queue.put(("log", level, msg))
 
     @contextmanager
-    def task(self, stage, total, unit="it"):
+    def task(self, stage, total, unit):
         self.queue.put(("task_start", stage, total, unit))
         yield Task(self, stage, total)
 

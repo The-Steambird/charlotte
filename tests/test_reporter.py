@@ -67,7 +67,7 @@ def test_stage_events_wrap_progress():
 
 def test_progress_throttled_to_whole_percents():
     reporter = make_reporter()
-    with reporter.task("encode", 1000) as task:
+    with reporter.task("encode", 1000, unit="frames") as task:
         for _ in range(1000):
             task.advance()
 
@@ -82,7 +82,7 @@ def test_set_completed_lands_final_tick_without_duplicating(advanced, ticks):
     exactly, and both then snap the bar to the file size. The snap is the closing tick in the
     first case and must not repeat it in the second."""
     reporter = make_reporter()
-    with reporter.task("demux", 100) as task:
+    with reporter.task("demux", 100, unit="B") as task:
         task.advance(advanced)
         task.set_completed(100)
 

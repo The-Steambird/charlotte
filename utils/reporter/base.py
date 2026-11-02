@@ -21,7 +21,7 @@ class Reporter:
     def log(self, level, msg):
         raise NotImplementedError
 
-    def task(self, stage, total, unit="it"):
+    def task(self, stage, total, unit):
         raise NotImplementedError
 
     def update_task(self, handle, current, total):

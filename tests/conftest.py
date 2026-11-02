@@ -92,7 +92,7 @@ class FakeReporter(Reporter):
         self.logs.append((level, msg))
 
     @contextlib.contextmanager
-    def task(self, stage, total, unit="it"):
+    def task(self, stage, total, unit):
         self.tasks.append((stage, total, unit))
         self.open_tasks += 1
         try:

@@ -142,7 +142,7 @@ def decrypt_stream(data: bytearray, aes_key: bytes, nonce: int, frame_time: int)
 
 
 class USM:
-    def __init__(self, file_path: Path, key: DecryptionKey, nonce: int | None = None):
+    def __init__(self, file_path: Path, key: DecryptionKey, nonce: int | None):
         self.file_path = file_path
         self.video_mask1 = self.build_mask(key.combined)
         self.video_mask2 = bytes(b ^ 0xFF for b in self.video_mask1)

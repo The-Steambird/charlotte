@@ -68,7 +68,7 @@ def test_frame_count_moves_the_bar_and_other_lines_keep_their_level(reporter):
     )
     process = SimpleNamespace(stderr=io.BytesIO(stderr))
 
-    with reporter.task("ffmpeg", 100) as task:
+    with reporter.task("ffmpeg", 100, unit="frames") as task:
         parse_ffmpeg_stderr(process, task, reporter)
 
     assert reporter.progress == [("ffmpeg", 12)]

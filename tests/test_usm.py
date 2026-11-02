@@ -14,7 +14,7 @@ from utils.errors import CharlotteError
 def make_usm(tmp_path, chunks: bytes) -> USM:
     usm_file = tmp_path / "Cs_Test.usm"
     usm_file.write_bytes(chunks)
-    return USM(usm_file, DecryptionKey(0))
+    return USM(usm_file, DecryptionKey(0), None)
 
 
 def mask_video_reference(usm: USM, data: bytearray) -> None:
@@ -52,7 +52,7 @@ THRESHOLD = MASK_START + MIN_MASKED
 def test_decrypt_video_matches_the_reference_chain(tmp_path, size):
     rng = random.Random(size)
     payload = bytes(rng.randrange(256) for _ in range(size))
-    usm = USM(tmp_path / "Cs_Test.usm", DecryptionKey(0x77665544332211))
+    usm = USM(tmp_path / "Cs_Test.usm", DecryptionKey(0x77665544332211), None)
 
     blocks, reference = bytearray(payload), bytearray(payload)
     usm.decrypt_video(blocks)
