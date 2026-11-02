@@ -21,18 +21,6 @@ DEFAULT_CRF = 13.0
 DEFAULT_PRESET = "slower"
 X265_COLOUR_TAGS = "colorprim=bt709:transfer=bt709:colormatrix=smpte170m"
 
-FFMPEG_LEVELS = {
-    "panic": "error",
-    "fatal": "error",
-    "error": "error",
-    "warning": "warning",
-    "info": "info",
-    "verbose": "debug",
-    "debug": "debug",
-    "trace": "debug",
-}
-LEVEL_TAG = re.compile(r"\[(panic|fatal|error|warning|info|verbose|debug|trace)]")
-
 
 def filter_escape(value: str) -> str:
     r"""Escapes a path for an option value inside `-vf`, which ffmpeg unescapes once as a filter
@@ -112,6 +100,17 @@ def parse_ffmpeg_stderr(process: subprocess.Popen, task, reporter: Reporter) -> 
         "speed",
         "progress",
     }
+    ffmpeg_levels = {
+        "panic": "error",
+        "fatal": "error",
+        "error": "error",
+        "warning": "warning",
+        "info": "info",
+        "verbose": "debug",
+        "debug": "debug",
+        "trace": "debug",
+    }
+    level_tag = re.compile(r"\[(panic|fatal|error|warning|info|verbose|debug|trace)]")
 
     for raw in iter(process.stderr.readline, b""):
         line = raw.decode("utf-8", errors="replace").strip()
@@ -122,10 +121,10 @@ def parse_ffmpeg_stderr(process: subprocess.Popen, task, reporter: Reporter) -> 
         if key == "frame" and value.isdigit():
             task.set_completed(int(value))
         elif key not in progress_keys:
-            match = LEVEL_TAG.search(line)
+            match = level_tag.search(line)
             level = "info"
             if match:
-                level = FFMPEG_LEVELS[match.group(1)]
+                level = ffmpeg_levels[match.group(1)]
                 line = line.replace(f"{match.group()} ", "", 1)
             reporter.log(level, line)
 
