@@ -13,7 +13,7 @@ dependencies = [
     "typer>=0.27.3",
     "uharfbuzz>=0.57.0",
     "urllib3>=2.8.0",
-    "vapoursynth>=81",
+    "vapoursynth>=82",
     "vapoursynth-akarin>=1.5.0",
     "vapoursynth-bestsource>=23",
     "vapoursynth-deblock>=9.0",
@@ -28,9 +28,9 @@ dependencies = [
 [dependency-groups]
 dev = [
     "deptry>=0.25.1",
-    "pytest>=9.1.1",
-    "ruff>=0.17.2",
-    "vsview>=0.13.0",
+    "pytest>=9.2.0",
+    "ruff>=0.17.3",
+    "vsview>=0.14.0",
 ]
 build = [
     "pyinstaller>=6.22.3",
