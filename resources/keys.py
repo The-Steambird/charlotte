@@ -228,10 +228,10 @@ class Keys:
         return found
 
     def decryption_key(self, stem: str) -> DecryptionKey | None:
-        key2 = self.get(stem)
-        if key2 is None:
+        video_key = self.get(stem)
+        if video_key is None:
             return None
 
-        key1 = calculate_key_from_filename(stem)
-        combined = wrap_key(key1 + key2)
+        filename_key = calculate_key_from_filename(stem)
+        combined = wrap_key(filename_key + video_key)
         return DecryptionKey(*split_key(combined))
