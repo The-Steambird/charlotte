@@ -1,4 +1,3 @@
-import os
 import types
 
 import orjson
@@ -12,7 +11,7 @@ import pipeline
 from conftest import FakeReporter, forbid_call
 from pipeline import Options
 from utils.errors import Cancelled, CharlotteError, Skipped
-from utils.strings import translate
+from utils.strings import load, translate
 
 
 runner = CliRunner()
@@ -26,14 +25,17 @@ def make_usm(directory, name="Cs_Test.usm"):
 
 @pytest.fixture
 def pipeline_stub(monkeypatch):
-    stub = types.SimpleNamespace(files=[], opts=None)
+    stub = types.SimpleNamespace(files=[], opts=None, manual_key=None)
 
     def fake_process(usm_file, opts, keys, reporter):
         stub.files.append(usm_file)
         stub.opts = opts
 
+    def fake_keys(reporter, manual_key=None):
+        stub.manual_key = manual_key
+
     monkeypatch.setattr(pipeline, "process_usm", fake_process)
-    monkeypatch.setattr(main, "Keys", lambda reporter, manual_key=None: None)
+    monkeypatch.setattr(main, "Keys", fake_keys)
     monkeypatch.setattr(main, "sync_subtitles", lambda reporter: None)
     monkeypatch.setattr(main, "fetch_fonts", lambda: None)
     return stub
@@ -65,15 +67,24 @@ def test_the_guis_update_check_runs_without_input_files(monkeypatch):
         ["--capture", "--probe"],
         ["--capture", "--crack"],
         ["--capture", "--key", "1"],
-        ["--crack", "--probe"],
-        ["--crack", "--key", "1"],
-        ["--probe", "--key", "1"],
+        ["--crack", "--probe", "Cs_A.usm"],
+        ["--crack", "--key", "1", "Cs_A.usm"],
+        ["--probe", "--key", "1", "Cs_A.usm"],
     ],
 )
-def test_run_modes_exclude_each_other(monkeypatch, args):
+def test_run_modes_exclude_each_other(monkeypatch, tmp_path, args):
     """--update replaces the binary and exits. Combining it with a run would leave the engine
     mid-batch on a version that just got swapped out from under it."""
-    for name in ("run_update", "KeyCapture", "crack_all", "probe_all", "process_all"):
+    monkeypatch.chdir(tmp_path)
+    make_usm(tmp_path, "Cs_A.usm")
+    for name in (
+        "run_update",
+        "relaunch_as_admin",
+        "KeyCapture",
+        "crack_all",
+        "probe_all",
+        "process_all",
+    ):
         monkeypatch.setattr(main, name, forbid_call)
     assert runner.invoke(main.app, args).exit_code == 1
 
@@ -90,7 +101,7 @@ def test_the_guis_capture_command_reaches_the_pipe_and_the_language(monkeypatch)
     opened = []
 
     def open_pipe(name):
-        opened.append((name, os.environ["CHARLOTTE_LANG"]))
+        opened.append((name, translate("APP_HELP")))
         return FakeReporter()
 
     monkeypatch.setattr(main, "open_pipe", open_pipe)
@@ -106,7 +117,7 @@ def test_the_guis_capture_command_reaches_the_pipe_and_the_language(monkeypatch)
         assert runner.invoke(main.app, args).exit_code == 0
     finally:
         main.strings.cache_clear()
-    assert opened == [("charlotte-capture-1", "ja-JP")]
+    assert opened == [("charlotte-capture-1", load("ja-JP")["APP_HELP"])]
 
 
 def test_capture_from_the_gui_without_admin_rights_fails_instead_of_prompting(monkeypatch):
@@ -154,9 +165,10 @@ def test_a_failed_capture_reaches_the_gui_as_an_error_event(monkeypatch, error, 
 @pytest.mark.parametrize(
     "bad_input", ["a.txt", "", "nope.usm"], ids=["non-usm", "dir-without-usm", "missing"]
 )
-def test_rejects_unusable_input(tmp_path, bad_input):
+def test_rejects_unusable_input(pipeline_stub, tmp_path, bad_input):
     (tmp_path / "a.txt").write_bytes(b"")
-    assert runner.invoke(main.app, [str(tmp_path / bad_input)]).exit_code == 1
+    args = [str(tmp_path / bad_input), "-o", str(tmp_path / "out")]
+    assert runner.invoke(main.app, args).exit_code == 1
 
 
 def test_duplicate_inputs_processed_once(pipeline_stub, tmp_path):
@@ -177,10 +189,10 @@ def test_directory_glob_sorted(pipeline_stub, tmp_path):
 # --- flag validation ---
 
 
-def test_key_requires_single_input(tmp_path):
+def test_key_requires_single_input(pipeline_stub, tmp_path):
     files = [make_usm(tmp_path, "Cs_A.usm"), make_usm(tmp_path, "Cs_B.usm")]
-    result = runner.invoke(main.app, [*map(str, files), "--key", "1"])
-    assert result.exit_code == 1
+    args = [*map(str, files), "--key", "1", "-o", str(tmp_path / "out")]
+    assert runner.invoke(main.app, args).exit_code == 1
 
 
 def test_choice_flags_normalized_into_options(pipeline_stub, tmp_path):
@@ -238,6 +250,17 @@ def test_the_guis_convert_command_reaches_the_options(pipeline_stub, tmp_path):
         flat=True,
         hard_sub=True,
     )
+    assert pipeline_stub.manual_key == "12345"
+
+
+def test_the_guis_crack_command_reaches_crack_all(monkeypatch, tmp_path):
+    """MainViewModel in MonsieurVerite recovers keys with exactly these arguments."""
+    cracked = []
+    monkeypatch.setattr(main, "crack_all", lambda files, reporter: cracked.extend(files))
+    usm = make_usm(tmp_path)
+
+    assert runner.invoke(main.app, ["--json", "--crack", str(usm)]).exit_code == 0
+    assert cracked == [usm]
 
 
 def test_default_subtitle_comes_out_canonical(pipeline_stub, tmp_path):
