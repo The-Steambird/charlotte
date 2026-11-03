@@ -10,7 +10,7 @@ VIDEO_END_FIXES = {"Cs_Natlan_AQ50120901_MVBT_VI": "00:01:06,53"}
 
 class ASS:
     timing = re.compile(r"\d\d:\d\d:\d\d,\d\d")
-    shadow = r"{\xshad-0.05\yshad-0.05\blur0.5}"
+    blur = r"{\blur1.2}"
     html_tag_fix = (
         # <b> → {\b1},  <i> → {\i1},  <u> → {\u1}
         (re.compile(r"<([ubi])>"), r"{\\\g<1>1}"),
@@ -53,9 +53,7 @@ class ASS:
             for pattern, repl in self.html_tag_fix:
                 text = pattern.sub(repl, text)
 
-            self.dialog_lines.append(
-                f"Dialogue: 0,{start},{end},Default,,0,0,0,,{self.shadow}{text}"
-            )
+            self.dialog_lines.append(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{self.blur}{text}")
 
         return bool(self.dialog_lines)
 
@@ -71,7 +69,7 @@ class ASS:
                 "10.9",  # Fontsize
                 "&H00FFFFFF",  # PrimaryColour
                 "&H000000FF",  # SecondaryColour
-                "&H00484848",  # OutlineColour
+                "&H40303030",  # OutlineColour
                 "&H00484848",  # BackColour
                 "0",  # Bold
                 "0",  # Italic
@@ -83,7 +81,7 @@ class ASS:
                 "0.0",  # Angle
                 "1",  # BorderStyle
                 "0.05",  # Outline
-                "0.05",  # Shadow
+                "0",  # Shadow
                 "2",  # Alignment
                 "10",  # MarginL
                 "10",  # MarginR

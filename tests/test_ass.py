@@ -3,8 +3,8 @@ import pytest
 from stages.ass import ASS
 
 
-# Spelled out rather than imported from ASS.shadow because a change there should fail here.
-SHADOW = r"{\xshad-0.05\yshad-0.05\blur0.5}"
+# Spelled out rather than imported from ASS.blur because a change there should fail here.
+BLUR = r"{\blur1.2}"
 
 BASIC_SRT = """1
 00:00:01,234 --> 00:00:02,345
@@ -34,7 +34,7 @@ def convert_ass(tmp_path, text, lang="EN"):
 
 def test_timing_truncated_to_centiseconds(tmp_path):
     ass = parse(tmp_path, BASIC_SRT)
-    assert ass.dialog_lines == [f"Dialogue: 0,0:00:01.23,0:00:02.34,Default,,0,0,0,,{SHADOW}Hello"]
+    assert ass.dialog_lines == [f"Dialogue: 0,0:00:01.23,0:00:02.34,Default,,0,0,0,,{BLUR}Hello"]
 
 
 def test_every_text_line_is_kept_and_joined_with_a_hard_break(tmp_path):
