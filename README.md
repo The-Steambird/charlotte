@@ -13,15 +13,15 @@
 
 # Charlotte
 
-[<img src="https://raw.githubusercontent.com/The-Steambird/charlotte/master/docs/imgs/download.svg"/>](https://github.com/The-Steambird/charlotte/releases/download/2.0.3/charlotte-2.0.3.zip)
-> Stable build version: `2.0.3` (Released on: November 2nd, 2026).
+[<img src="https://raw.githubusercontent.com/The-Steambird/charlotte/master/docs/imgs/download.svg"/>](https://github.com/The-Steambird/charlotte/releases/download/2.0.4/charlotte-2.0.4.zip)
+> Stable build version: `2.0.4` (Released on: November 3rd, 2026).
 
 Why Charlotte, you ask? Who else would record all these cutscenes but Teyvat's beloved paparazzi?~
 
 Charlotte is a Genshin Impact utility that losslessly decrypts `.usm` cutscene files into playable
 `.mkv` videos, covering all known cutscenes from versions 1.0 through 7.1. Each video contains all 4
 language audio tracks, subtitles in 15 languages styled to match nearly perfectly with official
-style. Charlotte also allows packet capturing to capture video keys from the game natively. There's
+style. Charlotte also allows packet capturing to get video keys from the game natively. There's
 also an optional [VapourSynth](https://www.vapoursynth.com/about/) filter pass to clean up banding and macroblocking introduced by
 Hoyo's incompetent encoding. If you're a fan of high quality picture, rejoice.
 
@@ -29,6 +29,15 @@ Hoyo's incompetent encoding. If you're a fan of high quality picture, rejoice.
    <img width="49%" alt="main UI" src="docs/imgs/main-ui.png" />
    <img width="49%" alt="settings UI" src="docs/imgs/settings-ui.png" />
 </p>
+
+## Comparisons
+
+Check out comparison links below for Charlotte's subtitle styling versus in-game, and how VapourSynth filtering improves picture quality:
+
+| Comparison                       | Cutscene                                                                                                                                                                               |
+|----------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Subtitle styling vs. in-game     | [Cs_Mengde_AQ60215_ABDDL_Boy](https://slow.pics/s/Ud6OKHDR)                                                                                                                            |
+| VapourSynth filtering vs. source | [Cs_EQHDJ005_HaiDengJie_Boy](https://slow.pics/s/aY3i6u4r)<br>[Cs_FD_EQ402461001_BB_Boy](https://slow.pics/s/RBzUaPaZ)<br>[Cs_NodKrai_AQ601205_ZSSN_Boy](https://slow.pics/s/G3A993c5) |
 
 ## Features
 
@@ -74,8 +83,9 @@ This decrypts the cutscene, applies the VapourSynth filter script, and writes to
 `output/Cs_ZD_AQ70200801_TFR_Boy/Cs_ZD_AQ70200801_TFR_Boy.mkv` without deleting intermediate
 files.
 
-I should also mention that the VapourSynth filters are extremely heavy on CPU and GPU (to a lesser
-degree), so it's recommended to have a powerful machine for optimal performance.
+> [!NOTE]
+> VapourSynth filters are extremely heavy on CPU and GPU (to a lesser
+> degree), so it's recommended to have a powerful machine for optimal performance.
 
 Process several files and/or directories at once:
 
