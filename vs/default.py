@@ -27,7 +27,7 @@ def filter_chain(input_path: Path) -> VideoNode:
     deband = placebo_deband(clip=deblock, radius=32, thr=2, grain=0, iterations=4)
     deband = placebo_deband(clip=deband, radius=64, thr=1.5, grain=0, iterations=4)
 
-    merge = core.std.MaskedMerge(clipa=deband, clipb=deblock, mask=detail_mask, planes=[0])
+    merge = core.std.MaskedMerge(clipa=deband, clipb=clip, mask=detail_mask, planes=[0])
 
     # Output
     final = finalize_clip(clip=merge, bits=10)
