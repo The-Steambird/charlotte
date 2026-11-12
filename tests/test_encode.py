@@ -98,7 +98,7 @@ def test_filter_escape_doubles_backslashes_twice():
 
 
 def test_subtitle_rendered_at_frame_size_only_during_its_cue(tmp_path):
-    """libass has to scale the .ass PlayRes 384x288 to the frame, and an unscaled render on
+    """libass has to scale the .ass PlayRes 512x288 to the frame, and an unscaled render on
     1080p would be about 7 px tall near row 271. The subtitle sits under a directory named
     with every character `filter_escape` has to protect, because only ffmpeg's own parser
     can prove the escaping right."""

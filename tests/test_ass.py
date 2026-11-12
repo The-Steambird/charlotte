@@ -3,8 +3,8 @@ import pytest
 from stages.ass import ASS
 
 
-# Spelled out rather than imported from ASS.blur because a change there should fail here.
-BLUR = r"{\blur1.2}"
+# Spelled out rather than imported from ASS.tags because a change there should fail here.
+TAGS = r"{\blur1.2\xbord0.0666667}"
 
 BASIC_SRT = """1
 00:00:01,234 --> 00:00:02,345
@@ -34,12 +34,12 @@ def convert_ass(tmp_path, text, lang="EN"):
 
 def test_timing_truncated_to_centiseconds(tmp_path):
     ass = parse(tmp_path, BASIC_SRT)
-    assert ass.dialog_lines == [f"Dialogue: 0,0:00:01.23,0:00:02.34,Default,,0,0,0,,{BLUR}Hello"]
+    assert ass.dialog_lines == [f"Dialogue: 0,0:00:01.23,0:00:02.34,Default,,0,0,0,,{TAGS}Hello"]
 
 
 def test_every_text_line_is_kept_and_joined_with_a_hard_break(tmp_path):
     """Cs_Fontaine_LQ1403901_Edg has blocks with three text lines. The join is \\N because
-    libass and VSFilter render a soft \\n as a space at the default WrapStyle."""
+    libass and VSFilter render a soft \\n as a space under every WrapStyle but 2."""
     ass = parse(tmp_path, "1\n00:00:01,000 --> 00:00:02,000\nOne\nTwo\nThree\n")
     assert ass.dialog_lines[0].endswith(r"One\NTwo\NThree")
 
@@ -71,7 +71,8 @@ def test_malformed_blocks_skipped(tmp_path):
 def test_default_style_and_header(tmp_path, lang, font):
     content = convert_ass(tmp_path, BASIC_SRT, lang)
     assert "ScriptType: v4.00+" in content
-    assert "PlayResX: 384" in content
+    assert "PlayResX: 512" in content
+    assert "WrapStyle: 1" in content
     assert f"Style: Default,{font},10.9," in content
     assert "[Events]" in content
 

@@ -10,7 +10,7 @@ VIDEO_END_FIXES = {"Cs_Natlan_AQ50120901_MVBT_VI": "00:01:06,53"}
 
 class ASS:
     timing = re.compile(r"\d\d:\d\d:\d\d,\d\d")
-    blur = r"{\blur1.2}"
+    tags = r"{\blur1.2\xbord0.0666667}"
     html_tag_fix = (
         # <b> → {\b1},  <i> → {\i1},  <u> → {\u1}
         (re.compile(r"<([ubi])>"), r"{\\\g<1>1}"),
@@ -53,7 +53,7 @@ class ASS:
             for pattern, repl in self.html_tag_fix:
                 text = pattern.sub(repl, text)
 
-            self.dialog_lines.append(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{self.blur}{text}")
+            self.dialog_lines.append(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{self.tags}{text}")
 
         return bool(self.dialog_lines)
 
@@ -83,8 +83,8 @@ class ASS:
                 "0.05",  # Outline
                 "0",  # Shadow
                 "2",  # Alignment
-                "10",  # MarginL
-                "10",  # MarginR
+                "13",  # MarginL
+                "13",  # MarginR
                 "17",  # MarginV
                 "1",  # Encoding
             ]
@@ -95,9 +95,10 @@ class ASS:
             "; This is an Advanced Sub Station Alpha v4+ script.\n"
             "ScriptType: v4.00+\n"
             "Collisions: Normal\n"
+            "WrapStyle: 1\n"
             "ScaledBorderAndShadow: yes\n"
             "PlayDepth: 0\n"
-            "PlayResX: 384\n"
+            "PlayResX: 512\n"
             "PlayResY: 288\n"
             "\n"
             "[V4+ Styles]\n"
